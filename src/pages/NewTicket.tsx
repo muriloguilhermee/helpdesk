@@ -105,23 +105,23 @@ export default function NewTicket() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <button
           onClick={() => navigate('/tickets')}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+          className="self-start p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
         >
           <ArrowLeft className="w-5 h-5" />
         </button>
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Novo Chamado</h1>
-          <p className="text-gray-600 mt-1">Crie um novo chamado de suporte</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Novo Chamado</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Crie um novo chamado de suporte</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="card max-w-3xl">
+      <form onSubmit={handleSubmit} className="card dark:bg-gray-800 dark:border-gray-700 max-w-3xl">
         <div className="space-y-6">
           <div>
-            <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Título do Chamado
             </label>
             <input
@@ -130,13 +130,13 @@ export default function NewTicket() {
               required
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               placeholder="Descreva brevemente o problema"
             />
           </div>
 
           <div>
-            <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Descrição
             </label>
             <textarea
@@ -145,21 +145,21 @@ export default function NewTicket() {
               rows={6}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               placeholder="Descreva o problema em detalhes..."
             />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Categoria
               </label>
               <select
                 id="category"
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value as TicketCategory })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="tecnico">Técnico</option>
                 <option value="suporte">Suporte</option>
@@ -169,14 +169,14 @@ export default function NewTicket() {
             </div>
 
             <div>
-              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="priority" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Prioridade
               </label>
               <select
                 id="priority"
                 value={formData.priority}
                 onChange={(e) => setFormData({ ...formData, priority: e.target.value as TicketPriority })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="baixa">Baixa</option>
                 <option value="media">Média</option>
@@ -188,7 +188,7 @@ export default function NewTicket() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label htmlFor="serviceType" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="serviceType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Tipo de Serviço
               </label>
               <input
@@ -196,13 +196,13 @@ export default function NewTicket() {
                 id="serviceType"
                 value={formData.serviceType}
                 onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Ex: Instalação de Rede"
               />
             </div>
 
             <div>
-              <label htmlFor="totalValue" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="totalValue" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Valor Total (R$)
               </label>
               <input
@@ -212,7 +212,7 @@ export default function NewTicket() {
                 min="0"
                 value={formData.totalValue}
                 onChange={(e) => setFormData({ ...formData, totalValue: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="0.00"
               />
             </div>
@@ -220,17 +220,17 @@ export default function NewTicket() {
 
           {/* Upload de Arquivos */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Anexar Arquivos (Evidências)
-              <span className="text-gray-500 font-normal ml-2">
+              <span className="text-gray-500 dark:text-gray-400 font-normal ml-2">
                 {selectedFiles.length}/10 arquivos
               </span>
             </label>
             <div
               className={`border-2 border-dashed rounded-lg p-6 transition-colors ${
                 selectedFiles.length >= 10
-                  ? 'border-gray-200 bg-gray-50'
-                  : 'border-gray-300 hover:border-primary-400 hover:bg-primary-50'
+                  ? 'border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50'
+                  : 'border-gray-300 dark:border-gray-600 hover:border-primary-400 dark:hover:border-primary-500 hover:bg-primary-50 dark:hover:bg-primary-900/20'
               }`}
             >
               <input
@@ -244,8 +244,8 @@ export default function NewTicket() {
               />
               {selectedFiles.length >= 10 ? (
                 <div className="flex flex-col items-center justify-center">
-                  <Paperclip className="w-8 h-8 text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-500">
+                  <Paperclip className="w-8 h-8 text-gray-400 dark:text-gray-500 mb-2" />
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
                     Limite de 10 arquivos atingido
                   </span>
                 </div>
@@ -254,11 +254,11 @@ export default function NewTicket() {
                   htmlFor="file-upload"
                   className="flex flex-col items-center justify-center cursor-pointer"
                 >
-                  <Paperclip className="w-8 h-8 text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-600 mb-1">
+                  <Paperclip className="w-8 h-8 text-gray-400 dark:text-gray-500 mb-2" />
+                  <span className="text-sm text-gray-600 dark:text-gray-400 mb-1">
                     Clique para selecionar arquivos
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     Máximo de 10 arquivos
                   </span>
                 </label>
@@ -268,24 +268,24 @@ export default function NewTicket() {
             {/* Lista de arquivos selecionados */}
             {selectedFiles.length > 0 && (
               <div className="mt-4 space-y-2">
-                <p className="text-sm font-medium text-gray-700">Arquivos selecionados:</p>
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Arquivos selecionados:</p>
                 <div className="space-y-2">
                   {selectedFiles.map((file, index) => (
                     <div
                       key={index}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <File className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                        <File className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
-                          <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{file.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</p>
                         </div>
                       </div>
                       <button
                         type="button"
                         onClick={() => handleRemoveFile(index)}
-                        className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors ml-2"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors ml-2"
                         title="Remover arquivo"
                       >
                         <X className="w-4 h-4" />
@@ -297,7 +297,7 @@ export default function NewTicket() {
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-4 pt-4 border-t border-gray-200">
+          <div className="flex items-center justify-end gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <button
               type="button"
               onClick={() => navigate('/tickets')}

@@ -1,13 +1,14 @@
 import { Save, Bell, Lock, User, Globe } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function SettingsPage() {
   const { user, hasPermission } = useAuth();
+  const { darkMode, toggleDarkMode } = useTheme();
   const [settings, setSettings] = useState({
     notifications: true,
     emailNotifications: true,
-    darkMode: false,
     language: 'pt-BR',
   });
 
@@ -16,23 +17,23 @@ export default function SettingsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-gray-900">Configurações</h1>
-        <p className="text-gray-600 mt-1">Gerencie as configurações do sistema</p>
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100">Configurações</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">Gerencie as configurações do sistema</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
           {/* Notificações */}
-          <div className="card">
+          <div className="card dark:bg-gray-800 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-6">
               <Bell className="w-5 h-5 text-primary-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Notificações</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Notificações</h2>
             </div>
             <div className="space-y-4">
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
-                  <p className="font-medium text-gray-900">Notificações no sistema</p>
-                  <p className="text-sm text-gray-600">Receba notificações sobre atualizações de chamados</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">Notificações no sistema</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Receba notificações sobre atualizações de chamados</p>
                 </div>
                 <input
                   type="checkbox"
@@ -44,8 +45,8 @@ export default function SettingsPage() {
               </label>
               <label className="flex items-center justify-between cursor-pointer">
                 <div>
-                  <p className="font-medium text-gray-900">Notificações por email</p>
-                  <p className="text-sm text-gray-600">Receba notificações por email</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">Notificações por email</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Receba notificações por email</p>
                 </div>
                 <input
                   type="checkbox"
@@ -59,32 +60,51 @@ export default function SettingsPage() {
           </div>
 
           {/* Aparência */}
-          <div className="card">
+          <div className="card dark:bg-gray-800 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-6">
               <Globe className="w-5 h-5 text-primary-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Aparência</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Aparência</h2>
             </div>
             <div className="space-y-4">
-              <label className="flex items-center justify-between cursor-pointer">
+              <label className="flex items-center justify-between cursor-pointer group">
                 <div>
-                  <p className="font-medium text-gray-900">Modo escuro</p>
-                  <p className="text-sm text-gray-600">Ative o tema escuro</p>
+                  <p className="font-medium text-gray-900 dark:text-gray-100">Modo escuro</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {darkMode ? 'Tema escuro ativado' : 'Tema claro ativado'}
+                  </p>
                 </div>
-                <input
-                  type="checkbox"
-                  checked={settings.darkMode}
-                  onChange={(e) => setSettings({ ...settings, darkMode: e.target.checked })}
-                  disabled={!canEditSettings}
-                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:opacity-50"
-                />
+                <div className="relative">
+                  <input
+                    type="checkbox"
+                    checked={darkMode}
+                    onChange={(e) => {
+                      toggleDarkMode();
+                    }}
+                    disabled={!canEditSettings}
+                    className="sr-only"
+                    id="dark-mode-toggle"
+                  />
+                  <label
+                    htmlFor="dark-mode-toggle"
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
+                      darkMode ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
+                    } ${!canEditSettings ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        darkMode ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </label>
+                </div>
               </label>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Idioma</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Idioma</label>
                 <select
                   value={settings.language}
                   onChange={(e) => setSettings({ ...settings, language: e.target.value })}
                   disabled={!canEditSettings}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="pt-BR">Português (Brasil)</option>
                   <option value="en-US">English (US)</option>
@@ -95,56 +115,56 @@ export default function SettingsPage() {
           </div>
 
           {/* Perfil */}
-          <div className="card">
+          <div className="card dark:bg-gray-800 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-6">
               <User className="w-5 h-5 text-primary-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Perfil</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Perfil</h2>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nome</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nome</label>
                 <input
                   type="text"
                   defaultValue={user?.name}
                   disabled={!canEditSettings}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
                 <input
                   type="email"
                   defaultValue={user?.email}
                   disabled={!canEditSettings}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
             </div>
           </div>
 
           {/* Segurança */}
-          <div className="card">
+          <div className="card dark:bg-gray-800 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-6">
               <Lock className="w-5 h-5 text-primary-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Segurança</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Segurança</h2>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Nova senha</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nova senha</label>
                 <input
                   type="password"
                   placeholder="••••••••"
                   disabled={!canEditSettings}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Confirmar senha</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirmar senha</label>
                 <input
                   type="password"
                   placeholder="••••••••"
                   disabled={!canEditSettings}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
             </div>
@@ -160,20 +180,20 @@ export default function SettingsPage() {
           )}
         </div>
 
-        <div className="card">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Informações do Sistema</h2>
+        <div className="card dark:bg-gray-800 dark:border-gray-700">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Informações do Sistema</h2>
           <div className="space-y-4 text-sm">
             <div>
-              <p className="text-gray-600">Versão</p>
-              <p className="font-medium text-gray-900">1.0.0</p>
+              <p className="text-gray-600 dark:text-gray-400">Versão</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100">1.0.0</p>
             </div>
             <div>
-              <p className="text-gray-600">Última atualização</p>
-              <p className="font-medium text-gray-900">15/01/2024</p>
+              <p className="text-gray-600 dark:text-gray-400">Última atualização</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100">15/01/2024</p>
             </div>
             <div>
-              <p className="text-gray-600">Usuário logado</p>
-              <p className="font-medium text-gray-900">{user?.name}</p>
+              <p className="text-gray-600 dark:text-gray-400">Usuário logado</p>
+              <p className="font-medium text-gray-900 dark:text-gray-100">{user?.name}</p>
             </div>
           </div>
         </div>

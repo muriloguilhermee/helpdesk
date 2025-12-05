@@ -51,14 +51,15 @@ export default function TicketsList() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
           {user?.role === 'technician' ? 'Meus Chamados' : user?.role === 'user' ? 'Meus Chamados' : 'Chamados'}
         </h1>
         {hasPermission('create:ticket') && (
-          <Link to="/tickets/new" className="btn-primary flex items-center gap-2">
+          <Link to="/tickets/new" className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">
             <Plus className="w-5 h-5" />
-            Novo Chamado
+            <span className="hidden sm:inline">Novo Chamado</span>
+            <span className="sm:hidden">Novo</span>
           </Link>
         )}
       </div>
@@ -66,20 +67,21 @@ export default function TicketsList() {
       {/* Filtros */}
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
           <input
             type="text"
             placeholder="Buscar chamados..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
           />
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <select
             value={filters.status || ''}
+            className="flex-1 min-w-[120px] sm:flex-none sm:min-w-0 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             onChange={(e) => setFilters({ ...filters, status: e.target.value as any || undefined })}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             <option value="">Todos os status</option>
             <option value="aberto">Aberto</option>
@@ -90,25 +92,25 @@ export default function TicketsList() {
       </div>
 
       {/* Tabela */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
               <tr>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Atualizado em</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Id</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Título e Serviço</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Valor total</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Cliente</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Técnico</th>
-                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Status</th>
-                <th className="text-right py-3 px-4 text-sm font-medium text-gray-700"></th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Atualizado em</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Id</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Título e Serviço</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Valor total</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Cliente</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Técnico</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Status</th>
+                <th className="text-right py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredTickets.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-gray-500">
+                  <td colSpan={8} className="text-center py-12 text-gray-500 dark:text-gray-400">
                     Nenhum chamado encontrado
                   </td>
                 </tr>
@@ -120,31 +122,31 @@ export default function TicketsList() {
                   return (
                     <tr
                       key={ticket.id}
-                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer transition-colors"
                       onClick={() => navigate(`/tickets/${ticket.id}`)}
                     >
-                      <td className="py-4 px-4 text-sm text-gray-600">
+                      <td className="py-4 px-4 text-sm text-gray-600 dark:text-gray-400">
                         {formatDateShort(ticket.updatedAt)}
                       </td>
-                      <td className="py-4 px-4 text-sm font-medium text-gray-900">
+                      <td className="py-4 px-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                         {ticket.id}
                       </td>
                       <td className="py-4 px-4">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{ticket.title}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{ticket.title}</div>
                           {ticket.serviceType && (
-                            <div className="text-xs text-gray-500 mt-1">{ticket.serviceType}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{ticket.serviceType}</div>
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-sm text-gray-900">
+                      <td className="py-4 px-4 text-sm text-gray-900 dark:text-gray-100">
                         {ticket.totalValue ? formatCurrency(ticket.totalValue) : '-'}
                       </td>
                       <td className="py-4 px-4">
                         {client && (
                           <div className="flex items-center gap-2">
                             <UserAvatar user={client} size="sm" />
-                            <span className="text-sm text-gray-900">{client.name}</span>
+                            <span className="text-sm text-gray-900 dark:text-gray-100">{client.name}</span>
                           </div>
                         )}
                       </td>
@@ -152,10 +154,10 @@ export default function TicketsList() {
                         {ticket.assignedTo ? (
                           <div className="flex items-center gap-2">
                             <UserAvatar user={ticket.assignedTo} size="sm" />
-                            <span className="text-sm text-gray-900">{ticket.assignedTo.name}</span>
+                            <span className="text-sm text-gray-900 dark:text-gray-100">{ticket.assignedTo.name}</span>
                           </div>
                         ) : (
-                          <span className="text-sm text-gray-400">Não atribuído</span>
+                          <span className="text-sm text-gray-400 dark:text-gray-500">Não atribuído</span>
                         )}
                       </td>
                       <td className="py-4 px-4">
@@ -171,7 +173,7 @@ export default function TicketsList() {
                               e.stopPropagation();
                               navigate(`/tickets/${ticket.id}`);
                             }}
-                            className="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
+                            className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
                             title="Editar"
                           >
                             <Edit className="w-4 h-4" />
@@ -179,7 +181,7 @@ export default function TicketsList() {
                           {hasPermission('delete:ticket') && (
                             <button
                               onClick={(e) => handleDeleteClick(e, ticket.id)}
-                              className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                              className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors"
                               title="Excluir"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -199,19 +201,19 @@ export default function TicketsList() {
       {/* Modal de Confirmação de Exclusão */}
       {deleteConfirmId && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-6">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <Trash2 className="w-6 h-6 text-red-600" />
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Excluir Chamado</h2>
-                <p className="text-sm text-gray-600 mt-1">Esta ação não pode ser desfeita</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Excluir Chamado</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">Esta ação não pode ser desfeita</p>
               </div>
             </div>
 
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-sm text-gray-700">
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
                 Tem certeza que deseja excluir este chamado? Todos os dados relacionados serão permanentemente removidos.
               </p>
             </div>

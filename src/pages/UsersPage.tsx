@@ -14,23 +14,43 @@ const roleLabels: Record<string, string> = {
 const roleColors: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-800',
   technician: 'bg-blue-100 text-blue-800',
-  user: 'bg-gray-100 text-gray-800',
+  user: 'bg-gray-100 dark:bg-gray-700 text-gray-800',
 };
 
 export default function UsersPage() {
-  const { hasPermission, user: currentUser } = useAuth();
+  const { hasPermission, user: currentUser, updateUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<User[]>(() => {
-    // Carregar usuários do localStorage ou usar os mockados
-    const savedUsers = localStorage.getItem('users');
-    if (savedUsers) {
+    // Carregar todos os usuários salvos (incluindo mockUsers editados)
+    const allUsersSaved = localStorage.getItem('allUsers');
+    if (allUsersSaved) {
       try {
-        return JSON.parse(savedUsers);
+        return JSON.parse(allUsersSaved);
       } catch {
-        return mockUsers;
+        // Se houver erro, continuar com a lógica de combinação
       }
     }
-    return mockUsers;
+    
+    // Se não houver allUsers, carregar usuários customizados do localStorage
+    const savedUsers = localStorage.getItem('users');
+    let savedUsersArray: UserType[] = [];
+    
+    if (savedUsers) {
+      try {
+        savedUsersArray = JSON.parse(savedUsers);
+      } catch {
+        // Se houver erro ao parsear, usar array vazio
+      }
+    }
+    
+    // Combinar mockUsers com usuários salvos, evitando duplicatas por email
+    const mockUsersMap = new Map(mockUsers.map(u => [u.email, u]));
+    const savedUsersMap = new Map(savedUsersArray.map(u => [u.email, u]));
+    
+    // Priorizar usuários salvos sobre mockUsers (caso tenham sido editados)
+    const combinedMap = new Map([...mockUsersMap, ...savedUsersMap]);
+    
+    return Array.from(combinedMap.values());
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -56,9 +76,14 @@ export default function UsersPage() {
   });
   const [error, setError] = useState('');
 
-  // Salvar usuários no localStorage sempre que houver mudanças
+  // Salvar todos os usuários no localStorage sempre que houver mudanças
   useEffect(() => {
-    localStorage.setItem('users', JSON.stringify(users));
+    localStorage.setItem('allUsers', JSON.stringify(users));
+    
+    // Também salvar apenas os customizados para compatibilidade
+    const mockUserEmails = new Set(mockUsers.map(u => u.email));
+    const customUsers = users.filter(u => !mockUserEmails.has(u.email));
+    localStorage.setItem('users', JSON.stringify(customUsers));
   }, [users]);
 
   const filteredUsers = users.filter((user) =>
@@ -149,10 +174,8 @@ export default function UsersPage() {
       avatar: newUserPhoto || undefined,
     };
 
-    setUsers([...users, createdUser]);
-
-    // Salvar no localStorage de usuários
-    localStorage.setItem('users', JSON.stringify([...users, createdUser]));
+    const updatedUsers = [...users, createdUser];
+    setUsers(updatedUsers);
 
     // Salvar senha no localStorage (em produção, isso seria no backend de forma segura)
     const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
@@ -224,29 +247,43 @@ export default function UsersPage() {
     }
 
     // Atualizar usuário
+    const updatedUser = {
+      ...editingUser,
+      name: editUser.name,
+      email: editUser.email,
+      role: editUser.role,
+      avatar: editUserPhoto || undefined
+    };
+    
     const updatedUsers = users.map(u =>
-      u.id === editingUser.id
-        ? { ...u, name: editUser.name, email: editUser.email, role: editUser.role, avatar: editUserPhoto || undefined }
-        : u
+      u.id === editingUser.id ? updatedUser : u
     );
     setUsers(updatedUsers);
 
-    // Salvar no localStorage
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
+    // Atualizar usersWithPasswords sempre (não só quando senha muda)
+    const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
+    const userIndex = usersWithPasswords.findIndex((u: any) => u.id === editingUser.id);
+    
+    if (userIndex >= 0) {
+      // Atualizar usuário existente
+      usersWithPasswords[userIndex] = {
+        ...usersWithPasswords[userIndex],
+        ...updatedUser,
+        password: editUser.password || usersWithPasswords[userIndex].password,
+      };
+    } else {
+      // Adicionar novo usuário se não existir
+      usersWithPasswords.push({
+        ...updatedUser,
+        password: editUser.password || '',
+      });
+    }
+    localStorage.setItem('usersWithPasswords', JSON.stringify(usersWithPasswords));
 
-    // Atualizar senha no localStorage se fornecida
-    if (editUser.password) {
-      const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
-      const userIndex = usersWithPasswords.findIndex((u: any) => u.id === editingUser.id);
-      if (userIndex >= 0) {
-        usersWithPasswords[userIndex].password = editUser.password;
-      } else {
-        usersWithPasswords.push({
-          ...editingUser,
-          password: editUser.password,
-        });
-      }
-      localStorage.setItem('usersWithPasswords', JSON.stringify(usersWithPasswords));
+    // Se o usuário editado for o usuário atual logado, atualizar o AuthContext
+    if (editingUser.id === currentUser?.id) {
+      const { password: _, ...userWithoutPassword } = usersWithPasswords[userIndex >= 0 ? userIndex : usersWithPasswords.length - 1];
+      updateUser(userWithoutPassword);
     }
 
     // Limpar e fechar modal
@@ -280,9 +317,6 @@ export default function UsersPage() {
     const updatedUsers = users.filter(u => u.id !== showDeleteConfirm);
     setUsers(updatedUsers);
 
-    // Salvar no localStorage
-    localStorage.setItem('users', JSON.stringify(updatedUsers));
-
     // Remover do localStorage de senhas
     const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
     const filteredPasswords = usersWithPasswords.filter((u: any) => u.id !== showDeleteConfirm);
@@ -293,32 +327,33 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Usuários</h1>
-          <p className="text-gray-600 mt-1">Gerencie os usuários do sistema</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Usuários</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 dark:text-gray-500 mt-1">Gerencie os usuários do sistema</p>
         </div>
         {canCreate && (
           <button
             onClick={() => setShowCreateModal(true)}
-            className="btn-primary flex items-center gap-2"
+            className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
           >
             <UserPlus className="w-5 h-5" />
-            Novo Usuário
+            <span className="hidden sm:inline">Novo Usuário</span>
+            <span className="sm:hidden">Novo</span>
           </button>
         )}
       </div>
 
-      <div className="card">
+      <div className="card dark:bg-gray-800 dark:border-gray-700">
         <div className="mb-6">
           <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
             <input
               type="text"
               placeholder="Buscar usuários..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
             />
           </div>
         </div>
@@ -326,23 +361,23 @@ export default function UsersPage() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Usuário</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Email</th>
-                <th className="text-left py-3 px-4 font-medium text-gray-700">Função</th>
-                <th className="text-right py-3 px-4 font-medium text-gray-700">Ações</th>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Usuário</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Email</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Função</th>
+                <th className="text-right py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Ações</th>
               </tr>
             </thead>
             <tbody>
               {filteredUsers.map((user) => (
-                <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
+                <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700/50 dark:bg-gray-700/50">
                   <td className="py-4 px-4">
                     <div className="flex items-center gap-3">
                       <UserAvatar user={user} size="md" />
-                      <span className="font-medium text-gray-900">{user.name}</span>
+                      <span className="font-medium text-gray-900 dark:text-gray-100">{user.name}</span>
                     </div>
                   </td>
-                  <td className="py-4 px-4 text-gray-600">{user.email}</td>
+                  <td className="py-4 px-4 text-gray-600 dark:text-gray-400 dark:text-gray-500">{user.email}</td>
                   <td className="py-4 px-4">
                     <span className={`badge ${roleColors[user.role]}`}>
                       {roleLabels[user.role]}
@@ -353,7 +388,7 @@ export default function UsersPage() {
                       {canEdit && (
                         <button
                           onClick={() => handleEditClick(user)}
-                          className="p-2 text-gray-600 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
+                          className="p-2 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-primary-600 hover:bg-primary-50 rounded-lg transition-colors"
                           title="Editar usuário"
                         >
                           <Edit className="w-4 h-4" />
@@ -362,7 +397,7 @@ export default function UsersPage() {
                       {canDelete && user.id !== currentUser?.id && (
                         <button
                           onClick={() => setShowDeleteConfirm(user.id)}
-                          className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-gray-600 dark:text-gray-400 dark:text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                           title="Excluir usuário"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -380,9 +415,9 @@ export default function UsersPage() {
       {/* Modal de Criar Usuário */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Criar Novo Usuário</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Criar Novo Usuário</h2>
               <button
                 onClick={() => {
                   setShowCreateModal(false);
@@ -399,14 +434,14 @@ export default function UsersPage() {
                     createPhotoInputRef.current.value = '';
                   }
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:bg-gray-700 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -414,7 +449,7 @@ export default function UsersPage() {
             <div className="space-y-4">
               {/* Foto do Usuário */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Foto do Usuário
                 </label>
                 <div className="flex items-center gap-4">
@@ -424,7 +459,7 @@ export default function UsersPage() {
                         <img
                           src={newUserPhoto}
                           alt="Preview"
-                          className="w-20 h-20 rounded-full object-cover border-2 border-gray-300"
+                          className="w-20 h-20 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600"
                         />
                         <button
                           type="button"
@@ -435,8 +470,8 @@ export default function UsersPage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center border-2 border-gray-300">
-                        <User className="w-10 h-10 text-gray-400" />
+                      <div className="w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center border-2 border-gray-300 dark:border-gray-600">
+                        <User className="w-10 h-10 text-gray-400 dark:text-gray-500" />
                       </div>
                     )}
                   </div>
@@ -451,76 +486,76 @@ export default function UsersPage() {
                     />
                     <label
                       htmlFor="create-user-photo"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                     >
                       <Camera className="w-4 h-4" />
                       {newUserPhoto ? 'Alterar Foto' : 'Adicionar Foto'}
                     </label>
-                    <p className="text-xs text-gray-500 mt-1">Máximo 5MB</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Máximo 5MB</p>
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Nome Completo
                 </label>
                 <input
                   type="text"
                   value={newUser.name}
                   onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Nome do usuário"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Email
                 </label>
                 <input
                   type="email"
                   value={newUser.email}
                   onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="usuario@exemplo.com"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Senha
                 </label>
                 <input
                   type="password"
                   value={newUser.password}
                   onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Mínimo 6 caracteres"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Confirmar Senha
                 </label>
                 <input
                   type="password"
                   value={newUser.confirmPassword}
                   onChange={(e) => setNewUser({ ...newUser, confirmPassword: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Digite a senha novamente"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Função
                 </label>
                 <select
                   value={newUser.role}
                   onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'user' | 'technician' })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="user">Usuário</option>
                   <option value="technician">Técnico</option>
@@ -529,7 +564,7 @@ export default function UsersPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => {
                   setShowCreateModal(false);
@@ -564,10 +599,10 @@ export default function UsersPage() {
 
       {/* Modal de Editar Usuário */}
       {showEditModal && editingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-6 my-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-gray-900">Editar Usuário</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Editar Usuário</h2>
               <button
                 onClick={() => {
                   setShowEditModal(false);
@@ -585,14 +620,14 @@ export default function UsersPage() {
                     editPhotoInputRef.current.value = '';
                   }
                 }}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 dark:bg-gray-700 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
                 {error}
               </div>
             )}
@@ -600,7 +635,7 @@ export default function UsersPage() {
             <div className="space-y-4">
               {/* Foto do Usuário */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Foto do Usuário
                 </label>
                 <div className="flex items-center gap-4">
@@ -610,7 +645,7 @@ export default function UsersPage() {
                         <img
                           src={editUserPhoto}
                           alt="Preview"
-                          className="w-20 h-20 rounded-full object-cover border-2 border-gray-300"
+                          className="w-20 h-20 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600"
                         />
                         <button
                           type="button"
@@ -621,8 +656,8 @@ export default function UsersPage() {
                         </button>
                       </div>
                     ) : (
-                      <div className="w-20 h-20 rounded-full bg-gray-200 flex items-center justify-center border-2 border-gray-300">
-                        <User className="w-10 h-10 text-gray-400" />
+                      <div className="w-20 h-20 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center border-2 border-gray-300 dark:border-gray-600">
+                        <User className="w-10 h-10 text-gray-400 dark:text-gray-500" />
                       </div>
                     )}
                   </div>
@@ -637,78 +672,78 @@ export default function UsersPage() {
                     />
                     <label
                       htmlFor="edit-user-photo"
-                      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                     >
                       <Camera className="w-4 h-4" />
                       {editUserPhoto ? 'Alterar Foto' : 'Adicionar Foto'}
                     </label>
-                    <p className="text-xs text-gray-500 mt-1">Máximo 5MB</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Máximo 5MB</p>
                   </div>
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Nome Completo
                 </label>
                 <input
                   type="text"
                   value={editUser.name}
                   onChange={(e) => setEditUser({ ...editUser, name: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Nome do usuário"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Email
                 </label>
                 <input
                   type="email"
                   value={editUser.email}
                   onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="usuario@exemplo.com"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Nova Senha (deixe em branco para manter a atual)
                 </label>
                 <input
                   type="password"
                   value={editUser.password}
                   onChange={(e) => setEditUser({ ...editUser, password: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Mínimo 6 caracteres"
                 />
               </div>
 
               {editUser.password && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Confirmar Nova Senha
                   </label>
                   <input
                     type="password"
                     value={editUser.confirmPassword}
                     onChange={(e) => setEditUser({ ...editUser, confirmPassword: e.target.value })}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                     placeholder="Digite a senha novamente"
                   />
                 </div>
               )}
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Função
                 </label>
                 <select
                   value={editUser.role}
                   onChange={(e) => setEditUser({ ...editUser, role: e.target.value as 'admin' | 'user' | 'technician' })}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="user">Usuário</option>
                   <option value="technician">Técnico</option>
@@ -717,7 +752,7 @@ export default function UsersPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+            <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => {
                   setShowEditModal(false);
@@ -749,21 +784,21 @@ export default function UsersPage() {
 
       {/* Modal de Confirmação de Exclusão */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6 space-y-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-6 my-4">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6 text-red-600" />
+              <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Excluir Usuário</h2>
-                <p className="text-sm text-gray-600 mt-1">Esta ação não pode ser desfeita</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Excluir Usuário</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-500 mt-1">Esta ação não pode ser desfeita</p>
               </div>
             </div>
 
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p className="text-sm text-gray-700">
-                Tem certeza que deseja excluir o usuário <strong>{users.find(u => u.id === showDeleteConfirm)?.name}</strong>?
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Tem certeza que deseja excluir o usuário <strong className="text-gray-900 dark:text-gray-100">{users.find(u => u.id === showDeleteConfirm)?.name}</strong>?
                 Todos os dados relacionados serão permanentemente removidos.
               </p>
             </div>

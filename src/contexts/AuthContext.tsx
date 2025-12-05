@@ -8,6 +8,7 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   hasPermission: (permission: string) => boolean;
+  updateUser: (updatedUser: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,24 +58,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Verificar se há usuário salvo no localStorage
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
-      setUser(JSON.parse(savedUser));
+      try {
+        const user = JSON.parse(savedUser);
+        // Buscar versão atualizada do usuário em allUsers se disponível
+        const allUsersSaved = localStorage.getItem('allUsers');
+        if (allUsersSaved) {
+          try {
+            const allUsersArray = JSON.parse(allUsersSaved);
+            const updatedUser = allUsersArray.find((u: User) => u.id === user.id);
+            if (updatedUser) {
+              setUser(updatedUser);
+              localStorage.setItem('user', JSON.stringify(updatedUser));
+              return;
+            }
+          } catch {
+            // Se houver erro, usar o usuário salvo
+          }
+        }
+        setUser(user);
+      } catch {
+        // Se houver erro ao parsear, limpar
+        localStorage.removeItem('user');
+      }
     }
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     // Buscar usuários salvos no localStorage (criados pelo admin)
     const savedUsers = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
+    
+    // Buscar também de allUsers para pegar atualizações
+    const allUsersSaved = localStorage.getItem('allUsers');
+    let allUsersArray: User[] = [];
+    if (allUsersSaved) {
+      try {
+        allUsersArray = JSON.parse(allUsersSaved);
+      } catch {
+        // Se houver erro, continuar sem allUsers
+      }
+    }
 
     // Combinar usuários padrão com os criados
     const allUsers = [...usersWithPassword, ...savedUsers];
-
+    
     // Simular autenticação (em produção, isso seria uma chamada à API)
     const foundUser = allUsers.find(
       (u) => u.email === email && u.password === password
     );
 
     if (foundUser) {
-      const { password: _, ...userWithoutPassword } = foundUser;
+      // Buscar versão atualizada do usuário em allUsers se disponível
+      const updatedUser = allUsersArray.find(u => u.id === foundUser.id) || foundUser;
+      const { password: _, ...userWithoutPassword } = updatedUser;
       setUser(userWithoutPassword);
       localStorage.setItem('user', JSON.stringify(userWithoutPassword));
       return true;
@@ -94,6 +129,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return userPermissions.includes(permission);
   };
 
+  const updateUser = (updatedUser: User) => {
+    setUser(updatedUser);
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -102,6 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         logout,
         isAuthenticated: !!user,
         hasPermission,
+        updateUser,
       }}
     >
       {children}

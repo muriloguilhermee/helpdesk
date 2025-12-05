@@ -46,40 +46,40 @@ export default function PendingTickets() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Novos Chamados</h1>
-          <p className="text-gray-600 mt-1">Chamados novos ou atribuídos a você</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Novos Chamados</h1>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Chamados novos ou atribuídos a você</p>
         </div>
       </div>
 
       {/* Estatísticas */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="card">
+        <div className="card dark:bg-gray-800 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Total Novos</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">{pendingTickets.length}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Novos</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">{pendingTickets.length}</p>
             </div>
             <Clock className="w-8 h-8 text-blue-600" />
           </div>
         </div>
-        <div className="card">
+        <div className="card dark:bg-gray-800 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Não Atribuídos</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Não Atribuídos</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                 {pendingTickets.filter(t => !t.assignedTo).length}
               </p>
             </div>
             <Clock className="w-8 h-8 text-orange-600" />
           </div>
         </div>
-        <div className="card">
+        <div className="card dark:bg-gray-800 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Atribuídos a Você</p>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Atribuídos a Você</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
                 {pendingTickets.filter(t => t.assignedTo?.id === user?.id).length}
               </p>
             </div>
@@ -97,16 +97,16 @@ export default function PendingTickets() {
             placeholder="Buscar chamados..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
+            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500"
           />
         </div>
       </div>
 
       {/* Tabela */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
+            <thead className="bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-700">
               <tr>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Atualizado em</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Id</th>
@@ -120,7 +120,7 @@ export default function PendingTickets() {
             <tbody className="divide-y divide-gray-200">
               {filteredTickets.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="text-center py-12 text-gray-500">
+                  <td colSpan={7} className="text-center py-12 text-gray-500 dark:text-gray-400">
                     Nenhum novo chamado encontrado
                   </td>
                 </tr>
@@ -134,30 +134,30 @@ export default function PendingTickets() {
                   return (
                     <tr
                       key={ticket.id}
-                      className="hover:bg-gray-50 transition-colors"
+                      className="hover:bg-gray-50 dark:hover:bg-gray-700/50 dark:bg-gray-700 transition-colors"
                     >
-                      <td className="py-4 px-4 text-sm text-gray-600">
+                      <td className="py-4 px-4 text-sm text-gray-600 dark:text-gray-400">
                         {formatDateShort(ticket.updatedAt)}
                       </td>
-                      <td className="py-4 px-4 text-sm font-medium text-gray-900">
+                      <td className="py-4 px-4 text-sm font-medium text-gray-900 dark:text-gray-100">
                         {ticket.id}
                       </td>
                       <td className="py-4 px-4">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">{ticket.title}</div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{ticket.title}</div>
                           {ticket.serviceType && (
-                            <div className="text-xs text-gray-500 mt-1">{ticket.serviceType}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{ticket.serviceType}</div>
                           )}
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-sm text-gray-900">
+                      <td className="py-4 px-4 text-sm text-gray-900 dark:text-gray-100">
                         {ticket.totalValue ? formatCurrency(ticket.totalValue) : '-'}
                       </td>
                       <td className="py-4 px-4">
                         {client && (
                           <div className="flex items-center gap-2">
                             <UserAvatar user={client} size="sm" />
-                            <span className="text-sm text-gray-900">{client.name}</span>
+                            <span className="text-sm text-gray-900 dark:text-gray-100">{client.name}</span>
                           </div>
                         )}
                       </td>

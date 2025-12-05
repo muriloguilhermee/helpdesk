@@ -6,11 +6,17 @@ import {
   Settings,
   BarChart3,
   Clock,
-  CheckCircle
+  CheckCircle,
+  X
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
+
+interface SidebarProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
 interface MenuItem {
   icon: React.ComponentType<{ className?: string }>;
@@ -30,7 +36,7 @@ const allMenuItems: MenuItem[] = [
   { icon: Settings, label: 'Configurações', path: '/settings', permission: 'view:settings', role: 'all' },
 ];
 
-export default function Sidebar() {
+export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const { hasPermission, user } = useAuth();
   const { tickets } = useTickets();
@@ -76,8 +82,30 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 min-h-screen fixed left-0 top-0 pt-16">
-      <nav className="p-4">
+    <>
+      {/* Overlay para mobile */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={onClose}
+        />
+      )}
+      
+      <aside
+        className={`fixed left-0 top-0 h-screen w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        }`}
+      >
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 lg:hidden">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Menu</h2>
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+        <nav className="p-4 overflow-y-auto" style={{ height: '100vh', overflowY: 'auto' }}>
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;
@@ -91,16 +119,22 @@ export default function Sidebar() {
               <li key={item.path}>
                 <Link
                   to={item.path}
+                  onClick={() => {
+                    // Fechar sidebar no mobile ao clicar em um link
+                    if (window.innerWidth < 1024) {
+                      onClose();
+                    }
+                  }}
                   className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors relative ${
                     isActive
-                      ? 'bg-primary-50 text-primary-700 font-medium'
-                      : 'text-gray-700 hover:bg-gray-50'
+                      ? 'bg-primary-50 dark:bg-primary-900/20 text-primary-700 dark:text-primary-400 font-medium'
+                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
                   }`}
                 >
                   <div className="relative">
                     <Icon className="w-5 h-5" />
                     {showNotification && (
-                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                      <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
                     )}
                   </div>
                   <span>{item.label}</span>
@@ -116,6 +150,7 @@ export default function Sidebar() {
         </ul>
       </nav>
     </aside>
+    </>
   );
 }
 

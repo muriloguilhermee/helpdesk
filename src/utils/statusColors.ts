@@ -1,0 +1,53 @@
+import { TicketStatus, TicketPriority } from '../types';
+import { HelpCircle, Clock, CheckCircle } from 'lucide-react';
+
+export const getStatusColor = (status: TicketStatus): string => {
+  const colors: Record<TicketStatus, string> = {
+    aberto: 'bg-red-50 text-red-700 border border-red-200',
+    em_andamento: 'bg-yellow-100 text-yellow-800',
+    em_atendimento: 'bg-blue-50 text-blue-700 border border-blue-200',
+    pendente: 'bg-orange-100 text-orange-800',
+    resolvido: 'bg-green-100 text-green-800',
+    fechado: 'bg-gray-100 text-gray-800',
+    encerrado: 'bg-green-50 text-green-700 border border-green-200',
+  };
+  return colors[status] || 'bg-gray-100 text-gray-800';
+};
+
+export const getStatusLabel = (status: TicketStatus): string => {
+  const labels: Record<TicketStatus, string> = {
+    aberto: 'Aberto',
+    em_andamento: 'Em Andamento',
+    em_atendimento: 'Em atendimento',
+    pendente: 'Pendente',
+    resolvido: 'Resolvido',
+    fechado: 'Fechado',
+    encerrado: 'Encerrado',
+  };
+  return labels[status] || status;
+};
+
+export const getStatusIcon = (status: TicketStatus) => {
+  switch (status) {
+    case 'aberto':
+      return HelpCircle;
+    case 'em_atendimento':
+      return Clock;
+    case 'encerrado':
+      return CheckCircle;
+    default:
+      return HelpCircle;
+  }
+};
+
+export const getPriorityColor = (priority: TicketPriority): string => {
+  const colors: Record<TicketPriority, string> = {
+    baixa: 'bg-gray-100 text-gray-800',
+    media: 'bg-blue-100 text-blue-800',
+    alta: 'bg-orange-100 text-orange-800',
+    critica: 'bg-red-100 text-red-800',
+  };
+  return colors[priority];
+};
+
+

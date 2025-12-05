@@ -23,6 +23,13 @@ export default function TicketDetails() {
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
 
   const ticket = tickets.find(t => t.id === id);
+  
+  // Verificar se o chamado está fechado
+  const isClosed = ticket?.status === 'fechado' || ticket?.status === 'encerrado';
+  // Verificar se o usuário é admin
+  const isAdmin = user?.role === 'admin';
+  // Verificar se pode alterar status (admin sempre pode, outros só se não estiver fechado)
+  const canChangeStatus = hasPermission('edit:ticket') && (isAdmin || !isClosed);
 
   if (!ticket) {
     return (
@@ -62,6 +69,13 @@ export default function TicketDetails() {
 
   const handleUpdateStatus = () => {
     if (ticket && selectedStatus) {
+      // Se o chamado está fechado e o usuário está tentando reabrir, verificar se é admin
+      if (isClosed && selectedStatus !== 'fechado' && selectedStatus !== 'encerrado') {
+        if (!isAdmin) {
+          alert('Apenas administradores podem reabrir chamados fechados.');
+          return;
+        }
+      }
       updateTicket(ticket.id, { status: selectedStatus });
       setShowStatusModal(false);
     }
@@ -268,7 +282,7 @@ export default function TicketDetails() {
           <div className="card dark:bg-gray-800 dark:border-gray-700">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Ações</h2>
             <div className="space-y-2">
-              {hasPermission('edit:ticket') && (
+              {canChangeStatus && (
                 <button 
                   onClick={() => {
                     if (ticket) {
@@ -280,6 +294,11 @@ export default function TicketDetails() {
                 >
                   Atualizar Status
                 </button>
+              )}
+              {isClosed && !isAdmin && (
+                <div className="w-full p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm text-yellow-800 dark:text-yellow-400">
+                  Este chamado está fechado. Apenas administradores podem reabri-lo.
+                </div>
               )}
               {hasPermission('assign:ticket') && (
                 <button 
@@ -294,7 +313,7 @@ export default function TicketDetails() {
                   Atribuir Técnico
                 </button>
               )}
-              {hasPermission('edit:ticket') && (
+              {hasPermission('edit:ticket') && !isClosed && (
                 <button 
                   onClick={handleCloseTicket}
                   className="w-full btn-secondary"

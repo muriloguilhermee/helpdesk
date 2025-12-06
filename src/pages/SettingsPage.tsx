@@ -1,16 +1,33 @@
 import { Save, Bell, Lock, User, Globe } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function SettingsPage() {
   const { user, hasPermission } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
+  const { language, setLanguage } = useLanguage();
   const [settings, setSettings] = useState({
     notifications: true,
     emailNotifications: true,
-    language: 'pt-BR',
   });
+
+  // Carregar configurações do localStorage
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('settings');
+    if (savedSettings) {
+      try {
+        const parsed = JSON.parse(savedSettings);
+        setSettings({
+          notifications: parsed.notifications !== undefined ? parsed.notifications : true,
+          emailNotifications: parsed.emailNotifications !== undefined ? parsed.emailNotifications : true,
+        });
+      } catch {
+        // Se houver erro, usar padrões
+      }
+    }
+  }, []);
 
   const canEditSettings = hasPermission('edit:settings');
 
@@ -101,8 +118,11 @@ export default function SettingsPage() {
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Idioma</label>
                 <select
-                  value={settings.language}
-                  onChange={(e) => setSettings({ ...settings, language: e.target.value })}
+                  value={language}
+                  onChange={(e) => {
+                    const newLanguage = e.target.value as 'pt-BR' | 'en-US' | 'es-ES';
+                    setLanguage(newLanguage);
+                  }}
                   disabled={!canEditSettings}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
@@ -172,7 +192,15 @@ export default function SettingsPage() {
 
           {canEditSettings && (
             <div className="flex justify-end">
-              <button className="btn-primary flex items-center gap-2">
+              <button
+                onClick={() => {
+                  // Salvar configurações no localStorage
+                  localStorage.setItem('settings', JSON.stringify(settings));
+                  // Mostrar feedback (opcional)
+                  alert('Configurações salvas com sucesso!');
+                }}
+                className="btn-primary flex items-center gap-2"
+              >
                 <Save className="w-5 h-5" />
                 Salvar Configurações
               </button>

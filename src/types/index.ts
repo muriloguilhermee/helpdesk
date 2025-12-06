@@ -1,6 +1,6 @@
 export type TicketStatus = 'aberto' | 'em_andamento' | 'em_atendimento' | 'pendente' | 'resolvido' | 'fechado' | 'encerrado';
 export type TicketPriority = 'baixa' | 'media' | 'alta' | 'critica';
-export type TicketCategory = 'tecnico' | 'suporte' | 'financeiro' | 'outros';
+export type TicketCategory = 'suporte' | 'tecnico' | 'integracao';
 
 export interface User {
   id: string;

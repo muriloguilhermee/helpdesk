@@ -126,7 +126,7 @@ export default function NewTicket() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="card dark:bg-gray-800 dark:border-gray-700 max-w-3xl">
+      <form onSubmit={handleSubmit} className="card dark:bg-gray-800 dark:border-gray-700 max-w-3xl mx-auto">
         <div className="space-y-6">
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

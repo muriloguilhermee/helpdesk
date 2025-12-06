@@ -324,7 +324,7 @@ export default function FinancialTicketsPage() {
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      {ticket.invoiceFile && ticket.status !== 'pending' && ticket.status !== 'overdue' && (
+                      {ticket.invoiceFile && ticket.status !== 'pending' && ticket.status !== 'overdue' && ticket.status !== 'paid' && (
                         <button
                           onClick={() => handleDownloadInvoice(ticket)}
                           className="btn-primary flex items-center gap-2"

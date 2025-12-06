@@ -320,7 +320,7 @@ export default function FinancialManagementPage() {
 
                     {(ticket.invoiceFile || ticket.receiptFile) && (
                       <div className="flex gap-2 mt-4">
-                        {ticket.invoiceFile && (
+                        {ticket.invoiceFile && ticket.status !== 'paid' && (
                           <button
                             onClick={() => handleDownloadFile(ticket.invoiceFile!)}
                             className="text-sm text-primary-600 dark:text-primary-400 hover:underline flex items-center gap-1"

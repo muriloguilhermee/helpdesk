@@ -1,9 +1,10 @@
-import { Bell, Search, LogOut, ChevronDown, Menu } from 'lucide-react';
+import { Search, LogOut, ChevronDown, Menu } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { UserAvatar } from '../utils/userAvatar';
 import Logo from './Logo';
+import NotificationsDropdown from './NotificationsDropdown';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -72,10 +73,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4 lg:ml-6">
-            <button className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
-              <Bell className="w-5 h-5" />
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-            </button>
+            <NotificationsDropdown />
 
             <div className="relative" ref={menuRef}>
               <button

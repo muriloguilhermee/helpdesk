@@ -18,14 +18,21 @@ export default function TicketsList() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
 
   // Filtrar tickets baseado no role do usuário
+  // Usuários veem seus próprios chamados E chamados de melhoria
+  // Técnicos veem chamados atribuídos a eles E chamados de melhoria
   let availableTickets = tickets;
   if (user?.role === 'technician') {
-    // Técnicos só veem chamados atribuídos a eles
-    availableTickets = tickets.filter(ticket => ticket.assignedTo?.id === user.id);
+    // Técnicos veem chamados atribuídos a eles OU chamados de melhoria
+    availableTickets = tickets.filter(ticket => 
+      ticket.assignedTo?.id === user.id || ticket.category === 'melhoria'
+    );
   } else if (user?.role === 'user') {
-    // Usuários só veem chamados que eles criaram
-    availableTickets = tickets.filter(ticket => ticket.createdBy.id === user.id);
+    // Usuários veem chamados que eles criaram OU chamados de melhoria
+    availableTickets = tickets.filter(ticket => 
+      ticket.createdBy.id === user.id || ticket.category === 'melhoria'
+    );
   }
+  // Admins veem todos os chamados (availableTickets = tickets)
 
   const filteredTickets = availableTickets.filter((ticket) => {
     if (filters.status && ticket.status !== filters.status) return false;
@@ -86,6 +93,12 @@ export default function TicketsList() {
             <option value="">Todos os status</option>
             <option value="aberto">Aberto</option>
             <option value="em_atendimento">Em Atendimento</option>
+            <option value="em_andamento">Em Andamento</option>
+            <option value="pendente">Pendente</option>
+            <option value="resolvido">Resolvido</option>
+            <option value="em_fase_de_testes">Em fase de testes</option>
+            <option value="homologacao">Homologação</option>
+            <option value="fechado">Fechado</option>
             <option value="encerrado">Encerrado</option>
           </select>
         </div>
@@ -137,10 +150,16 @@ export default function TicketsList() {
                           {ticket.serviceType && (
                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{ticket.serviceType}</div>
                           )}
+                          <div className="text-xs text-primary-600 dark:text-primary-400 font-medium mt-1 capitalize">
+                            {ticket.category}
+                          </div>
                         </div>
                       </td>
                       <td className="py-4 px-4 text-sm text-gray-900 dark:text-gray-100">
-                        {ticket.totalValue ? formatCurrency(ticket.totalValue) : '-'}
+                        {ticket.category === 'integracao' 
+                          ? (ticket.integrationValue ? formatCurrency(ticket.integrationValue) : '-')
+                          : (ticket.totalValue ? formatCurrency(ticket.totalValue) : '-')
+                        }
                       </td>
                       <td className="py-4 px-4">
                         {client && (

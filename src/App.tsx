@@ -11,6 +11,8 @@ import UsersPage from './pages/UsersPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import PendingTickets from './pages/PendingTickets';
+import FinancialTicketsPage from './pages/FinancialTicketsPage';
+import FinancialManagementPage from './pages/FinancialManagementPage';
 
 function AppRoutes() {
   const { isAuthenticated, user, hasPermission } = useAuth();
@@ -47,6 +49,8 @@ function AppRoutes() {
         <Route path="users" element={<ProtectedRoute requiredPermission="view:users"><UsersPage /></ProtectedRoute>} />
         <Route path="reports" element={<ProtectedRoute requiredPermission="view:reports"><ReportsPage /></ProtectedRoute>} />
         <Route path="settings" element={<ProtectedRoute requiredPermission="view:settings"><SettingsPage /></ProtectedRoute>} />
+        <Route path="financial" element={<ProtectedRoute requiredPermission="view:own:financial"><FinancialTicketsPage /></ProtectedRoute>} />
+        <Route path="financial/management" element={<ProtectedRoute requiredPermission="view:all:financial"><FinancialManagementPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

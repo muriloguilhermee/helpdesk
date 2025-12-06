@@ -1,13 +1,14 @@
 import { useState } from 'react';
-import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save } from 'lucide-react';
+import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save, DollarSign, Wrench } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
 import { getStatusColor, getPriorityColor } from '../utils/statusColors';
 import { formatDate } from '../utils/formatDate';
 import { formatFileSize } from '../utils/formatFileSize';
+import { formatCurrency } from '../utils/formatCurrency';
 import { UserAvatar } from '../utils/userAvatar';
-import { TicketStatus, Comment } from '../types';
+import { TicketStatus, Comment, TicketCategory, TicketPriority } from '../types';
 import { mockUsers } from '../data/mockData';
 
 export default function TicketDetails() {
@@ -19,8 +20,14 @@ export default function TicketDetails() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
+  const [showServiceModal, setShowServiceModal] = useState(false);
+  const [showAddValueModal, setShowAddValueModal] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<TicketStatus>('aberto');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
+  const [serviceType, setServiceType] = useState('');
+  const [totalValue, setTotalValue] = useState('');
+  const [integrationValue, setIntegrationValue] = useState('');
+  const [newIntegrationValue, setNewIntegrationValue] = useState('');
 
   const ticket = tickets.find(t => t.id === id);
   
@@ -28,6 +35,8 @@ export default function TicketDetails() {
   const isClosed = ticket?.status === 'fechado' || ticket?.status === 'encerrado';
   // Verificar se o usuário é admin
   const isAdmin = user?.role === 'admin';
+  // Verificar se o usuário é técnico
+  const isTechnician = user?.role === 'technician';
   // Verificar se pode alterar status (admin sempre pode, outros só se não estiver fechado)
   const canChangeStatus = hasPermission('edit:ticket') && (isAdmin || !isClosed);
 
@@ -43,15 +52,36 @@ export default function TicketDetails() {
   }
 
   // Verificar se o usuário tem permissão para ver este chamado
-  if (user?.role === 'user' && ticket.createdBy.id !== user.id) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">Você não tem permissão para ver este chamado</p>
-        <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
-          Voltar para lista
-        </button>
-      </div>
-    );
+  // Usuários podem ver seus próprios chamados OU chamados de melhoria
+  // Técnicos podem ver chamados atribuídos a eles OU chamados de melhoria
+  if (user?.role === 'user') {
+    const isOwnTicket = ticket.createdBy.id === user.id;
+    const isMelhoria = ticket.category === 'melhoria';
+    if (!isOwnTicket && !isMelhoria) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">Você não tem permissão para ver este chamado</p>
+          <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
+            Voltar para lista
+          </button>
+        </div>
+      );
+    }
+  }
+  
+  if (user?.role === 'technician') {
+    const isAssignedToMe = ticket.assignedTo?.id === user.id;
+    const isMelhoria = ticket.category === 'melhoria';
+    if (!isAssignedToMe && !isMelhoria) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">Você não tem permissão para ver este chamado</p>
+          <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
+            Voltar para lista
+          </button>
+        </div>
+      );
+    }
   }
 
   const handleAddComment = () => {
@@ -81,20 +111,26 @@ export default function TicketDetails() {
     }
   };
 
-  // Carregar todos os usuários (mockUsers + usuários criados) para obter técnicos
+  // Carregar apenas técnicos customizados (não mockados)
   const allUsers = (() => {
     const savedUsers = localStorage.getItem('allUsers');
     if (savedUsers) {
       try {
         return JSON.parse(savedUsers);
       } catch {
-        return mockUsers;
+        return [];
       }
     }
-    return mockUsers;
+    return [];
   })();
   
-  const allTechnicians = allUsers.filter((u: any) => u.role === 'technician');
+  // Filtrar apenas técnicos que NÃO são mockados
+  const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+  const customTechnicians = allUsers.filter((u: any) => 
+    u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
+  );
+  
+  const allTechnicians = customTechnicians;
 
   const handleAssignTechnician = () => {
     if (ticket) {
@@ -118,6 +154,55 @@ export default function TicketDetails() {
     }
   };
 
+  const handleUpdateServiceInfo = () => {
+    if (ticket) {
+      const updates: any = {
+        serviceType: serviceType || undefined,
+      };
+      
+      // Se for categoria integração, usar integrationValue, senão usar totalValue
+      if (ticket.category === 'integracao') {
+        updates.integrationValue = integrationValue ? parseFloat(integrationValue) : undefined;
+        updates.totalValue = undefined; // Limpar totalValue se for integração
+      } else {
+        updates.totalValue = totalValue ? parseFloat(totalValue) : undefined;
+        updates.integrationValue = undefined; // Limpar integrationValue se não for integração
+      }
+      
+      updateTicket(ticket.id, updates);
+      setShowServiceModal(false);
+      setServiceType('');
+      setTotalValue('');
+      setIntegrationValue('');
+    }
+  };
+
+  const handleOpenServiceModal = () => {
+    if (ticket) {
+      setServiceType(ticket.serviceType || '');
+      setTotalValue(ticket.totalValue ? ticket.totalValue.toString() : '');
+      setIntegrationValue(ticket.integrationValue ? ticket.integrationValue.toString() : '');
+      setShowServiceModal(true);
+    }
+  };
+
+  const handleOpenAddValueModal = () => {
+    if (ticket) {
+      setNewIntegrationValue(ticket.integrationValue ? ticket.integrationValue.toString() : '');
+      setShowAddValueModal(true);
+    }
+  };
+
+  const handleAddIntegrationValue = () => {
+    if (ticket) {
+      updateTicket(ticket.id, {
+        integrationValue: newIntegrationValue ? parseFloat(newIntegrationValue) : undefined,
+      });
+      setShowAddValueModal(false);
+      setNewIntegrationValue('');
+    }
+  };
+
   const handleDeleteTicket = () => {
     if (ticket && hasPermission('delete:ticket')) {
       deleteTicket(ticket.id);
@@ -136,7 +221,13 @@ export default function TicketDetails() {
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100 break-words">{ticket.title}</h1>
+          {ticket.serviceType && (
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{ticket.serviceType}</p>
+          )}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2">
+            <span className="text-xs text-primary-600 dark:text-primary-400 font-medium capitalize px-2 py-1 bg-primary-50 dark:bg-primary-900/20 rounded">
+              {ticket.category}
+            </span>
             <span className={`badge ${getStatusColor(ticket.status)}`}>
               {ticket.status.replace('_', ' ')}
             </span>
@@ -276,12 +367,48 @@ export default function TicketDetails() {
                   <p className="font-medium text-gray-900 dark:text-gray-100 capitalize">{ticket.category}</p>
                 </div>
               </div>
+
+              {(ticket.totalValue || ticket.integrationValue) && (
+                <div className="flex items-start gap-3">
+                  <DollarSign className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      {ticket.category === 'integracao' ? 'Valor da Integração' : 'Valor Total'}
+                    </p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">
+                      {ticket.category === 'integracao' 
+                        ? (ticket.integrationValue ? formatCurrency(ticket.integrationValue) : '-')
+                        : (ticket.totalValue ? formatCurrency(ticket.totalValue) : '-')
+                      }
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {ticket.serviceType && (
+                <div className="flex items-start gap-3">
+                  <Wrench className="w-5 h-5 text-gray-400 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Tipo de Serviço</p>
+                    <p className="font-medium text-gray-900 dark:text-gray-100">{ticket.serviceType}</p>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="card dark:bg-gray-800 dark:border-gray-700">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Ações</h2>
             <div className="space-y-2">
+              {ticket?.category === 'integracao' && hasPermission('edit:ticket') && !isClosed && (
+                <button 
+                  onClick={handleOpenAddValueModal}
+                  className="w-full btn-primary flex items-center justify-center gap-2"
+                >
+                  <DollarSign className="w-4 h-4" />
+                  Adicionar Valor
+                </button>
+              )}
               {canChangeStatus && (
                 <button 
                   onClick={() => {
@@ -290,7 +417,7 @@ export default function TicketDetails() {
                       setShowStatusModal(true);
                     }
                   }}
-                  className="w-full btn-primary"
+                  className="w-full btn-secondary"
                 >
                   Atualizar Status
                 </button>
@@ -299,6 +426,15 @@ export default function TicketDetails() {
                 <div className="w-full p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg text-sm text-yellow-800 dark:text-yellow-400">
                   Este chamado está fechado. Apenas administradores podem reabri-lo.
                 </div>
+              )}
+              {isTechnician && hasPermission('edit:ticket') && (
+                <button 
+                  onClick={handleOpenServiceModal}
+                  className="w-full btn-secondary flex items-center justify-center gap-2"
+                >
+                  <Wrench className="w-4 h-4" />
+                  Informar Serviço e Valor
+                </button>
               )}
               {hasPermission('assign:ticket') && (
                 <button 
@@ -402,6 +538,8 @@ export default function TicketDetails() {
                 <option value="em_atendimento">Em Atendimento</option>
                 <option value="pendente">Pendente</option>
                 <option value="resolvido">Resolvido</option>
+                <option value="em_fase_de_testes">Em fase de testes</option>
+                <option value="homologacao">Homologação</option>
                 <option value="fechado">Fechado</option>
                 <option value="encerrado">Encerrado</option>
               </select>
@@ -471,6 +609,189 @@ export default function TicketDetails() {
               >
                 <Save className="w-5 h-5" />
                 Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Informar Serviço e Valor */}
+      {showServiceModal && ticket && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-6 my-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Informar Serviço e Valor</h2>
+              <button
+                onClick={() => {
+                  setShowServiceModal(false);
+                  setServiceType('');
+                  setTotalValue('');
+                  setIntegrationValue('');
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Tipo de Serviço
+                </label>
+                <input
+                  type="text"
+                  value={serviceType}
+                  onChange={(e) => setServiceType(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                  placeholder="Ex: Instalação de Rede, Manutenção de Hardware"
+                />
+              </div>
+
+              {ticket.category === 'integracao' ? (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Valor da Integração (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={integrationValue}
+                    onChange={(e) => setIntegrationValue(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                    placeholder="0.00"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Informe o valor específico da integração
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Valor Total (R$)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={totalValue}
+                    onChange={(e) => setTotalValue(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                    placeholder="0.00"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Informe o valor do serviço após a avaliação
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowServiceModal(false);
+                  setServiceType('');
+                  setTotalValue('');
+                  setIntegrationValue('');
+                }}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleUpdateServiceInfo}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Save className="w-5 h-5" />
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Adicionar Valor (apenas para integração) */}
+      {showAddValueModal && ticket && ticket.category === 'integracao' && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4 overflow-y-auto"
+          style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowAddValueModal(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-6 my-4 relative border-2 border-gray-300 dark:border-gray-600"
+            style={{ 
+              position: 'relative', 
+              zIndex: 10000, 
+              maxHeight: '90vh', 
+              overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Adicionar Valor da Integração</h2>
+              <button
+                onClick={() => {
+                  setShowAddValueModal(false);
+                  setNewIntegrationValue('');
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Valor da Integração (R$) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={newIntegrationValue}
+                  onChange={(e) => setNewIntegrationValue(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                  placeholder="0.00"
+                  required
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Informe o valor da integração
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowAddValueModal(false);
+                  setNewIntegrationValue('');
+                }}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleAddIntegrationValue}
+                className="btn-primary flex items-center gap-2"
+              >
+                <Save className="w-5 h-5" />
+                Adicionar Valor
               </button>
             </div>
           </div>

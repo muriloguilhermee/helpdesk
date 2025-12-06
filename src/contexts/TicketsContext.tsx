@@ -34,23 +34,38 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     if (savedTickets) {
       try {
         const parsed = JSON.parse(savedTickets);
-        // Converter datas de string para Date
-        const parsedTickets = parsed.map((t: any) => ({
-          ...t,
-          createdAt: new Date(t.createdAt),
-          updatedAt: new Date(t.updatedAt),
-          comments: t.comments ? t.comments.map((c: any) => ({
-            ...c,
-            createdAt: new Date(c.createdAt),
-          })) : undefined,
-        }));
-        previousTicketsCountRef.current = parsedTickets.length;
-        return parsedTickets;
+        // Se houver tickets salvos, usar eles
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Converter datas de string para Date
+          const parsedTickets = parsed.map((t: any) => ({
+            ...t,
+            createdAt: new Date(t.createdAt),
+            updatedAt: new Date(t.updatedAt),
+            comments: t.comments ? t.comments.map((c: any) => ({
+              ...c,
+              createdAt: new Date(c.createdAt),
+            })) : undefined,
+          }));
+          previousTicketsCountRef.current = parsedTickets.length;
+          return parsedTickets;
+        }
       } catch {
-        previousTicketsCountRef.current = mockTickets.length;
-        return mockTickets;
+        // Se houver erro, continuar para salvar os mocks
       }
     }
+    
+    // Se não houver tickets salvos, usar os mockados e salvar no localStorage
+    // Isso garante que os dados mockados sejam persistidos
+    const ticketsToSave = mockTickets.map(t => ({
+      ...t,
+      createdAt: t.createdAt.toISOString(),
+      updatedAt: t.updatedAt.toISOString(),
+      comments: t.comments ? t.comments.map(c => ({
+        ...c,
+        createdAt: c.createdAt.toISOString(),
+      })) : undefined,
+    }));
+    localStorage.setItem('tickets', JSON.stringify(ticketsToSave));
     previousTicketsCountRef.current = mockTickets.length;
     return mockTickets;
   });
@@ -132,7 +147,36 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // Salvar tickets no localStorage sempre que houver mudanças
-    localStorage.setItem('tickets', JSON.stringify(tickets));
+    // Converter datas para string antes de salvar
+    try {
+      const ticketsToSave = tickets.map(t => ({
+        ...t,
+        createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+        updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+        client: t.client ? {
+          ...t.client,
+        } : undefined,
+        createdBy: {
+          ...t.createdBy,
+        },
+        assignedTo: t.assignedTo ? {
+          ...t.assignedTo,
+        } : undefined,
+        comments: t.comments ? t.comments.map(c => ({
+          ...c,
+          createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+          author: {
+            ...c.author,
+          },
+        })) : undefined,
+        files: t.files ? t.files.map(f => ({
+          ...f,
+        })) : undefined,
+      }));
+      localStorage.setItem('tickets', JSON.stringify(ticketsToSave));
+    } catch (error) {
+      console.error('Erro ao salvar tickets no localStorage:', error);
+    }
   }, [tickets]);
 
   const deleteTicket = (id: string) => {
@@ -150,7 +194,40 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   };
 
   const addTicket = (ticket: Ticket) => {
-    setTickets((prev) => [...prev, ticket]);
+    setTickets((prev) => {
+      const newTickets = [...prev, ticket];
+      // Salvar imediatamente no localStorage para garantir persistência
+      try {
+        const ticketsToSave = newTickets.map(t => ({
+          ...t,
+          createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
+          updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
+          client: t.client ? {
+            ...t.client,
+          } : undefined,
+          createdBy: {
+            ...t.createdBy,
+          },
+          assignedTo: t.assignedTo ? {
+            ...t.assignedTo,
+          } : undefined,
+          comments: t.comments ? t.comments.map(c => ({
+            ...c,
+            createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+            author: {
+              ...c.author,
+            },
+          })) : undefined,
+          files: t.files ? t.files.map(f => ({
+            ...f,
+          })) : undefined,
+        }));
+        localStorage.setItem('tickets', JSON.stringify(ticketsToSave));
+      } catch (error) {
+        console.error('Erro ao salvar ticket no localStorage:', error);
+      }
+      return newTickets;
+    });
   };
 
   const addComment = (ticketId: string, comment: Comment) => {

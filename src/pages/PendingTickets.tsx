@@ -148,10 +148,16 @@ export default function PendingTickets() {
                           {ticket.serviceType && (
                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{ticket.serviceType}</div>
                           )}
+                          <div className="text-xs text-primary-600 dark:text-primary-400 font-medium mt-1 capitalize">
+                            {ticket.category}
+                          </div>
                         </div>
                       </td>
                       <td className="py-4 px-4 text-sm text-gray-900 dark:text-gray-100">
-                        {ticket.totalValue ? formatCurrency(ticket.totalValue) : '-'}
+                        {ticket.category === 'integracao' 
+                          ? (ticket.integrationValue ? formatCurrency(ticket.integrationValue) : '-')
+                          : (ticket.totalValue ? formatCurrency(ticket.totalValue) : '-')
+                        }
                       </td>
                       <td className="py-4 px-4">
                         {client && (

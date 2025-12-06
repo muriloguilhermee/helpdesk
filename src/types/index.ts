@@ -1,13 +1,33 @@
-export type TicketStatus = 'aberto' | 'em_andamento' | 'em_atendimento' | 'pendente' | 'resolvido' | 'fechado' | 'encerrado';
+export type TicketStatus = 'aberto' | 'em_andamento' | 'em_atendimento' | 'pendente' | 'resolvido' | 'fechado' | 'encerrado' | 'em_fase_de_testes' | 'homologacao';
 export type TicketPriority = 'baixa' | 'media' | 'alta' | 'critica';
-export type TicketCategory = 'suporte' | 'tecnico' | 'integracao';
+export type TicketCategory = 'suporte' | 'tecnico' | 'integracao' | 'melhoria';
 
 export interface User {
   id: string;
   name: string;
   email: string;
-  role: 'admin' | 'user' | 'technician';
+  role: 'admin' | 'user' | 'technician' | 'financial';
   avatar?: string;
+  company?: string;
+}
+
+export type PaymentStatus = 'pending' | 'paid' | 'overdue' | 'cancelled';
+
+export interface FinancialTicket {
+  id: string;
+  title: string;
+  description?: string;
+  amount: number;
+  dueDate: Date;
+  paymentDate?: Date;
+  status: PaymentStatus;
+  client: User;
+  createdBy: User;
+  createdAt: Date;
+  updatedAt: Date;
+  invoiceFile?: TicketFile; // Arquivo do boleto/ticket
+  receiptFile?: TicketFile; // Comprovante de pagamento
+  notes?: string;
 }
 
 export interface TicketFile {
@@ -28,6 +48,7 @@ export interface Ticket {
   category: TicketCategory;
   serviceType?: string;
   totalValue?: number;
+  integrationValue?: number; // Valor específico para categoria integração
   client?: User;
   createdBy: User;
   assignedTo?: User;

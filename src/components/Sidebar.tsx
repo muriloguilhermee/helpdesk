@@ -7,7 +7,9 @@ import {
   BarChart3,
   Clock,
   CheckCircle,
-  X
+  X,
+  DollarSign,
+  Wallet
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,7 +25,7 @@ interface MenuItem {
   label: string;
   path: string;
   permission?: string;
-  role?: 'admin' | 'user' | 'technician' | 'all';
+  role?: 'admin' | 'user' | 'technician' | 'financial' | 'all';
 }
 
 const allMenuItems: MenuItem[] = [
@@ -31,6 +33,8 @@ const allMenuItems: MenuItem[] = [
   { icon: Clock, label: 'Novos Chamados', path: '/tickets/pending', permission: 'view:pending:tickets', role: 'technician' },
   { icon: Ticket, label: 'Meus Chamados', path: '/tickets', permission: 'view:tickets', role: 'all' },
   { icon: PlusCircle, label: 'Novo Chamado', path: '/tickets/new', permission: 'create:ticket', role: 'all' },
+  { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },
+  { icon: Wallet, label: 'Gestão Financeira', path: '/financial/management', permission: 'view:all:financial', role: 'all' },
   { icon: Users, label: 'Usuários', path: '/users', permission: 'view:users', role: 'all' },
   { icon: BarChart3, label: 'Relatórios', path: '/reports', permission: 'view:reports', role: 'all' },
   { icon: Settings, label: 'Configurações', path: '/settings', permission: 'view:settings', role: 'all' },

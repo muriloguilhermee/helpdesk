@@ -7,17 +7,34 @@ import { formatDate } from '../utils/formatDate';
 import Logo from '../components/Logo';
 
 export default function Dashboard() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
   const { tickets } = useTickets();
 
+  // Filtrar tickets baseado no role do usuário
+  // Usuários veem seus próprios chamados E chamados de melhoria
+  // Técnicos veem chamados atribuídos a eles E chamados de melhoria
+  let availableTickets = tickets;
+  if (user?.role === 'technician') {
+    // Técnicos veem chamados atribuídos a eles OU chamados de melhoria
+    availableTickets = tickets.filter(ticket => 
+      ticket.assignedTo?.id === user.id || ticket.category === 'melhoria'
+    );
+  } else if (user?.role === 'user') {
+    // Usuários veem chamados que eles criaram OU chamados de melhoria
+    availableTickets = tickets.filter(ticket => 
+      ticket.createdBy.id === user.id || ticket.category === 'melhoria'
+    );
+  }
+  // Admins veem todos os chamados (availableTickets = tickets)
+
   const stats = {
-    total: tickets.length,
-    abertos: tickets.filter(t => t.status === 'aberto').length,
-    emAndamento: tickets.filter(t => t.status === 'em_andamento').length,
-    resolvidos: tickets.filter(t => t.status === 'resolvido').length,
+    total: availableTickets.length,
+    abertos: availableTickets.filter(t => t.status === 'aberto').length,
+    emAndamento: availableTickets.filter(t => t.status === 'em_andamento').length,
+    resolvidos: availableTickets.filter(t => t.status === 'resolvido').length,
   };
 
-  const recentTickets = tickets
+  const recentTickets = availableTickets
     .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
     .slice(0, 5);
 
@@ -124,6 +141,12 @@ export default function Dashboard() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <h3 className="font-medium text-gray-900 dark:text-gray-100">{ticket.title}</h3>
+                    {ticket.serviceType && (
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{ticket.serviceType}</p>
+                    )}
+                    <span className="inline-block text-xs text-primary-600 dark:text-primary-400 font-medium mt-1 capitalize">
+                      {ticket.category}
+                    </span>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">{ticket.description}</p>
                     <div className="flex items-center gap-3 mt-2">
                       <span className={`badge ${getStatusColor(ticket.status)}`}>
@@ -156,7 +179,7 @@ export default function Dashboard() {
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
               <span className="text-gray-700 dark:text-gray-300">Chamados Críticos</span>
               <span className="font-semibold text-red-600 dark:text-red-400">
-                {tickets.filter(t => t.priority === 'critica').length}
+                {availableTickets.filter(t => t.priority === 'critica').length}
               </span>
             </div>
           </div>

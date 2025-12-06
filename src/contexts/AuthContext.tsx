@@ -29,6 +29,18 @@ const permissions: Record<string, string[]> = {
     'view:reports',
     'view:settings',
     'edit:settings',
+    'view:financial',
+    'view:all:financial',
+    'create:financial',
+    'edit:financial',
+    'delete:financial',
+  ],
+  financial: [
+    'view:financial',
+    'view:all:financial',
+    'create:financial',
+    'edit:financial',
+    'delete:financial',
   ],
   technician: [
     'view:tickets',
@@ -40,6 +52,8 @@ const permissions: Record<string, string[]> = {
     'view:tickets',
     'create:ticket',
     'view:own:tickets',
+    'view:own:financial',
+    'download:financial',
   ],
 };
 
@@ -53,6 +67,78 @@ const usersWithPassword = [
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+
+  // Inicializar dados mockados no localStorage na primeira vez
+  useEffect(() => {
+    // Inicializar allUsers se não existir ou estiver vazio
+    const allUsersSaved = localStorage.getItem('allUsers');
+    let allUsersArray: User[] = [];
+    
+    if (allUsersSaved) {
+      try {
+        allUsersArray = JSON.parse(allUsersSaved);
+      } catch {
+        // Se houver erro ao parsear, usar mockUsers
+        allUsersArray = [];
+      }
+    }
+    
+    // Se não houver usuários ou estiver vazio, inicializar com mockUsers
+    if (!allUsersSaved || !Array.isArray(allUsersArray) || allUsersArray.length === 0) {
+      localStorage.setItem('allUsers', JSON.stringify(mockUsers));
+      allUsersArray = mockUsers;
+    } else {
+      // Garantir que os usuários padrão estejam presentes
+      const mockUsersMap = new Map(mockUsers.map(u => [u.id, u]));
+      const existingUsersMap = new Map(allUsersArray.map(u => [u.id, u]));
+      
+      // Adicionar usuários mockados que não existem
+      mockUsers.forEach(mockUser => {
+        if (!existingUsersMap.has(mockUser.id)) {
+          existingUsersMap.set(mockUser.id, mockUser);
+        }
+      });
+      
+      const mergedUsers = Array.from(existingUsersMap.values());
+      localStorage.setItem('allUsers', JSON.stringify(mergedUsers));
+    }
+
+    // Inicializar usersWithPasswords se não existir ou estiver vazio
+    const usersWithPasswordsSaved = localStorage.getItem('usersWithPasswords');
+    let savedUsersWithPasswords: any[] = [];
+    
+    if (usersWithPasswordsSaved) {
+      try {
+        savedUsersWithPasswords = JSON.parse(usersWithPasswordsSaved);
+      } catch {
+        // Se houver erro ao parsear, usar array vazio
+        savedUsersWithPasswords = [];
+      }
+    }
+    
+    // Sempre garantir que os usuários padrão com senhas estejam presentes
+    const usersWithPasswordsToSave = usersWithPassword.map(({ password, ...user }) => ({
+      ...user,
+      password,
+    }));
+    
+    // Criar mapa para combinar usuários
+    const usersWithPasswordsMap = new Map();
+    
+    // Adicionar usuários salvos primeiro
+    savedUsersWithPasswords.forEach((u: any) => {
+      usersWithPasswordsMap.set(u.email.toLowerCase(), u);
+    });
+    
+    // Adicionar/atualizar usuários padrão (garantindo que sempre existam)
+    usersWithPasswordsToSave.forEach((u: any) => {
+      usersWithPasswordsMap.set(u.email.toLowerCase(), u);
+    });
+    
+    // Salvar no localStorage
+    const finalUsersWithPasswords = Array.from(usersWithPasswordsMap.values());
+    localStorage.setItem('usersWithPasswords', JSON.stringify(finalUsersWithPasswords));
+  }, []);
 
   useEffect(() => {
     // Verificar se há usuário salvo no localStorage
@@ -84,8 +170,66 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
+    // Normalizar email para comparação (lowercase e trim)
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // PRIMEIRO: Garantir que os usuários padrão sempre estejam no localStorage
+    // Isso é crítico para garantir que o admin padrão sempre funcione
+    const usersWithPasswordsToSave = usersWithPassword.map(({ password, ...user }) => ({
+      ...user,
+      password,
+    }));
+    
     // Buscar usuários salvos no localStorage (criados pelo admin)
-    const savedUsers = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
+    let savedUsers: any[] = [];
+    try {
+      const savedUsersStr = localStorage.getItem('usersWithPasswords');
+      if (savedUsersStr) {
+        savedUsers = JSON.parse(savedUsersStr);
+      }
+    } catch {
+      // Se houver erro, usar array vazio
+      savedUsers = [];
+    }
+    
+    // Criar mapa para combinar usuários (email em lowercase como chave)
+    const usersMap = new Map();
+    
+    // PRIMEIRO: Adicionar usuários padrão (garantindo que sempre existam)
+    usersWithPasswordsToSave.forEach((u: any) => {
+      usersMap.set(u.email.toLowerCase(), u);
+    });
+    
+    // DEPOIS: Adicionar usuários salvos (podem sobrescrever os padrão se necessário)
+    savedUsers.forEach((u: any) => {
+      // Só adicionar se não for um usuário padrão (para preservar senhas customizadas)
+      // Mas se for um usuário padrão, garantir que a senha padrão esteja disponível
+      const isDefaultUser = usersWithPasswordsToSave.some(
+        (defaultUser: any) => defaultUser.email.toLowerCase() === u.email.toLowerCase()
+      );
+      
+      if (!isDefaultUser) {
+        // É um usuário customizado, adicionar
+        usersMap.set(u.email.toLowerCase(), u);
+      } else {
+        // É um usuário padrão, garantir que a senha padrão esteja disponível
+        // Mas manter dados atualizados do usuário (como avatar, etc)
+        const defaultUser = usersWithPasswordsToSave.find(
+          (du: any) => du.email.toLowerCase() === u.email.toLowerCase()
+        );
+        if (defaultUser) {
+          // Manter senha padrão, mas atualizar outros dados do usuário
+          usersMap.set(u.email.toLowerCase(), {
+            ...u,
+            password: defaultUser.password, // Sempre usar senha padrão para usuários padrão
+          });
+        }
+      }
+    });
+    
+    // Salvar no localStorage
+    const allUsersWithPasswords = Array.from(usersMap.values());
+    localStorage.setItem('usersWithPasswords', JSON.stringify(allUsersWithPasswords));
     
     // Buscar também de allUsers para pegar atualizações
     const allUsersSaved = localStorage.getItem('allUsers');
@@ -98,12 +242,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    // Combinar usuários padrão com os criados
-    const allUsers = [...usersWithPassword, ...savedUsers];
+    // Combinar todos os usuários para autenticação
+    const allUsers = allUsersWithPasswords;
     
     // Simular autenticação (em produção, isso seria uma chamada à API)
+    // Comparar email em lowercase e senha exata
     const foundUser = allUsers.find(
-      (u) => u.email === email && u.password === password
+      (u: any) => u.email.toLowerCase() === normalizedEmail && u.password === password
     );
 
     if (foundUser) {

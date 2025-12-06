@@ -1,27 +1,138 @@
-import { Download, BarChart3, TrendingUp, FileText } from 'lucide-react';
+import { Download, BarChart3, TrendingUp, FileText, User } from 'lucide-react';
 import { useTickets } from '../contexts/TicketsContext';
+import { useAuth } from '../contexts/AuthContext';
 import { getStatusColor } from '../utils/statusColors';
+import { mockUsers } from '../data/mockData';
+import PieChart from '../components/PieChart';
+import { UserAvatar } from '../utils/userAvatar';
 
 export default function ReportsPage() {
   const { tickets } = useTickets();
+  const { user } = useAuth();
+
+  // Filtrar apenas chamados criados pelo usuário atual
+  const userTickets = user ? tickets.filter(t => t.createdBy.id === user.id) : tickets;
 
   const stats = {
-    total: tickets.length,
-    abertos: tickets.filter(t => t.status === 'aberto').length,
-    emAndamento: tickets.filter(t => t.status === 'em_andamento').length,
-    resolvidos: tickets.filter(t => t.status === 'resolvido').length,
-    fechados: tickets.filter(t => t.status === 'fechado').length,
+    total: userTickets.length,
+    abertos: userTickets.filter(t => t.status === 'aberto').length,
+    emAndamento: userTickets.filter(t => t.status === 'em_andamento').length,
+    resolvidos: userTickets.filter(t => t.status === 'resolvido').length,
+    fechados: userTickets.filter(t => t.status === 'fechado').length,
   };
 
-  const ticketsByCategory = tickets.reduce((acc, ticket) => {
-    acc[ticket.category] = (acc[ticket.category] || 0) + 1;
+  // Todas as categorias possíveis
+  const allCategories = ['suporte', 'tecnico', 'integracao', 'melhoria'];
+  const categoryLabels: Record<string, string> = {
+    suporte: 'Suporte',
+    tecnico: 'Técnico',
+    integracao: 'Integração',
+    melhoria: 'Melhoria',
+  };
+  const categoryColors: Record<string, string> = {
+    suporte: '#3b82f6', // blue
+    tecnico: '#10b981', // green
+    integracao: '#f59e0b', // amber
+    melhoria: '#8b5cf6', // purple
+  };
+
+  // Contar tickets por categoria (apenas dos chamados do usuário)
+  const ticketsByCategory = allCategories.reduce((acc, category) => {
+    acc[category] = userTickets.filter(t => t.category === category).length;
     return acc;
   }, {} as Record<string, number>);
 
-  const ticketsByPriority = tickets.reduce((acc, ticket) => {
+  const ticketsByPriority = userTickets.reduce((acc, ticket) => {
     acc[ticket.priority] = (acc[ticket.priority] || 0) + 1;
     return acc;
   }, {} as Record<string, number>);
+
+  // Contar tickets por status
+  const ticketsByStatus = userTickets.reduce((acc, ticket) => {
+    acc[ticket.status] = (acc[ticket.status] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Buscar apenas usuários customizados (não mockados)
+  const allUsers = (() => {
+    const savedUsers = localStorage.getItem('allUsers');
+    if (savedUsers) {
+      try {
+        return JSON.parse(savedUsers);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  })();
+
+  // Filtrar apenas técnicos customizados (não mockados)
+  const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+  const customUsers = allUsers.filter((u: any) => !mockUserEmails.has(u.email.toLowerCase()));
+  const technicians = customUsers.filter((u: any) => u.role === 'technician');
+
+  // Contar tickets por técnico (apenas dos chamados do usuário)
+  const ticketsByTechnician = technicians.reduce((acc: Record<string, number>, tech: any) => {
+    acc[tech.id] = userTickets.filter(t => t.assignedTo?.id === tech.id).length;
+    return acc;
+  }, {} as Record<string, number>);
+
+  // Preparar dados para gráfico de pizza de categorias
+  const categoryChartData = allCategories.map(category => ({
+    label: categoryLabels[category],
+    value: ticketsByCategory[category] || 0,
+    color: categoryColors[category],
+  }));
+
+  // Preparar dados para gráfico de pizza de prioridades
+  const priorityLabels: Record<string, string> = {
+    baixa: 'Baixa',
+    media: 'Média',
+    alta: 'Alta',
+    critica: 'Crítica',
+  };
+  const priorityColors: Record<string, string> = {
+    baixa: '#10b981', // green
+    media: '#3b82f6', // blue
+    alta: '#f59e0b', // amber
+    critica: '#ef4444', // red
+  };
+
+  const priorityChartData = Object.entries(ticketsByPriority).map(([priority, count]) => ({
+    label: priorityLabels[priority] || priority,
+    value: count,
+    color: priorityColors[priority] || '#6b7280',
+  }));
+
+  // Preparar dados para gráfico de pizza de status
+  const statusLabels: Record<string, string> = {
+    aberto: 'Aberto',
+    em_andamento: 'Em Andamento',
+    em_atendimento: 'Em Atendimento',
+    pendente: 'Pendente',
+    resolvido: 'Resolvido',
+    fechado: 'Fechado',
+    encerrado: 'Encerrado',
+    em_fase_de_testes: 'Em fase de testes',
+    homologacao: 'Homologação',
+  };
+  const statusColors: Record<string, string> = {
+    aberto: '#ef4444', // red
+    em_andamento: '#f59e0b', // amber
+    em_atendimento: '#3b82f6', // blue
+    pendente: '#f97316', // orange
+    resolvido: '#10b981', // green
+    fechado: '#6b7280', // gray
+    encerrado: '#059669', // emerald
+    em_fase_de_testes: '#8b5cf6', // purple
+    homologacao: '#6366f1', // indigo
+  };
+
+  const statusChartData = Object.entries(ticketsByStatus).map(([status, count]) => ({
+    label: statusLabels[status] || status,
+    value: count,
+    color: statusColors[status] || '#6b7280',
+  }));
 
   return (
     <div className="space-y-6">
@@ -95,20 +206,28 @@ export default function ReportsPage() {
         <div className="card dark:bg-gray-800 dark:border-gray-700">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Chamados por Categoria</h2>
           <div className="space-y-3">
-            {Object.entries(ticketsByCategory).map(([category, count]) => (
-              <div key={category}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{category}</span>
-                  <span className="text-sm text-gray-600 dark:text-gray-400">{count}</span>
+            {allCategories.map((category) => {
+              const count = ticketsByCategory[category] || 0;
+              return (
+                <div key={category}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {categoryLabels[category]}
+                    </span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">{count}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className="h-2 rounded-full"
+                      style={{ 
+                        width: stats.total > 0 ? `${(count / stats.total) * 100}%` : '0%',
+                        backgroundColor: categoryColors[category]
+                      }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div
-                    className="bg-primary-600 h-2 rounded-full"
-                    style={{ width: `${(count / stats.total) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -118,19 +237,85 @@ export default function ReportsPage() {
             {Object.entries(ticketsByPriority).map(([priority, count]) => (
               <div key={priority}>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">{priority}</span>
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300 capitalize">
+                    {priorityLabels[priority] || priority}
+                  </span>
                   <span className="text-sm text-gray-600 dark:text-gray-400">{count}</span>
                 </div>
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div
-                    className="bg-primary-600 h-2 rounded-full"
-                    style={{ width: `${(count / stats.total) * 100}%` }}
+                    className="h-2 rounded-full"
+                    style={{ 
+                      width: stats.total > 0 ? `${(count / stats.total) * 100}%` : '0%',
+                      backgroundColor: priorityColors[priority] || '#6b7280'
+                    }}
                   ></div>
                 </div>
               </div>
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Gráficos de Pizza */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="card dark:bg-gray-800 dark:border-gray-700 p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Distribuição por Categoria</h2>
+          <div className="flex justify-center">
+            <PieChart data={categoryChartData} size={250} />
+          </div>
+        </div>
+
+        <div className="card dark:bg-gray-800 dark:border-gray-700 p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Distribuição por Prioridade</h2>
+          <div className="flex justify-center">
+            <PieChart data={priorityChartData} size={250} />
+          </div>
+        </div>
+
+        <div className="card dark:bg-gray-800 dark:border-gray-700 p-6">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Distribuição por Status</h2>
+          <div className="flex justify-center">
+            <PieChart data={statusChartData} size={250} />
+          </div>
+        </div>
+      </div>
+
+      {/* Relatório por Técnicos */}
+      <div className="card dark:bg-gray-800 dark:border-gray-700">
+        <div className="flex items-center gap-2 mb-4">
+          <User className="w-5 h-5 text-primary-600 dark:text-primary-400" />
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Chamados por Técnico</h2>
+        </div>
+        {technicians.length === 0 ? (
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">Nenhum técnico encontrado</p>
+        ) : (
+          <div className="space-y-4">
+            {technicians.map((tech: any) => {
+              const count = ticketsByTechnician[tech.id] || 0;
+              const percentage = stats.total > 0 ? (count / stats.total) * 100 : 0;
+              return (
+                <div key={tech.id} className="flex items-center gap-4">
+                  <UserAvatar user={tech} size="md" />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">{tech.name}</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        {count} chamado{count !== 1 ? 's' : ''} ({percentage.toFixed(1)}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-primary-600 h-2 rounded-full"
+                        style={{ width: `${percentage}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

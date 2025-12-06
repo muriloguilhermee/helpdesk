@@ -9,48 +9,44 @@ const roleLabels: Record<string, string> = {
   admin: 'Administrador',
   technician: 'Técnico',
   user: 'Usuário',
+  financial: 'Financeiro',
 };
 
 const roleColors: Record<string, string> = {
-  admin: 'bg-purple-100 text-purple-800',
-  technician: 'bg-blue-100 text-blue-800',
-  user: 'bg-gray-100 dark:bg-gray-700 text-gray-800',
+  admin: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+  technician: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  user: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300',
+  financial: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
 };
 
 export default function UsersPage() {
   const { hasPermission, user: currentUser, updateUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<User[]>(() => {
-    // Carregar todos os usuários salvos (incluindo mockUsers editados)
+    // Carregar apenas usuários customizados (não mockados)
     const allUsersSaved = localStorage.getItem('allUsers');
     if (allUsersSaved) {
       try {
-        return JSON.parse(allUsersSaved);
+        const parsed = JSON.parse(allUsersSaved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Filtrar apenas usuários que NÃO são mockados
+          // Identificar mockUsers pelos emails conhecidos
+          const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+          const customUsers = parsed.filter(u => !mockUserEmails.has(u.email.toLowerCase()));
+          
+          // Se houver usuários customizados, retornar eles
+          if (customUsers.length > 0) {
+            return customUsers;
+          }
+        }
       } catch {
-        // Se houver erro, continuar com a lógica de combinação
+        // Se houver erro, continuar para lista vazia
       }
     }
     
-    // Se não houver allUsers, carregar usuários customizados do localStorage
-    const savedUsers = localStorage.getItem('users');
-    let savedUsersArray: UserType[] = [];
-    
-    if (savedUsers) {
-      try {
-        savedUsersArray = JSON.parse(savedUsers);
-      } catch {
-        // Se houver erro ao parsear, usar array vazio
-      }
-    }
-    
-    // Combinar mockUsers com usuários salvos, evitando duplicatas por email
-    const mockUsersMap = new Map(mockUsers.map(u => [u.email, u]));
-    const savedUsersMap = new Map(savedUsersArray.map(u => [u.email, u]));
-    
-    // Priorizar usuários salvos sobre mockUsers (caso tenham sido editados)
-    const combinedMap = new Map([...mockUsersMap, ...savedUsersMap]);
-    
-    return Array.from(combinedMap.values());
+    // Se não houver usuários customizados, retornar lista vazia
+    // Os mockUsers não devem aparecer na lista de usuários
+    return [];
   });
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -65,24 +61,51 @@ export default function UsersPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'user' as 'admin' | 'user' | 'technician',
+    role: 'user' as 'admin' | 'user' | 'technician' | 'financial',
+    company: '',
   });
   const [editUser, setEditUser] = useState({
     name: '',
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'user' as 'admin' | 'user' | 'technician',
+    role: 'user' as 'admin' | 'user' | 'technician' | 'financial',
+    company: '',
   });
   const [error, setError] = useState('');
 
-  // Salvar todos os usuários no localStorage sempre que houver mudanças
+  // Salvar usuários customizados no localStorage sempre que houver mudanças
   useEffect(() => {
-    localStorage.setItem('allUsers', JSON.stringify(users));
+    // Filtrar mockUsers antes de salvar
+    const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+    const customUsers = users.filter(u => !mockUserEmails.has(u.email.toLowerCase()));
     
-    // Também salvar apenas os customizados para compatibilidade
-    const mockUserEmails = new Set(mockUsers.map(u => u.email));
-    const customUsers = users.filter(u => !mockUserEmails.has(u.email));
+    // Buscar usuários mockados existentes no localStorage para preservá-los
+    const allUsersSaved = localStorage.getItem('allUsers');
+    let existingMockUsers: UserType[] = [];
+    if (allUsersSaved) {
+      try {
+        const parsed = JSON.parse(allUsersSaved);
+        if (Array.isArray(parsed)) {
+          // Manter apenas os mockUsers
+          existingMockUsers = parsed.filter((u: UserType) => 
+            mockUserEmails.has(u.email.toLowerCase())
+          );
+        }
+      } catch {
+        // Se houver erro, usar mockUsers padrão
+        existingMockUsers = mockUsers;
+      }
+    } else {
+      // Se não houver allUsers, usar mockUsers padrão
+      existingMockUsers = mockUsers;
+    }
+    
+    // Combinar mockUsers (para autenticação) com usuários customizados
+    const allUsers = [...existingMockUsers, ...customUsers];
+    localStorage.setItem('allUsers', JSON.stringify(allUsers));
+    
+    // Salvar apenas os customizados separadamente para compatibilidade
     localStorage.setItem('users', JSON.stringify(customUsers));
   }, [users]);
 
@@ -160,7 +183,21 @@ export default function UsersPage() {
       setError('As senhas não coincidem');
       return;
     }
-    if (users.some(u => u.email === newUser.email)) {
+    // Verificar duplicatas nos usuários atuais e nos mockUsers salvos
+    const allUsersSaved = localStorage.getItem('allUsers');
+    let allExistingUsers: UserType[] = [...users];
+    if (allUsersSaved) {
+      try {
+        const parsed = JSON.parse(allUsersSaved);
+        if (Array.isArray(parsed)) {
+          allExistingUsers = parsed;
+        }
+      } catch {
+        // Se houver erro, usar apenas users
+      }
+    }
+    
+    if (allExistingUsers.some(u => u.email.toLowerCase() === newUser.email.toLowerCase())) {
       setError('Este email já está em uso');
       return;
     }
@@ -172,6 +209,7 @@ export default function UsersPage() {
       email: newUser.email,
       role: newUser.role,
       avatar: newUserPhoto || undefined,
+      company: newUser.company || undefined,
     };
 
     const updatedUsers = [...users, createdUser];
@@ -192,6 +230,7 @@ export default function UsersPage() {
       password: '',
       confirmPassword: '',
       role: 'user',
+      company: '',
     });
     setNewUserPhoto(null);
     if (createPhotoInputRef.current) {
@@ -209,6 +248,7 @@ export default function UsersPage() {
       password: '',
       confirmPassword: '',
       role: user.role,
+      company: user.company || '',
     });
     setEditUserPhoto(user.avatar || null);
     setError('');
@@ -233,9 +273,25 @@ export default function UsersPage() {
       setError('Email inválido');
       return;
     }
-    if (editUser.email !== editingUser.email && users.some(u => u.email === editUser.email && u.id !== editingUser.id)) {
-      setError('Este email já está em uso');
-      return;
+    // Verificar duplicatas nos usuários atuais e nos mockUsers salvos
+    if (editUser.email !== editingUser.email) {
+      const allUsersSaved = localStorage.getItem('allUsers');
+      let allExistingUsers: UserType[] = [...users];
+      if (allUsersSaved) {
+        try {
+          const parsed = JSON.parse(allUsersSaved);
+          if (Array.isArray(parsed)) {
+            allExistingUsers = parsed;
+          }
+        } catch {
+          // Se houver erro, usar apenas users
+        }
+      }
+      
+      if (allExistingUsers.some(u => u.email.toLowerCase() === editUser.email.toLowerCase() && u.id !== editingUser.id)) {
+        setError('Este email já está em uso');
+        return;
+      }
     }
     if (editUser.password && editUser.password.length < 6) {
       setError('Senha deve ter no mínimo 6 caracteres');
@@ -252,7 +308,8 @@ export default function UsersPage() {
       name: editUser.name,
       email: editUser.email,
       role: editUser.role,
-      avatar: editUserPhoto || undefined
+      avatar: editUserPhoto || undefined,
+      company: editUser.company || undefined
     };
     
     const updatedUsers = users.map(u =>
@@ -295,6 +352,7 @@ export default function UsersPage() {
       password: '',
       confirmPassword: '',
       role: 'user',
+      company: '',
     });
     setEditUserPhoto(null);
     if (editPhotoInputRef.current) {
@@ -364,6 +422,7 @@ export default function UsersPage() {
               <tr className="border-b border-gray-200 dark:border-gray-700">
                 <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Usuário</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Email</th>
+                <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Empresa</th>
                 <th className="text-left py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Função</th>
                 <th className="text-right py-3 px-4 font-medium text-gray-700 dark:text-gray-300">Ações</th>
               </tr>
@@ -378,6 +437,9 @@ export default function UsersPage() {
                     </div>
                   </td>
                   <td className="py-4 px-4 text-gray-600 dark:text-gray-400 dark:text-gray-500">{user.email}</td>
+                  <td className="py-4 px-4 text-gray-600 dark:text-gray-400 dark:text-gray-500">
+                    {user.company || '-'}
+                  </td>
                   <td className="py-4 px-4">
                     <span className={`badge ${roleColors[user.role]}`}>
                       {roleLabels[user.role]}
@@ -428,6 +490,7 @@ export default function UsersPage() {
                     password: '',
                     confirmPassword: '',
                     role: 'user',
+                    company: '',
                   });
                   setNewUserPhoto(null);
                   if (createPhotoInputRef.current) {
@@ -511,6 +574,19 @@ export default function UsersPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Nome da Empresa
+                </label>
+                <input
+                  type="text"
+                  value={newUser.company}
+                  onChange={(e) => setNewUser({ ...newUser, company: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                  placeholder="Nome da empresa (opcional)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Email
                 </label>
                 <input
@@ -554,11 +630,12 @@ export default function UsersPage() {
                 </label>
                 <select
                   value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'user' | 'technician' })}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'user' | 'technician' | 'financial' })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="user">Usuário</option>
                   <option value="technician">Técnico</option>
+                  <option value="financial">Financeiro</option>
                   <option value="admin">Administrador</option>
                 </select>
               </div>
@@ -697,6 +774,19 @@ export default function UsersPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Nome da Empresa
+                </label>
+                <input
+                  type="text"
+                  value={editUser.company}
+                  onChange={(e) => setEditUser({ ...editUser, company: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                  placeholder="Nome da empresa (opcional)"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Email
                 </label>
                 <input
@@ -742,11 +832,12 @@ export default function UsersPage() {
                 </label>
                 <select
                   value={editUser.role}
-                  onChange={(e) => setEditUser({ ...editUser, role: e.target.value as 'admin' | 'user' | 'technician' })}
+                  onChange={(e) => setEditUser({ ...editUser, role: e.target.value as 'admin' | 'user' | 'technician' | 'financial' })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="user">Usuário</option>
                   <option value="technician">Técnico</option>
+                  <option value="financial">Financeiro</option>
                   <option value="admin">Administrador</option>
                 </select>
               </div>

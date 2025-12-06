@@ -17,8 +17,6 @@ export default function NewTicket() {
     description: '',
     priority: 'media' as TicketPriority,
     category: 'suporte' as TicketCategory,
-    serviceType: '',
-    totalValue: '',
   });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,42 +63,52 @@ export default function NewTicket() {
     e.preventDefault();
 
     if (!user) {
+      alert('Você precisa estar logado para criar um chamado.');
       return;
     }
 
-    // Gerar ID no formato 00001, 00002, etc.
-    const existingIds = tickets.map(t => {
-      const numId = parseInt(t.id.replace(/^0+/, '') || '0');
-      return isNaN(numId) ? 0 : numId;
-    });
-    const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
-    const ticketId = String(maxId + 1).padStart(5, '0');
+    try {
+      // Gerar ID no formato 00001, 00002, etc.
+      const existingIds = tickets.map(t => {
+        const numId = parseInt(t.id.replace(/^0+/, '') || '0');
+        return isNaN(numId) ? 0 : numId;
+      });
+      const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
+      const ticketId = String(maxId + 1).padStart(5, '0');
 
-    // Converter arquivos
-    const ticketFiles: TicketFile[] = [];
-    for (let i = 0; i < selectedFiles.length; i++) {
-      const ticketFile = await convertFileToTicketFile(selectedFiles[i], i);
-      ticketFiles.push(ticketFile);
+      // Converter arquivos
+      const ticketFiles: TicketFile[] = [];
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const ticketFile = await convertFileToTicketFile(selectedFiles[i], i);
+        ticketFiles.push(ticketFile);
+      }
+
+      const newTicket: Ticket = {
+        id: ticketId,
+        title: formData.title,
+        description: formData.description,
+        status: 'aberto',
+        priority: formData.priority,
+        category: formData.category,
+        client: user,
+        createdBy: user,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        files: ticketFiles.length > 0 ? ticketFiles : undefined,
+      };
+
+      // Adicionar o ticket
+      addTicket(newTicket);
+      
+      // Aguardar um pouco para garantir que o salvamento foi concluído
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Redirecionar para a lista de chamados
+      navigate('/tickets');
+    } catch (error) {
+      console.error('Erro ao criar chamado:', error);
+      alert('Erro ao criar chamado. Por favor, tente novamente.');
     }
-
-    const newTicket: Ticket = {
-      id: ticketId,
-      title: formData.title,
-      description: formData.description,
-      status: 'aberto',
-      priority: formData.priority,
-      category: formData.category,
-      serviceType: formData.serviceType || undefined,
-      totalValue: formData.totalValue ? parseFloat(formData.totalValue) : undefined,
-      client: user,
-      createdBy: user,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      files: ticketFiles.length > 0 ? ticketFiles : undefined,
-    };
-
-    addTicket(newTicket);
-    navigate('/tickets');
   };
 
   return (
@@ -164,6 +172,7 @@ export default function NewTicket() {
                 <option value="suporte">Suporte</option>
                 <option value="tecnico">Técnico</option>
                 <option value="integracao">Integração</option>
+                <option value="melhoria">Melhoria</option>
               </select>
             </div>
 
@@ -182,38 +191,6 @@ export default function NewTicket() {
                 <option value="alta">Alta</option>
                 <option value="critica">Crítica</option>
               </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label htmlFor="serviceType" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Tipo de Serviço
-              </label>
-              <input
-                type="text"
-                id="serviceType"
-                value={formData.serviceType}
-                onChange={(e) => setFormData({ ...formData, serviceType: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                placeholder="Ex: Instalação de Rede"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="totalValue" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Valor Total (R$)
-              </label>
-              <input
-                type="number"
-                id="totalValue"
-                step="0.01"
-                min="0"
-                value={formData.totalValue}
-                onChange={(e) => setFormData({ ...formData, totalValue: e.target.value })}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                placeholder="0.00"
-              />
             </div>
           </div>
 

@@ -13,6 +13,7 @@ import SettingsPage from './pages/SettingsPage';
 import PendingTickets from './pages/PendingTickets';
 import FinancialTicketsPage from './pages/FinancialTicketsPage';
 import FinancialManagementPage from './pages/FinancialManagementPage';
+import ERPIntegrationPage from './pages/ERPIntegrationPage';
 
 function AppRoutes() {
   const { isAuthenticated, user, hasPermission } = useAuth();
@@ -51,6 +52,7 @@ function AppRoutes() {
         <Route path="settings" element={<ProtectedRoute requiredPermission="view:settings"><SettingsPage /></ProtectedRoute>} />
         <Route path="financial" element={<ProtectedRoute requiredPermission="view:own:financial"><FinancialTicketsPage /></ProtectedRoute>} />
         <Route path="financial/management" element={<ProtectedRoute requiredPermission="view:all:financial"><FinancialManagementPage /></ProtectedRoute>} />
+        <Route path="erp-integration" element={<ProtectedRoute requiredPermission="view:all:financial"><ERPIntegrationPage /></ProtectedRoute>} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

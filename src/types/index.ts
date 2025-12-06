@@ -28,6 +28,17 @@ export interface FinancialTicket {
   invoiceFile?: TicketFile; // Arquivo do boleto/ticket
   receiptFile?: TicketFile; // Comprovante de pagamento
   notes?: string;
+  // Campos para integração com ERP
+  erpId?: string; // ID do boleto no ERP
+  erpType?: 'contaazul' | 'bling' | 'tiny' | 'omie' | 'other';
+  invoiceNumber?: string; // Número da nota fiscal
+  barcode?: string; // Código de barras do boleto
+  ourNumber?: string; // Nosso número
+  paymentErpId?: string; // ID do pagamento no ERP
+  paymentMethod?: string; // Método de pagamento
+  transactionId?: string; // ID da transação
+  erpMetadata?: Record<string, any>; // Metadados do ERP
+  paymentMetadata?: Record<string, any>; // Metadados do pagamento
 }
 
 export interface TicketFile {

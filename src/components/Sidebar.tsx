@@ -9,7 +9,8 @@ import {
   CheckCircle,
   X,
   DollarSign,
-  Wallet
+  Wallet,
+  Plug
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -35,6 +36,7 @@ const allMenuItems: MenuItem[] = [
   { icon: PlusCircle, label: 'Novo Chamado', path: '/tickets/new', permission: 'create:ticket', role: 'all' },
   { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },
   { icon: Wallet, label: 'Gestão Financeira', path: '/financial/management', permission: 'view:all:financial', role: 'all' },
+  { icon: Plug, label: 'Integração ERP', path: '/erp-integration', permission: 'view:all:financial', role: 'admin' },
   { icon: Users, label: 'Usuários', path: '/users', permission: 'view:users', role: 'all' },
   { icon: BarChart3, label: 'Relatórios', path: '/reports', permission: 'view:reports', role: 'all' },
   { icon: Settings, label: 'Configurações', path: '/settings', permission: 'view:settings', role: 'all' },

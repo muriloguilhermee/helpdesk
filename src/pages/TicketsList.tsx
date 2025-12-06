@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, Trash2, Edit, HelpCircle, Clock, CheckCircle } from 'lucide-react';
+import { Plus, Search, Trash2, Edit, HelpCircle, Clock, CheckCircle, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
@@ -38,8 +38,12 @@ export default function TicketsList() {
     if (filters.status && ticket.status !== filters.status) return false;
     if (filters.priority && ticket.priority !== filters.priority) return false;
     if (filters.category && ticket.category !== filters.category) return false;
-    if (searchQuery && !ticket.title.toLowerCase().includes(searchQuery.toLowerCase()) &&
-        !ticket.description.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    if (searchQuery && searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      const titleMatch = ticket.title?.toLowerCase().includes(query) || false;
+      const descriptionMatch = ticket.description?.toLowerCase().includes(query) || false;
+      if (!titleMatch && !descriptionMatch) return false;
+    }
     return true;
   });
 
@@ -73,22 +77,52 @@ export default function TicketsList() {
 
       {/* Filtros */}
       <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Buscar chamados..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-          />
+        <div className="flex-1 relative flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Buscar chamados..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                }
+              }}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+            />
+          </div>
+          <button
+            onClick={() => {
+              // A busca já funciona em tempo real, mas o botão pode ser usado para focar no input
+              const input = document.querySelector('input[type="text"][placeholder*="Buscar chamados"]') as HTMLInputElement;
+              if (input) {
+                input.focus();
+              }
+            }}
+            className="btn-primary flex items-center gap-2 px-4 py-2 whitespace-nowrap"
+            title="Pesquisar"
+          >
+            <Search className="w-5 h-5" />
+            <span className="hidden sm:inline">Pesquisar</span>
+          </button>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="btn-secondary flex items-center gap-2 px-4 py-2 whitespace-nowrap"
+              title="Limpar busca"
+            >
+              <X className="w-5 h-5" />
+              <span className="hidden sm:inline">Limpar</span>
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <select
             value={filters.status || ''}
             className="flex-1 min-w-[120px] sm:flex-none sm:min-w-0 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
             onChange={(e) => setFilters({ ...filters, status: e.target.value as any || undefined })}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
           >
             <option value="">Todos os status</option>
             <option value="aberto">Aberto</option>
@@ -99,7 +133,6 @@ export default function TicketsList() {
             <option value="em_fase_de_testes">Em fase de testes</option>
             <option value="homologacao">Homologação</option>
             <option value="fechado">Fechado</option>
-            <option value="encerrado">Encerrado</option>
           </select>
         </div>
       </div>

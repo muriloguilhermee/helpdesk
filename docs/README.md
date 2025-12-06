@@ -25,6 +25,49 @@ Guia técnico para implementar os endpoints de webhook no backend.
 - Segurança
 - Deploy
 
+### 3. [Changelog](./CHANGELOG.md)
+Histórico completo de todas as mudanças e melhorias do sistema.
+
+**Conteúdo:**
+- Novas funcionalidades
+- Melhorias implementadas
+- Correções de bugs
+- Mudanças técnicas
+- Guia de migração
+
+---
+
+## 🎯 Principais Funcionalidades
+
+### Sistema de Banco de Dados
+- **IndexedDB** para armazenamento persistente e robusto
+- **Sincronização consistente** entre navegadores
+- **Migração automática** de dados
+- **Preparado para migração** para banco de dados real
+
+### Integração com ERP
+- **Webhooks automáticos** para boletos e pagamentos
+- **Suporte a múltiplos ERPs** (Conta Azul, Bling, Tiny, Omie)
+- **API Key** para autenticação
+- **Testes integrados**
+
+### Módulo Financeiro
+- **Gestão completa** de tickets financeiros
+- **Download de boletos**
+- **Controle de pagamentos**
+- **Relatórios financeiros**
+
+### Gestão de Perfil
+- **Edição completa** do perfil
+- **Upload de foto**
+- **Alteração de senha**
+- **Atualização de dados**
+
+### Exportação de Relatórios
+- **Exportação em PDF**
+- **Exportação em Excel (CSV)**
+- **Dados completos** incluindo gráficos
+
 ---
 
 ## 🚀 Início Rápido
@@ -44,6 +87,12 @@ Guia técnico para implementar os endpoints de webhook no backend.
 4. Configure variáveis de ambiente
 5. Faça deploy
 
+### Para Migrar Dados:
+
+1. O sistema migra automaticamente do localStorage para IndexedDB
+2. Dados são sincronizados entre navegadores
+3. Veja [Changelog](./CHANGELOG.md) para detalhes de migração
+
 ---
 
 ## 📞 Suporte
@@ -51,9 +100,14 @@ Guia técnico para implementar os endpoints de webhook no backend.
 Para dúvidas ou problemas:
 - Consulte a documentação específica
 - Use as funções de teste no sistema
+- Verifique o [Changelog](./CHANGELOG.md) para mudanças recentes
 - Entre em contato com o suporte técnico
 
 ---
 
-**Última atualização**: Dezembro 2024
+## 🔄 Versões
+
+- **Versão Atual**: 1.1.0
+- **Última atualização**: Dezembro 2024
+- **Próxima versão**: Preparando migração para banco de dados real
 

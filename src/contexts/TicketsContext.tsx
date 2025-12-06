@@ -1,6 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Ticket, User, Comment } from '../types';
 import { mockTickets } from '../data/mockData';
+import { database } from '../services/database';
 
 interface TicketsContextType {
   tickets: Ticket[];
@@ -28,47 +29,36 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     return null;
   };
 
-  const [tickets, setTickets] = useState<Ticket[]>(() => {
-    // Carregar tickets salvos do localStorage ou usar os mockados
-    const savedTickets = localStorage.getItem('tickets');
-    if (savedTickets) {
+  const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Carregar tickets do banco de dados
+  useEffect(() => {
+    const loadTickets = async () => {
       try {
-        const parsed = JSON.parse(savedTickets);
-        // Se houver tickets salvos, usar eles
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Converter datas de string para Date
-          const parsedTickets = parsed.map((t: any) => ({
-            ...t,
-            createdAt: new Date(t.createdAt),
-            updatedAt: new Date(t.updatedAt),
-            comments: t.comments ? t.comments.map((c: any) => ({
-              ...c,
-              createdAt: new Date(c.createdAt),
-            })) : undefined,
-          }));
-          previousTicketsCountRef.current = parsedTickets.length;
-          return parsedTickets;
+        await database.init();
+        const savedTickets = await database.getTickets();
+        
+        if (savedTickets && savedTickets.length > 0) {
+          previousTicketsCountRef.current = savedTickets.length;
+          setTickets(savedTickets);
+        } else {
+          // Se não houver tickets, usar os mockados e salvar no banco
+          await database.saveTickets(mockTickets);
+          previousTicketsCountRef.current = mockTickets.length;
+          setTickets(mockTickets);
         }
-      } catch {
-        // Se houver erro, continuar para salvar os mocks
+      } catch (error) {
+        console.error('Erro ao carregar tickets:', error);
+        // Fallback para mockTickets em caso de erro
+        setTickets(mockTickets);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    
-    // Se não houver tickets salvos, usar os mockados e salvar no localStorage
-    // Isso garante que os dados mockados sejam persistidos
-    const ticketsToSave = mockTickets.map(t => ({
-      ...t,
-      createdAt: t.createdAt.toISOString(),
-      updatedAt: t.updatedAt.toISOString(),
-      comments: t.comments ? t.comments.map(c => ({
-        ...c,
-        createdAt: c.createdAt.toISOString(),
-      })) : undefined,
-    }));
-    localStorage.setItem('tickets', JSON.stringify(ticketsToSave));
-    previousTicketsCountRef.current = mockTickets.length;
-    return mockTickets;
-  });
+    };
+
+    loadTickets();
+  }, []);
 
 
   // Detectar quando um novo chamado é criado e notificar técnicos
@@ -146,88 +136,51 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   }, [tickets]);
 
   useEffect(() => {
-    // Salvar tickets no localStorage sempre que houver mudanças
-    // Converter datas para string antes de salvar
-    try {
-      const ticketsToSave = tickets.map(t => ({
-        ...t,
-        createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-        updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
-        client: t.client ? {
-          ...t.client,
-        } : undefined,
-        createdBy: {
-          ...t.createdBy,
-        },
-        assignedTo: t.assignedTo ? {
-          ...t.assignedTo,
-        } : undefined,
-        comments: t.comments ? t.comments.map(c => ({
-          ...c,
-          createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-          author: {
-            ...c.author,
-          },
-        })) : undefined,
-        files: t.files ? t.files.map(f => ({
-          ...f,
-        })) : undefined,
-      }));
-      localStorage.setItem('tickets', JSON.stringify(ticketsToSave));
-    } catch (error) {
-      console.error('Erro ao salvar tickets no localStorage:', error);
+    // Salvar tickets no banco de dados sempre que houver mudanças
+    if (!isLoading && tickets.length > 0) {
+      database.saveTickets(tickets).catch((error) => {
+        console.error('Erro ao salvar tickets no banco de dados:', error);
+      });
     }
-  }, [tickets]);
+  }, [tickets, isLoading]);
 
-  const deleteTicket = (id: string) => {
+  const deleteTicket = async (id: string) => {
     setTickets((prev) => prev.filter((ticket) => ticket.id !== id));
+    try {
+      await database.deleteTicket(id);
+    } catch (error) {
+      console.error('Erro ao deletar ticket do banco de dados:', error);
+    }
   };
 
-  const updateTicket = (id: string, updates: Partial<Ticket>) => {
-    setTickets((prev) =>
-      prev.map((ticket) =>
-        ticket.id === id
-          ? { ...ticket, ...updates, updatedAt: new Date() }
-          : ticket
-      )
+  const updateTicket = async (id: string, updates: Partial<Ticket>) => {
+    const updatedTickets = tickets.map((ticket) =>
+      ticket.id === id
+        ? { ...ticket, ...updates, updatedAt: new Date() }
+        : ticket
     );
+    setTickets(updatedTickets);
+    
+    // Encontrar o ticket atualizado e salvar no banco
+    const updatedTicket = updatedTickets.find(t => t.id === id);
+    if (updatedTicket) {
+      try {
+        await database.saveTicket(updatedTicket);
+      } catch (error) {
+        console.error('Erro ao atualizar ticket no banco de dados:', error);
+      }
+    }
   };
 
-  const addTicket = (ticket: Ticket) => {
-    setTickets((prev) => {
-      const newTickets = [...prev, ticket];
-      // Salvar imediatamente no localStorage para garantir persistência
-      try {
-        const ticketsToSave = newTickets.map(t => ({
-          ...t,
-          createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-          updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
-          client: t.client ? {
-            ...t.client,
-          } : undefined,
-          createdBy: {
-            ...t.createdBy,
-          },
-          assignedTo: t.assignedTo ? {
-            ...t.assignedTo,
-          } : undefined,
-          comments: t.comments ? t.comments.map(c => ({
-            ...c,
-            createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
-            author: {
-              ...c.author,
-            },
-          })) : undefined,
-          files: t.files ? t.files.map(f => ({
-            ...f,
-          })) : undefined,
-        }));
-        localStorage.setItem('tickets', JSON.stringify(ticketsToSave));
-      } catch (error) {
-        console.error('Erro ao salvar ticket no localStorage:', error);
-      }
-      return newTickets;
-    });
+  const addTicket = async (ticket: Ticket) => {
+    const newTickets = [...tickets, ticket];
+    setTickets(newTickets);
+    
+    try {
+      await database.saveTicket(ticket);
+    } catch (error) {
+      console.error('Erro ao salvar ticket no banco de dados:', error);
+    }
   };
 
   const addComment = (ticketId: string, comment: Comment) => {

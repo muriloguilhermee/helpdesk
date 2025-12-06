@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { FinancialTicket, User, TicketFile } from '../types';
+import { database } from '../services/database';
 
 interface FinancialContextType {
   financialTickets: FinancialTicket[];
@@ -12,89 +13,74 @@ interface FinancialContextType {
 const FinancialContext = createContext<FinancialContextType | undefined>(undefined);
 
 export function FinancialProvider({ children }: { children: ReactNode }) {
-  const [financialTickets, setFinancialTickets] = useState<FinancialTicket[]>(() => {
-    // Carregar tickets financeiros salvos do localStorage
-    const savedTickets = localStorage.getItem('financialTickets');
-    if (savedTickets) {
+  const [financialTickets, setFinancialTickets] = useState<FinancialTicket[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Carregar tickets financeiros do banco de dados
+  useEffect(() => {
+    const loadFinancialTickets = async () => {
       try {
-        const parsed = JSON.parse(savedTickets);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Converter datas de string para Date
-          return parsed.map((t: any) => ({
-            ...t,
-            dueDate: new Date(t.dueDate),
-            paymentDate: t.paymentDate ? new Date(t.paymentDate) : undefined,
-            createdAt: new Date(t.createdAt),
-            updatedAt: new Date(t.updatedAt),
-          }));
-        }
-      } catch {
-        // Se houver erro, continuar para lista vazia
+        await database.init();
+        const savedTickets = await database.getFinancialTickets();
+        setFinancialTickets(savedTickets || []);
+      } catch (error) {
+        console.error('Erro ao carregar tickets financeiros:', error);
+        setFinancialTickets([]);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    return [];
-  });
+    };
+
+    loadFinancialTickets();
+  }, []);
 
   useEffect(() => {
-    // Salvar tickets financeiros no localStorage sempre que houver mudanças
-    try {
-      const ticketsToSave = financialTickets.map(t => ({
-        ...t,
-        dueDate: t.dueDate instanceof Date ? t.dueDate.toISOString() : t.dueDate,
-        paymentDate: t.paymentDate instanceof Date ? t.paymentDate.toISOString() : t.paymentDate,
-        createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-        updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
-        client: {
-          ...t.client,
-        },
-        createdBy: {
-          ...t.createdBy,
-        },
-      }));
-      localStorage.setItem('financialTickets', JSON.stringify(ticketsToSave));
-    } catch (error) {
-      console.error('Erro ao salvar tickets financeiros no localStorage:', error);
+    // Salvar tickets financeiros no banco de dados sempre que houver mudanças
+    if (!isLoading && financialTickets.length >= 0) {
+      database.saveFinancialTickets(financialTickets).catch((error) => {
+        console.error('Erro ao salvar tickets financeiros no banco de dados:', error);
+      });
     }
-  }, [financialTickets]);
+  }, [financialTickets, isLoading]);
 
-  const addFinancialTicket = (ticket: FinancialTicket) => {
-    setFinancialTickets((prev) => {
-      const newTickets = [...prev, ticket];
-      // Salvar imediatamente
-      try {
-        const ticketsToSave = newTickets.map(t => ({
-          ...t,
-          dueDate: t.dueDate instanceof Date ? t.dueDate.toISOString() : t.dueDate,
-          paymentDate: t.paymentDate instanceof Date ? t.paymentDate.toISOString() : t.paymentDate,
-          createdAt: t.createdAt instanceof Date ? t.createdAt.toISOString() : t.createdAt,
-          updatedAt: t.updatedAt instanceof Date ? t.updatedAt.toISOString() : t.updatedAt,
-          client: {
-            ...t.client,
-          },
-          createdBy: {
-            ...t.createdBy,
-          },
-        }));
-        localStorage.setItem('financialTickets', JSON.stringify(ticketsToSave));
-      } catch (error) {
-        console.error('Erro ao salvar ticket financeiro no localStorage:', error);
-      }
-      return newTickets;
-    });
+  const addFinancialTicket = async (ticket: FinancialTicket) => {
+    const newTickets = [...financialTickets, ticket];
+    setFinancialTickets(newTickets);
+    
+    try {
+      await database.saveFinancialTicket(ticket);
+    } catch (error) {
+      console.error('Erro ao salvar ticket financeiro no banco de dados:', error);
+    }
   };
 
-  const updateFinancialTicket = (id: string, updates: Partial<FinancialTicket>) => {
-    setFinancialTickets((prev) =>
-      prev.map((ticket) =>
-        ticket.id === id
-          ? { ...ticket, ...updates, updatedAt: new Date() }
-          : ticket
-      )
+  const updateFinancialTicket = async (id: string, updates: Partial<FinancialTicket>) => {
+    const updatedTickets = financialTickets.map((ticket) =>
+      ticket.id === id
+        ? { ...ticket, ...updates, updatedAt: new Date() }
+        : ticket
     );
+    setFinancialTickets(updatedTickets);
+    
+    // Encontrar o ticket atualizado e salvar no banco
+    const updatedTicket = updatedTickets.find(t => t.id === id);
+    if (updatedTicket) {
+      try {
+        await database.saveFinancialTicket(updatedTicket);
+      } catch (error) {
+        console.error('Erro ao atualizar ticket financeiro no banco de dados:', error);
+      }
+    }
   };
 
-  const deleteFinancialTicket = (id: string) => {
+  const deleteFinancialTicket = async (id: string) => {
     setFinancialTickets((prev) => prev.filter((ticket) => ticket.id !== id));
+    
+    try {
+      await database.deleteFinancialTicket(id);
+    } catch (error) {
+      console.error('Erro ao deletar ticket financeiro do banco de dados:', error);
+    }
   };
 
   const getTicketsByClient = (clientId: string) => {

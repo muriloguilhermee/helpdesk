@@ -1,17 +1,31 @@
-import { Download, BarChart3, TrendingUp, FileText, User } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Download, BarChart3, TrendingUp, FileText, User, FileSpreadsheet, FileText as FileTextIcon, ChevronDown } from 'lucide-react';
 import { useTickets } from '../contexts/TicketsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { getStatusColor } from '../utils/statusColors';
 import { mockUsers } from '../data/mockData';
 import PieChart from '../components/PieChart';
 import { UserAvatar } from '../utils/userAvatar';
+import { exportToExcel, exportToPDF } from '../utils/exportReport';
 
 export default function ReportsPage() {
   const { tickets } = useTickets();
   const { user } = useAuth();
+  const [showExportMenu, setShowExportMenu] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   // Filtrar apenas chamados criados pelo usuário atual
-  const userTickets = user ? tickets.filter(t => t.createdBy.id === user.id) : tickets;
+  // Se for admin, ver todos os tickets; se for user, ver apenas os seus; se for technician, ver atribuídos a ele ou de melhoria
+  let userTickets = tickets || [];
+  if (user?.role === 'user') {
+    userTickets = tickets.filter(t => t && t.createdBy && t.createdBy.id === user.id);
+  } else if (user?.role === 'technician') {
+    userTickets = tickets.filter(t => t && (t.assignedTo?.id === user.id || t.category === 'melhoria'));
+  }
+  // Admin vê todos (userTickets = tickets)
+  
+  // Garantir que todos os tickets tenham os campos necessários
+  userTickets = userTickets.filter(t => t && t.id && t.title);
 
   const stats = {
     total: userTickets.length,
@@ -38,18 +52,22 @@ export default function ReportsPage() {
 
   // Contar tickets por categoria (apenas dos chamados do usuário)
   const ticketsByCategory = allCategories.reduce((acc, category) => {
-    acc[category] = userTickets.filter(t => t.category === category).length;
+    acc[category] = userTickets.filter(t => t && t.category === category).length;
     return acc;
   }, {} as Record<string, number>);
 
   const ticketsByPriority = userTickets.reduce((acc, ticket) => {
-    acc[ticket.priority] = (acc[ticket.priority] || 0) + 1;
+    if (ticket && ticket.priority) {
+      acc[ticket.priority] = (acc[ticket.priority] || 0) + 1;
+    }
     return acc;
   }, {} as Record<string, number>);
 
   // Contar tickets por status
   const ticketsByStatus = userTickets.reduce((acc, ticket) => {
-    acc[ticket.status] = (acc[ticket.status] || 0) + 1;
+    if (ticket && ticket.status) {
+      acc[ticket.status] = (acc[ticket.status] || 0) + 1;
+    }
     return acc;
   }, {} as Record<string, number>);
 
@@ -72,10 +90,61 @@ export default function ReportsPage() {
   const technicians = customUsers.filter((u: any) => u.role === 'technician');
 
   // Contar tickets por técnico (apenas dos chamados do usuário)
-  const ticketsByTechnician = technicians.reduce((acc: Record<string, number>, tech: any) => {
-    acc[tech.id] = userTickets.filter(t => t.assignedTo?.id === tech.id).length;
+  const ticketsByTechnician = technicians.reduce((acc: Record<string, { name: string; count: number }>, tech: any) => {
+    const count = userTickets.filter(t => t.assignedTo?.id === tech.id).length;
+    if (count > 0) {
+      acc[tech.id] = { name: tech.name, count };
+    }
     return acc;
-  }, {} as Record<string, number>);
+  }, {} as Record<string, { name: string; count: number }>);
+
+  // Fechar menu ao clicar fora
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setShowExportMenu(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
+  const handleExportPDF = async () => {
+    try {
+      await exportToPDF(
+        userTickets,
+        stats,
+        ticketsByCategory,
+        ticketsByPriority,
+        ticketsByStatus,
+        ticketsByTechnician
+      );
+      setShowExportMenu(false);
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      alert('Erro ao exportar PDF. Por favor, tente novamente.');
+    }
+  };
+
+  const handleExportExcel = () => {
+    try {
+      exportToExcel(
+        userTickets,
+        stats,
+        ticketsByCategory,
+        ticketsByPriority,
+        ticketsByStatus,
+        ticketsByTechnician
+      );
+      setShowExportMenu(false);
+    } catch (error) {
+      console.error('Erro ao exportar Excel:', error);
+      alert('Erro ao exportar Excel. Por favor, tente novamente.');
+    }
+  };
 
   // Preparar dados para gráfico de pizza de categorias
   const categoryChartData = allCategories.map(category => ({
@@ -98,11 +167,13 @@ export default function ReportsPage() {
     critica: '#ef4444', // red
   };
 
-  const priorityChartData = Object.entries(ticketsByPriority).map(([priority, count]) => ({
-    label: priorityLabels[priority] || priority,
-    value: count,
-    color: priorityColors[priority] || '#6b7280',
-  }));
+  const priorityChartData = Object.entries(ticketsByPriority)
+    .filter(([_, count]) => count > 0)
+    .map(([priority, count]) => ({
+      label: priorityLabels[priority] || priority,
+      value: count,
+      color: priorityColors[priority] || '#6b7280',
+    }));
 
   // Preparar dados para gráfico de pizza de status
   const statusLabels: Record<string, string> = {
@@ -112,7 +183,6 @@ export default function ReportsPage() {
     pendente: 'Pendente',
     resolvido: 'Resolvido',
     fechado: 'Fechado',
-    encerrado: 'Encerrado',
     em_fase_de_testes: 'Em fase de testes',
     homologacao: 'Homologação',
   };
@@ -123,16 +193,17 @@ export default function ReportsPage() {
     pendente: '#f97316', // orange
     resolvido: '#10b981', // green
     fechado: '#6b7280', // gray
-    encerrado: '#059669', // emerald
     em_fase_de_testes: '#8b5cf6', // purple
     homologacao: '#6366f1', // indigo
   };
 
-  const statusChartData = Object.entries(ticketsByStatus).map(([status, count]) => ({
-    label: statusLabels[status] || status,
-    value: count,
-    color: statusColors[status] || '#6b7280',
-  }));
+  const statusChartData = Object.entries(ticketsByStatus)
+    .filter(([_, count]) => count > 0)
+    .map(([status, count]) => ({
+      label: statusLabels[status] || status,
+      value: count,
+      color: statusColors[status] || '#6b7280',
+    }));
 
   return (
     <div className="space-y-6">
@@ -141,11 +212,36 @@ export default function ReportsPage() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Relatórios</h1>
           <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Análise e estatísticas do sistema</p>
         </div>
-        <button className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">
-          <Download className="w-5 h-5" />
-          <span className="hidden sm:inline">Exportar Relatório</span>
-          <span className="sm:hidden">Exportar</span>
-        </button>
+        <div className="relative" ref={exportMenuRef}>
+          <button
+            onClick={() => setShowExportMenu(!showExportMenu)}
+            className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto"
+          >
+            <Download className="w-5 h-5" />
+            <span className="hidden sm:inline">Exportar Relatório</span>
+            <span className="sm:hidden">Exportar</span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {showExportMenu && (
+            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
+              <button
+                onClick={handleExportPDF}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors first:rounded-t-lg"
+              >
+                <FileTextIcon className="w-5 h-5 text-red-600 dark:text-red-400" />
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Exportar como PDF</span>
+              </button>
+              <button
+                onClick={handleExportExcel}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors last:rounded-b-lg"
+              >
+                <FileSpreadsheet className="w-5 h-5 text-green-600 dark:text-green-400" />
+                <span className="text-sm font-medium text-gray-900 dark:text-gray-100">Exportar como Excel</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">

@@ -1,17 +1,29 @@
-import { Save, Bell, Lock, User, Globe } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { Save, Bell, Lock, User, Globe, Upload, X as XIcon } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { UserAvatar } from '../utils/userAvatar';
 
 export default function SettingsPage() {
-  const { user, hasPermission } = useAuth();
+  const { user, hasPermission, updateProfile } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const { language, setLanguage } = useLanguage();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [settings, setSettings] = useState({
     notifications: true,
     emailNotifications: true,
   });
+  const [profileData, setProfileData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    avatar: user?.avatar || '',
+  });
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
   // Carregar configurações do localStorage
   useEffect(() => {
@@ -28,6 +40,84 @@ export default function SettingsPage() {
       }
     }
   }, []);
+
+  // Atualizar profileData quando user mudar
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        name: user.name || '',
+        email: user.email || '',
+        avatar: user.avatar || '',
+      });
+    }
+  }, [user]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setProfileData({ ...profileData, avatar: reader.result as string });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveAvatar = () => {
+    setProfileData({ ...profileData, avatar: '' });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!user) return;
+
+    setIsSaving(true);
+    try {
+      // Validar senha se fornecida
+      if (passwordData.newPassword) {
+        if (passwordData.newPassword !== passwordData.confirmPassword) {
+          alert('As senhas não coincidem!');
+          setIsSaving(false);
+          return;
+        }
+        if (passwordData.newPassword.length < 6) {
+          alert('A senha deve ter pelo menos 6 caracteres!');
+          setIsSaving(false);
+          return;
+        }
+      }
+
+      // Validar email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (profileData.email && !emailRegex.test(profileData.email)) {
+        alert('Email inválido!');
+        setIsSaving(false);
+        return;
+      }
+
+      const success = await updateProfile({
+        name: profileData.name,
+        email: profileData.email,
+        avatar: profileData.avatar,
+        password: passwordData.newPassword || undefined,
+      });
+
+      if (success) {
+        // Limpar campos de senha
+        setPasswordData({ newPassword: '', confirmPassword: '' });
+        alert('Perfil atualizado com sucesso!');
+      } else {
+        alert('Erro ao atualizar perfil. Por favor, tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro ao salvar perfil:', error);
+      alert('Erro ao atualizar perfil. Por favor, tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const canEditSettings = hasPermission('edit:settings');
 
@@ -141,22 +231,65 @@ export default function SettingsPage() {
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Perfil</h2>
             </div>
             <div className="space-y-4">
+              {/* Avatar */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Foto de Perfil</label>
+                <div className="flex items-center gap-4">
+                  <div className="relative">
+                    {profileData.avatar ? (
+                      <img
+                        src={profileData.avatar}
+                        alt="Avatar"
+                        className="w-20 h-20 rounded-full object-cover border-2 border-gray-300 dark:border-gray-600"
+                      />
+                    ) : (
+                      user ? <UserAvatar user={user} size="lg" /> : null
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarChange}
+                      className="hidden"
+                      id="avatar-upload"
+                    />
+                    <label
+                      htmlFor="avatar-upload"
+                      className="btn-secondary flex items-center gap-2 cursor-pointer"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span>Alterar Foto</span>
+                    </label>
+                    {profileData.avatar && (
+                      <button
+                        onClick={handleRemoveAvatar}
+                        className="btn-secondary flex items-center gap-2"
+                      >
+                        <XIcon className="w-4 h-4" />
+                        <span>Remover</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nome</label>
                 <input
                   type="text"
-                  defaultValue={user?.name}
-                  disabled={!canEditSettings}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  value={profileData.name}
+                  onChange={(e) => setProfileData({ ...profileData, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Email</label>
                 <input
                   type="email"
-                  defaultValue={user?.email}
-                  disabled={!canEditSettings}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  value={profileData.email}
+                  onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
             </div>
@@ -173,39 +306,50 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Nova senha</label>
                 <input
                   type="password"
-                  placeholder="••••••••"
-                  disabled={!canEditSettings}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="Deixe em branco para não alterar"
+                  value={passwordData.newPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Mínimo de 6 caracteres
+                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confirmar senha</label>
                 <input
                   type="password"
-                  placeholder="••••••••"
-                  disabled={!canEditSettings}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:bg-gray-50 dark:disabled:bg-gray-700 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="Confirme a nova senha"
+                  value={passwordData.confirmPassword}
+                  onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 />
               </div>
             </div>
           </div>
 
-          {canEditSettings && (
-            <div className="flex justify-end">
-              <button
-                onClick={() => {
-                  // Salvar configurações no localStorage
-                  localStorage.setItem('settings', JSON.stringify(settings));
-                  // Mostrar feedback (opcional)
-                  alert('Configurações salvas com sucesso!');
-                }}
-                className="btn-primary flex items-center gap-2"
-              >
-                <Save className="w-5 h-5" />
-                Salvar Configurações
-              </button>
-            </div>
-          )}
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => {
+                // Salvar configurações no localStorage
+                localStorage.setItem('settings', JSON.stringify(settings));
+                // Mostrar feedback (opcional)
+                alert('Configurações salvas com sucesso!');
+              }}
+              className="btn-secondary flex items-center gap-2"
+            >
+              <Save className="w-5 h-5" />
+              Salvar Configurações
+            </button>
+            <button
+              onClick={handleSaveProfile}
+              disabled={isSaving}
+              className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <Save className="w-5 h-5" />
+              {isSaving ? 'Salvando...' : 'Salvar Perfil'}
+            </button>
+          </div>
         </div>
 
         <div className="card dark:bg-gray-800 dark:border-gray-700">

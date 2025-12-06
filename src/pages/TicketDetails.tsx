@@ -31,8 +31,8 @@ export default function TicketDetails() {
 
   const ticket = tickets.find(t => t.id === id);
   
-  // Verificar se o chamado está fechado
-  const isClosed = ticket?.status === 'fechado' || ticket?.status === 'encerrado';
+  // Verificar se o chamado está fechado (fechado ou resolvido)
+  const isClosed = ticket?.status === 'fechado' || ticket?.status === 'resolvido';
   // Verificar se o usuário é admin
   const isAdmin = user?.role === 'admin';
   // Verificar se o usuário é técnico
@@ -99,13 +99,14 @@ export default function TicketDetails() {
 
   const handleUpdateStatus = () => {
     if (ticket && selectedStatus) {
-      // Se o chamado está fechado e o usuário está tentando reabrir, verificar se é admin
-      if (isClosed && selectedStatus !== 'fechado' && selectedStatus !== 'encerrado') {
+      // Se o chamado está fechado/resolvido e o usuário está tentando reabrir, verificar se é admin
+      if (isClosed && selectedStatus !== 'fechado' && selectedStatus !== 'resolvido') {
         if (!isAdmin) {
           alert('Apenas administradores podem reabrir chamados fechados.');
           return;
         }
       }
+      // Manter o status como "resolvido" se selecionado (não mudar para "fechado")
       updateTicket(ticket.id, { status: selectedStatus });
       setShowStatusModal(false);
     }
@@ -150,7 +151,7 @@ export default function TicketDetails() {
 
   const handleCloseTicket = () => {
     if (ticket) {
-      updateTicket(ticket.id, { status: 'encerrado' });
+      updateTicket(ticket.id, { status: 'fechado' });
     }
   };
 
@@ -541,7 +542,6 @@ export default function TicketDetails() {
                 <option value="em_fase_de_testes">Em fase de testes</option>
                 <option value="homologacao">Homologação</option>
                 <option value="fechado">Fechado</option>
-                <option value="encerrado">Encerrado</option>
               </select>
             </div>
 

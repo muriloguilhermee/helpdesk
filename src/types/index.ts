@@ -1,4 +1,4 @@
-export type TicketStatus = 'aberto' | 'em_andamento' | 'em_atendimento' | 'pendente' | 'resolvido' | 'fechado' | 'encerrado' | 'em_fase_de_testes' | 'homologacao';
+export type TicketStatus = 'aberto' | 'em_andamento' | 'em_atendimento' | 'pendente' | 'resolvido' | 'fechado' | 'em_fase_de_testes' | 'homologacao';
 export type TicketPriority = 'baixa' | 'media' | 'alta' | 'critica';
 export type TicketCategory = 'suporte' | 'tecnico' | 'integracao' | 'melhoria';
 

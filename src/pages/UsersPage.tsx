@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { mockUsers } from '../data/mockData';
 import { User as UserType } from '../types';
 import { UserAvatar, getInitials } from '../utils/userAvatar';
+import { database } from '../services/database';
 
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
@@ -22,36 +23,35 @@ const roleColors: Record<string, string> = {
 export default function UsersPage() {
   const { hasPermission, user: currentUser, updateUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [users, setUsers] = useState<User[]>(() => {
-    // Carregar apenas usuários customizados (não mockados)
-    const allUsersSaved = localStorage.getItem('allUsers');
-    if (allUsersSaved) {
+  const [users, setUsers] = useState<UserType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Carregar usuários do banco de dados
+  useEffect(() => {
+    const loadUsers = async () => {
       try {
-        const parsed = JSON.parse(allUsersSaved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Filtrar apenas usuários que NÃO são mockados
-          // Identificar mockUsers pelos emails conhecidos
-          const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-          const customUsers = parsed.filter(u => !mockUserEmails.has(u.email.toLowerCase()));
-          
-          // Se houver usuários customizados, retornar eles
-          if (customUsers.length > 0) {
-            return customUsers;
-          }
-        }
-      } catch {
-        // Se houver erro, continuar para lista vazia
+        await database.init();
+        const allUsers = await database.getUsers();
+        
+        // Filtrar apenas usuários que NÃO são mockados
+        const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+        const customUsers = allUsers.filter(u => !mockUserEmails.has(u.email.toLowerCase()));
+        
+        setUsers(customUsers);
+      } catch (error) {
+        console.error('Erro ao carregar usuários:', error);
+        setUsers([]);
+      } finally {
+        setIsLoading(false);
       }
-    }
-    
-    // Se não houver usuários customizados, retornar lista vazia
-    // Os mockUsers não devem aparecer na lista de usuários
-    return [];
-  });
+    };
+
+    loadUsers();
+  }, []);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const createPhotoInputRef = useRef<HTMLInputElement>(null);
   const editPhotoInputRef = useRef<HTMLInputElement>(null);
   const [newUserPhoto, setNewUserPhoto] = useState<string | null>(null);
@@ -74,40 +74,32 @@ export default function UsersPage() {
   });
   const [error, setError] = useState('');
 
-  // Salvar usuários customizados no localStorage sempre que houver mudanças
+  // Salvar usuários customizados no banco de dados sempre que houver mudanças
   useEffect(() => {
-    // Filtrar mockUsers antes de salvar
-    const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-    const customUsers = users.filter(u => !mockUserEmails.has(u.email.toLowerCase()));
-    
-    // Buscar usuários mockados existentes no localStorage para preservá-los
-    const allUsersSaved = localStorage.getItem('allUsers');
-    let existingMockUsers: UserType[] = [];
-    if (allUsersSaved) {
-      try {
-        const parsed = JSON.parse(allUsersSaved);
-        if (Array.isArray(parsed)) {
-          // Manter apenas os mockUsers
-          existingMockUsers = parsed.filter((u: UserType) => 
+    if (!isLoading) {
+      const saveUsers = async () => {
+        try {
+          await database.init();
+          // Buscar todos os usuários do banco
+          const allUsersFromDB = await database.getUsers();
+          
+          // Filtrar mockUsers
+          const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+          const existingMockUsers = allUsersFromDB.filter((u: UserType) => 
             mockUserEmails.has(u.email.toLowerCase())
           );
+          
+          // Combinar mockUsers com usuários customizados
+          const allUsers = [...existingMockUsers, ...users];
+          await database.saveUsers(allUsers);
+        } catch (error) {
+          console.error('Erro ao salvar usuários no banco de dados:', error);
         }
-      } catch {
-        // Se houver erro, usar mockUsers padrão
-        existingMockUsers = mockUsers;
-      }
-    } else {
-      // Se não houver allUsers, usar mockUsers padrão
-      existingMockUsers = mockUsers;
+      };
+
+      saveUsers();
     }
-    
-    // Combinar mockUsers (para autenticação) com usuários customizados
-    const allUsers = [...existingMockUsers, ...customUsers];
-    localStorage.setItem('allUsers', JSON.stringify(allUsers));
-    
-    // Salvar apenas os customizados separadamente para compatibilidade
-    localStorage.setItem('users', JSON.stringify(customUsers));
-  }, [users]);
+  }, [users, isLoading]);
 
   const filteredUsers = users.filter((user) =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -159,7 +151,7 @@ export default function UsersPage() {
     }
   };
 
-  const handleCreateUser = () => {
+  const handleCreateUser = async () => {
     setError('');
 
     // Validações
@@ -183,23 +175,17 @@ export default function UsersPage() {
       setError('As senhas não coincidem');
       return;
     }
-    // Verificar duplicatas nos usuários atuais e nos mockUsers salvos
-    const allUsersSaved = localStorage.getItem('allUsers');
-    let allExistingUsers: UserType[] = [...users];
-    if (allUsersSaved) {
-      try {
-        const parsed = JSON.parse(allUsersSaved);
-        if (Array.isArray(parsed)) {
-          allExistingUsers = parsed;
-        }
-      } catch {
-        // Se houver erro, usar apenas users
+    // Verificar duplicatas no banco de dados
+    try {
+      await database.init();
+      const allUsersFromDB = await database.getUsers();
+      
+      if (allUsersFromDB.some(u => u.email.toLowerCase() === newUser.email.toLowerCase())) {
+        setError('Este email já está em uso');
+        return;
       }
-    }
-    
-    if (allExistingUsers.some(u => u.email.toLowerCase() === newUser.email.toLowerCase())) {
-      setError('Este email já está em uso');
-      return;
+    } catch (error) {
+      console.error('Erro ao verificar duplicatas:', error);
     }
 
     // Criar novo usuário
@@ -255,7 +241,7 @@ export default function UsersPage() {
     setShowEditModal(true);
   };
 
-  const handleUpdateUser = () => {
+  const handleUpdateUser = async () => {
     if (!editingUser) return;
 
     setError('');
@@ -273,24 +259,18 @@ export default function UsersPage() {
       setError('Email inválido');
       return;
     }
-    // Verificar duplicatas nos usuários atuais e nos mockUsers salvos
+    // Verificar duplicatas no banco de dados
     if (editUser.email !== editingUser.email) {
-      const allUsersSaved = localStorage.getItem('allUsers');
-      let allExistingUsers: UserType[] = [...users];
-      if (allUsersSaved) {
-        try {
-          const parsed = JSON.parse(allUsersSaved);
-          if (Array.isArray(parsed)) {
-            allExistingUsers = parsed;
-          }
-        } catch {
-          // Se houver erro, usar apenas users
+      try {
+        await database.init();
+        const allUsersFromDB = await database.getUsers();
+        
+        if (allUsersFromDB.some(u => u.email.toLowerCase() === editUser.email.toLowerCase() && u.id !== editingUser.id)) {
+          setError('Este email já está em uso');
+          return;
         }
-      }
-      
-      if (allExistingUsers.some(u => u.email.toLowerCase() === editUser.email.toLowerCase() && u.id !== editingUser.id)) {
-        setError('Este email já está em uso');
-        return;
+      } catch (error) {
+        console.error('Erro ao verificar duplicatas:', error);
       }
     }
     if (editUser.password && editUser.password.length < 6) {
@@ -361,7 +341,7 @@ export default function UsersPage() {
     setError('');
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (!showDeleteConfirm) return;
 
     // Não permitir excluir a si mesmo
@@ -646,13 +626,14 @@ export default function UsersPage() {
                 onClick={() => {
                   setShowCreateModal(false);
                   setError('');
-                  setNewUser({
-                    name: '',
-                    email: '',
-                    password: '',
-                    confirmPassword: '',
-                    role: 'user',
-                  });
+    setNewUser({
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+      role: 'user',
+      company: '',
+    });
                   setNewUserPhoto(null);
                   if (createPhotoInputRef.current) {
                     createPhotoInputRef.current.value = '';

@@ -1,4 +1,5 @@
-import { Ticket, AlertCircle, CheckCircle, Clock, TrendingUp } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { Ticket, AlertCircle, CheckCircle, Clock, TrendingUp, Search, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
@@ -9,6 +10,7 @@ import Logo from '../components/Logo';
 export default function Dashboard() {
   const { hasPermission, user } = useAuth();
   const { tickets } = useTickets();
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Filtrar tickets baseado no role do usuário
   // Usuários veem seus próprios chamados E chamados de melhoria
@@ -34,8 +36,27 @@ export default function Dashboard() {
     resolvidos: availableTickets.filter(t => t.status === 'resolvido').length,
   };
 
-  const recentTickets = availableTickets
-    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+  // Filtrar tickets por busca
+  const filteredTickets = useMemo(() => {
+    if (!searchQuery || !searchQuery.trim()) {
+      return availableTickets;
+    }
+    const query = searchQuery.toLowerCase().trim();
+    return availableTickets.filter(ticket => {
+      if (!ticket) return false;
+      const title = ticket.title || '';
+      const description = ticket.description || '';
+      return title.toLowerCase().includes(query) || description.toLowerCase().includes(query);
+    });
+  }, [searchQuery, availableTickets]);
+
+  const recentTickets = filteredTickets
+    .filter(ticket => ticket && ticket.updatedAt)
+    .sort((a, b) => {
+      const dateA = a.updatedAt instanceof Date ? a.updatedAt.getTime() : new Date(a.updatedAt).getTime();
+      const dateB = b.updatedAt instanceof Date ? b.updatedAt.getTime() : new Date(b.updatedAt).getTime();
+      return dateB - dateA;
+    })
     .slice(0, 5);
 
   return (
@@ -123,16 +144,70 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Campo de Busca */}
+      <div className="card dark:bg-gray-800 dark:border-gray-700">
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+            <input
+              type="text"
+              placeholder="Buscar chamados por título ou descrição..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.blur();
+                }
+              }}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+            />
+          </div>
+          <button
+            onClick={() => {
+              // A busca já funciona em tempo real, mas o botão pode ser usado para limpar ou confirmar
+              const input = document.querySelector('input[type="text"][placeholder*="Buscar chamados"]') as HTMLInputElement;
+              if (input) {
+                input.focus();
+              }
+            }}
+            className="btn-primary flex items-center gap-2 px-4 py-2 whitespace-nowrap"
+            title="Pesquisar"
+          >
+            <Search className="w-5 h-5" />
+            <span className="hidden sm:inline">Pesquisar</span>
+          </button>
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="btn-secondary flex items-center gap-2 px-4 py-2 whitespace-nowrap"
+              title="Limpar busca"
+            >
+              <X className="w-5 h-5" />
+              <span className="hidden sm:inline">Limpar</span>
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card dark:bg-gray-800 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Chamados Recentes</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+              {searchQuery ? 'Resultados da Busca' : 'Chamados Recentes'}
+            </h2>
             <Link to="/tickets" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 text-sm font-medium">
               Ver todos
             </Link>
           </div>
           <div className="space-y-4">
-            {recentTickets.map((ticket) => (
+            {recentTickets.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-gray-500 dark:text-gray-400">
+                  {searchQuery ? 'Nenhum chamado encontrado para sua busca.' : 'Nenhum chamado recente.'}
+                </p>
+              </div>
+            ) : (
+              recentTickets.map((ticket) => (
               <Link
                 key={ticket.id}
                 to={`/tickets/${ticket.id}`}
@@ -159,7 +234,8 @@ export default function Dashboard() {
                   </div>
                 </div>
               </Link>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

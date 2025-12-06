@@ -37,7 +37,7 @@ export function TicketsNotifications() {
         
         // Verificar mudanças de status
         if (previousTicket.status !== ticket.status) {
-          if (ticket.status === 'fechado' || ticket.status === 'encerrado') {
+          if (ticket.status === 'fechado') {
             addNotification({
               type: 'ticket_closed',
               title: 'Chamado fechado',

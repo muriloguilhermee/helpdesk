@@ -40,7 +40,7 @@ export default function PendingTickets() {
 
   const handleCloseTicket = (ticketId: string) => {
     updateTicket(ticketId, {
-      status: 'encerrado',
+      status: 'fechado',
     });
   };
 

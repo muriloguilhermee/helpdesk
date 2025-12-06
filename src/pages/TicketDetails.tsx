@@ -222,6 +222,11 @@ export default function TicketDetails() {
         </button>
         <div className="flex-1 min-w-0">
           <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100 break-words">{ticket.title}</h1>
+          {ticket.system && (
+            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <span className="font-medium">Sistema:</span> {ticket.system}
+            </p>
+          )}
           {ticket.serviceType && (
             <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{ticket.serviceType}</p>
           )}
@@ -241,6 +246,12 @@ export default function TicketDetails() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
+          {ticket.system && (
+            <div className="card dark:bg-gray-800 dark:border-gray-700">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Sistema</h2>
+              <p className="text-gray-700 dark:text-gray-300">{ticket.system}</p>
+            </div>
+          )}
           <div className="card dark:bg-gray-800 dark:border-gray-700">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Descrição</h2>
             <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{ticket.description}</p>

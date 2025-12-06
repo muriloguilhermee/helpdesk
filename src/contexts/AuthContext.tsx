@@ -294,29 +294,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
 
-      // Atualizar em allUsers
-      const allUsersSaved = localStorage.getItem('allUsers');
-      let allUsersArray: User[] = [];
-      if (allUsersSaved) {
-        try {
-          allUsersArray = JSON.parse(allUsersSaved);
-        } catch {
-          allUsersArray = [];
-        }
+      // Atualizar no banco de dados IndexedDB
+      try {
+        await database.init();
+        
+        // Salvar usuário atualizado diretamente no banco
+        await database.saveUser(updatedUser);
+        
+        // Atualizar também na lista completa de usuários
+        let allUsersArray = await database.getUsers();
+        const updatedAllUsers = allUsersArray.map(u => {
+          if (u.id === user.id) {
+            // Usar o updatedUser completo para garantir que todos os campos estejam atualizados
+            return updatedUser;
+          }
+          return u;
+        });
+        
+        // Salvar todos os usuários atualizados
+        await database.saveUsers(updatedAllUsers);
+        
+        console.log('Perfil atualizado no banco de dados com sucesso', { 
+          userId: updatedUser.id, 
+          hasAvatar: !!updatedUser.avatar 
+        });
+      } catch (error) {
+        console.error('Erro ao atualizar usuário no banco de dados:', error);
+        // Continuar mesmo se houver erro no banco
       }
-
-      const updatedAllUsers = allUsersArray.map(u => {
-        if (u.id === user.id) {
-          return {
-            ...u,
-            ...(updates.name && { name: updates.name }),
-            ...(updates.email && { email: updates.email }),
-            ...(updates.avatar && { avatar: updates.avatar }),
-          };
-        }
-        return u;
-      });
-      localStorage.setItem('allUsers', JSON.stringify(updatedAllUsers));
 
       // Atualizar senha em usersWithPasswords se fornecida
       if (updates.password) {

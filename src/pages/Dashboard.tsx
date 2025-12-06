@@ -216,6 +216,11 @@ export default function Dashboard() {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <h3 className="font-medium text-gray-900 dark:text-gray-100">{ticket.title}</h3>
+                    {ticket.system && (
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        <span className="font-medium">Sistema:</span> {ticket.system}
+                      </p>
+                    )}
                     {ticket.serviceType && (
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{ticket.serviceType}</p>
                     )}

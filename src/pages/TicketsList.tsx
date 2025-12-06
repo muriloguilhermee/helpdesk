@@ -180,6 +180,11 @@ export default function TicketsList() {
                       <td className="py-4 px-4">
                         <div>
                           <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{ticket.title}</div>
+                          {ticket.system && (
+                            <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                              <span className="font-medium">Sistema:</span> {ticket.system}
+                            </div>
+                          )}
                           {ticket.serviceType && (
                             <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{ticket.serviceType}</div>
                           )}

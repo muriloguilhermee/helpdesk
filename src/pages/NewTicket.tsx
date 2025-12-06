@@ -14,6 +14,7 @@ export default function NewTicket() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState({
     title: '',
+    system: '',
     description: '',
     priority: 'media' as TicketPriority,
     category: 'suporte' as TicketCategory,
@@ -86,6 +87,7 @@ export default function NewTicket() {
       const newTicket: Ticket = {
         id: ticketId,
         title: formData.title,
+        system: formData.system || undefined,
         description: formData.description,
         status: 'aberto',
         priority: formData.priority,
@@ -141,6 +143,23 @@ export default function NewTicket() {
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
               placeholder="Descreva brevemente o problema"
             />
+          </div>
+
+          <div>
+            <label htmlFor="system" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Sistema
+            </label>
+            <select
+              id="system"
+              value={formData.system}
+              onChange={(e) => setFormData({ ...formData, system: e.target.value })}
+              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+            >
+              <option value="">Selecione o sistema</option>
+              <option value="ClouddChat v1">ClouddChat v1</option>
+              <option value="ClouddChat v2">ClouddChat v2</option>
+              <option value="ClouddVoz">ClouddVoz</option>
+            </select>
           </div>
 
           <div>

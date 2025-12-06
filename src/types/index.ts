@@ -53,6 +53,7 @@ export interface TicketFile {
 export interface Ticket {
   id: string;
   title: string;
+  system?: string; // Sistema ao qual o chamado se refere
   description: string;
   status: TicketStatus;
   priority: TicketPriority;

@@ -1,4 +1,4 @@
-# 🎫 Sistema Helpdesk - EVA cloudd
+# 🎫 Sistema Helpdesk - EvaCloudd
 
 Sistema completo de gestão de chamados (helpdesk) com módulo financeiro e integração com ERP.
 
@@ -123,4 +123,4 @@ Este projeto é privado e proprietário.
 
 ---
 
-**Desenvolvido para EVA cloudd** 🚀
+**Desenvolvido para EvaCloudd** 🚀

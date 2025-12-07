@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save, DollarSign, Wrench, RefreshCw, Send, Filter, Eye, Zap } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +10,7 @@ import { formatCurrency } from '../utils/formatCurrency';
 import { UserAvatar } from '../utils/userAvatar';
 import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType } from '../types';
 import { mockUsers } from '../data/mockData';
+import { database } from '../services/database';
 
 export default function TicketDetails() {
   const { hasPermission, user } = useAuth();
@@ -202,29 +203,36 @@ export default function TicketDetails() {
     }
   };
 
-  // Carregar apenas técnicos customizados (não mockados)
-  const allUsers = (() => {
-    const savedUsers = localStorage.getItem('allUsers');
-    if (savedUsers) {
+  // Estado para armazenar técnicos
+  const [allTechnicians, setAllTechnicians] = useState<any[]>([]);
+
+  // Carregar técnicos do banco de dados
+  useEffect(() => {
+    const loadTechnicians = async () => {
       try {
-        return JSON.parse(savedUsers);
-      } catch {
-        return [];
+        await database.init();
+        const allUsers = await database.getUsers();
+        
+        // Filtrar apenas técnicos que NÃO são mockados
+        const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+        const customTechnicians = allUsers.filter((u: any) => 
+          u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
+        );
+        
+        // Ordenar técnicos alfabeticamente
+        const sortedTechnicians = [...customTechnicians].sort((a: any, b: any) => 
+          a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+        );
+        
+        setAllTechnicians(sortedTechnicians);
+      } catch (error) {
+        console.error('Erro ao carregar técnicos:', error);
+        setAllTechnicians([]);
       }
-    }
-    return [];
-  })();
-  
-  // Filtrar apenas técnicos que NÃO são mockados
-  const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-  const customTechnicians = allUsers.filter((u: any) => 
-    u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
-  );
-  
-  // Ordenar técnicos alfabeticamente
-  const allTechnicians = [...customTechnicians].sort((a: any, b: any) => 
-    a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
-  );
+    };
+
+    loadTechnicians();
+  }, []);
 
   // Função para capitalizar status corretamente (primeira letra maiúscula, exceto "de")
   const capitalizeStatus = (status: TicketStatus): string => {

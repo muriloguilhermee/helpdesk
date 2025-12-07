@@ -39,13 +39,13 @@ export default function Login() {
             <div className="flex justify-center mb-4">
               <div className="flex items-center">
                 <div className="flex items-center text-3xl">
-                  {/* EVA - cinza claro, bold, itálico */}
+                  {/* Eva - cinza claro, bold, itálico */}
                   <span className="font-bold text-gray-400 dark:text-gray-500 italic tracking-tight">
-                    EVA
+                    Eva
                   </span>
-                  {/* cloudd - azul vibrante, bold, minúsculas */}
-                  <span className="font-bold text-primary-600 dark:text-primary-400 lowercase ml-1">
-                    cloudd
+                  {/* Cloudd - azul vibrante, bold, primeira letra maiúscula */}
+                  <span className="font-bold text-primary-600 dark:text-primary-400">
+                    Cloudd
                   </span>
                 </div>
               </div>

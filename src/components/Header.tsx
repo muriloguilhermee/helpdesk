@@ -1,9 +1,8 @@
-import { Search, LogOut, ChevronDown, Menu } from 'lucide-react';
+import { Search, LogOut, ChevronDown, Menu, X } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { UserAvatar } from '../utils/userAvatar';
-import Logo from './Logo';
 import NotificationsDropdown from './NotificationsDropdown';
 
 interface HeaderProps {
@@ -17,7 +16,10 @@ const roleLabels: Record<string, string> = {
 };
 
 export default function Header({ onMenuClick }: HeaderProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => {
+    // Carregar busca do localStorage se existir
+    return localStorage.getItem('dashboardSearchQuery') || '';
+  });
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
@@ -53,22 +55,45 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <Menu className="w-5 h-5" />
           </button>
 
-          {/* Logo */}
-          <div className="flex-shrink-0 lg:mr-6">
-            <Logo size="md" />
-          </div>
-          
-          {/* Busca - oculta em mobile muito pequeno */}
-          <div className="hidden sm:flex items-center flex-1 max-w-md">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
-              <input
-                type="text"
-                placeholder="Buscar chamados..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-              />
+          {/* Busca funcional - centralizada */}
+          <div className="hidden sm:flex items-center flex-1 max-w-2xl mx-auto">
+            <div className="relative w-full flex gap-2">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Buscar chamados por título ou descrição..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setSearchQuery(value);
+                    // Salvar no localStorage para compartilhar com Dashboard
+                    localStorage.setItem('dashboardSearchQuery', value);
+                    // Disparar evento customizado para atualizar Dashboard
+                    window.dispatchEvent(new Event('dashboardSearchChange'));
+                  }}
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      e.currentTarget.blur();
+                    }
+                  }}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                />
+              </div>
+              {searchQuery && (
+                <button
+                  onClick={() => {
+                    setSearchQuery('');
+                    localStorage.removeItem('dashboardSearchQuery');
+                    // Disparar evento customizado para atualizar Dashboard
+                    window.dispatchEvent(new Event('dashboardSearchChange'));
+                  }}
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  title="Limpar busca"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
             </div>
           </div>
 

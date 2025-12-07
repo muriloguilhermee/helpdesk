@@ -4,7 +4,7 @@
  * Facilita migração futura para banco de dados real
  */
 
-import { User, Ticket, FinancialTicket } from '../types';
+import { User, Ticket, FinancialTicket, Queue } from '../types';
 
 interface DatabaseSchema {
   users: User[];
@@ -12,11 +12,12 @@ interface DatabaseSchema {
   financialTickets: FinancialTicket[];
   settings: any;
   notifications: any[];
+  queues: Queue[];
 }
 
 class LocalDatabase {
   private dbName = 'helpdesk-db';
-  private dbVersion = 1;
+  private dbVersion = 2; // Incrementado para adicionar suporte a filas
   private db: IDBDatabase | null = null;
 
   async init(): Promise<void> {
@@ -62,6 +63,11 @@ class LocalDatabase {
         if (!db.objectStoreNames.contains('notifications')) {
           const notificationsStore = db.createObjectStore('notifications', { keyPath: 'id', autoIncrement: true });
           notificationsStore.createIndex('read', 'read', { unique: false });
+        }
+
+        if (!db.objectStoreNames.contains('queues')) {
+          const queuesStore = db.createObjectStore('queues', { keyPath: 'id' });
+          queuesStore.createIndex('name', 'name', { unique: true });
         }
       };
     });
@@ -552,9 +558,67 @@ class LocalDatabase {
       transaction.objectStore('financialTickets').clear();
       transaction.objectStore('settings').clear();
       transaction.objectStore('notifications').clear();
+      if (db.objectStoreNames.contains('queues')) {
+        transaction.objectStore('queues').clear();
+      }
 
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error);
+    });
+  }
+
+  // ========== QUEUES ==========
+  async getQueues(): Promise<Queue[]> {
+    const db = await this.ensureDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['queues'], 'readonly');
+      const store = transaction.objectStore('queues');
+      const request = store.getAll();
+
+      request.onsuccess = () => {
+        const queues = request.result || [];
+        const parsedQueues = queues.map((q: any) => ({
+          ...q,
+          createdAt: new Date(q.createdAt),
+          updatedAt: new Date(q.updatedAt),
+        }));
+        resolve(parsedQueues);
+      };
+
+      request.onerror = () => {
+        reject(request.error);
+      };
+    });
+  }
+
+  async saveQueue(queue: Queue): Promise<void> {
+    const db = await this.ensureDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['queues'], 'readwrite');
+      const store = transaction.objectStore('queues');
+      
+      const queueToSave = {
+        ...queue,
+        createdAt: queue.createdAt instanceof Date ? queue.createdAt.toISOString() : queue.createdAt,
+        updatedAt: queue.updatedAt instanceof Date ? queue.updatedAt.toISOString() : queue.updatedAt,
+      };
+      
+      const request = store.put(queueToSave);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+  }
+
+  async deleteQueue(queueId: string): Promise<void> {
+    const db = await this.ensureDB();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction(['queues'], 'readwrite');
+      const store = transaction.objectStore('queues');
+      const request = store.delete(queueId);
+
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
     });
   }
 }
@@ -563,10 +627,44 @@ class LocalDatabase {
 export const database = new LocalDatabase();
 
 // Inicializar banco de dados quando o módulo for carregado
-database.init().then(() => {
+database.init().then(async () => {
   console.log('Banco de dados inicializado com sucesso!');
   // Migrar dados do localStorage na primeira vez
-  database.migrateFromLocalStorage();
+  await database.migrateFromLocalStorage();
+  
+  // Garantir que as filas padrão existem
+  try {
+    const queues = await database.getQueues();
+    const queueNames = queues.map((q: any) => q.name);
+    
+    // Criar Suporte N1 se não existir
+    if (!queueNames.includes('Suporte N1')) {
+      const suporteN1: Queue = {
+        id: `queue-n1-${Date.now()}`,
+        name: 'Suporte N1',
+        description: 'Fila padrão de suporte nível 1',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await database.saveQueue(suporteN1);
+      console.log('Fila "Suporte N1" criada com sucesso!');
+    }
+    
+    // Criar Suporte N2 se não existir
+    if (!queueNames.includes('Suporte N2')) {
+      const suporteN2: Queue = {
+        id: `queue-n2-${Date.now()}`,
+        name: 'Suporte N2',
+        description: 'Fila de suporte nível 2 (Desenvolvedores)',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      await database.saveQueue(suporteN2);
+      console.log('Fila "Suporte N2" criada com sucesso!');
+    }
+  } catch (error) {
+    console.error('Erro ao verificar/criar filas padrão:', error);
+  }
 }).catch((error) => {
   console.error('Erro ao inicializar banco de dados:', error);
 });

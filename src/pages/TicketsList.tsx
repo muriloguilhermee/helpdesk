@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, Trash2, Edit, HelpCircle, Clock, CheckCircle, X } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -14,8 +14,35 @@ export default function TicketsList() {
   const { tickets, deleteTicket } = useTickets();
   const navigate = useNavigate();
   const [filters, setFilters] = useState<TicketFilters>({});
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(() => {
+    // Carregar busca do localStorage se existir
+    return localStorage.getItem('dashboardSearchQuery') || '';
+  });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  
+  // Sincronizar busca com Header via localStorage
+  useEffect(() => {
+    const handleSearchChange = () => {
+      const stored = localStorage.getItem('dashboardSearchQuery') || '';
+      if (stored !== searchQuery) {
+        setSearchQuery(stored);
+      }
+    };
+    
+    window.addEventListener('dashboardSearchChange', handleSearchChange);
+    // Verificar mudanças periodicamente (para mesma aba)
+    const interval = setInterval(() => {
+      const stored = localStorage.getItem('dashboardSearchQuery') || '';
+      if (stored !== searchQuery) {
+        setSearchQuery(stored);
+      }
+    }, 100);
+    
+    return () => {
+      window.removeEventListener('dashboardSearchChange', handleSearchChange);
+      clearInterval(interval);
+    };
+  }, [searchQuery]);
 
   // Função para capitalizar status corretamente (primeira letra maiúscula, exceto "de")
   const capitalizeStatus = (status: TicketStatus): string => {
@@ -109,47 +136,6 @@ export default function TicketsList() {
 
       {/* Filtros */}
       <div className="flex flex-col md:flex-row gap-4">
-        <div className="flex-1 relative flex gap-2">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Buscar chamados..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              onKeyPress={(e) => {
-                if (e.key === 'Enter') {
-                  e.currentTarget.blur();
-                }
-              }}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-            />
-          </div>
-          <button
-            onClick={() => {
-              // A busca já funciona em tempo real, mas o botão pode ser usado para focar no input
-              const input = document.querySelector('input[type="text"][placeholder*="Buscar chamados"]') as HTMLInputElement;
-              if (input) {
-                input.focus();
-              }
-            }}
-            className="btn-primary flex items-center gap-2 px-4 py-2 whitespace-nowrap"
-            title="Pesquisar"
-          >
-            <Search className="w-5 h-5" />
-            <span className="hidden sm:inline">Pesquisar</span>
-          </button>
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              className="btn-secondary flex items-center gap-2 px-4 py-2 whitespace-nowrap"
-              title="Limpar busca"
-            >
-              <X className="w-5 h-5" />
-              <span className="hidden sm:inline">Limpar</span>
-            </button>
-          )}
-        </div>
         <div className="flex flex-wrap gap-2">
           <select
             value={filters.status || ''}

@@ -1,10 +1,11 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { ArrowLeft, Save, Paperclip, X, File } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
-import { Ticket, TicketPriority, TicketCategory, TicketFile } from '../types';
+import { Ticket, TicketPriority, TicketCategory, TicketFile, Queue } from '../types';
 import { formatFileSize } from '../utils/formatFileSize';
+import { database } from '../services/database';
 
 export default function NewTicket() {
   const navigate = useNavigate();
@@ -19,6 +20,45 @@ export default function NewTicket() {
     priority: 'media' as TicketPriority,
     category: 'suporte' as TicketCategory,
   });
+
+  // Garantir que as filas padrão existem no banco de dados
+  useEffect(() => {
+    const ensureDefaultQueues = async () => {
+      try {
+        await database.init();
+        const queues = await database.getQueues();
+        const queueNames = queues.map((q: Queue) => q.name);
+        
+        // Criar Suporte N1 se não existir
+        if (!queueNames.includes('Suporte N1')) {
+          const suporteN1: Queue = {
+            id: `queue-n1-${Date.now()}`,
+            name: 'Suporte N1',
+            description: 'Fila padrão de suporte nível 1',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          await database.saveQueue(suporteN1);
+        }
+        
+        // Criar Suporte N2 se não existir
+        if (!queueNames.includes('Suporte N2')) {
+          const suporteN2: Queue = {
+            id: `queue-n2-${Date.now()}`,
+            name: 'Suporte N2',
+            description: 'Fila de suporte nível 2 (Desenvolvedores)',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          await database.saveQueue(suporteN2);
+        }
+      } catch (error) {
+        console.error('Erro ao verificar/criar filas padrão:', error);
+      }
+    };
+
+    ensureDefaultQueues();
+  }, []);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -94,6 +134,7 @@ export default function NewTicket() {
         category: formData.category,
         client: user,
         createdBy: user,
+        queue: 'Suporte N1', // Atribuir automaticamente à fila Suporte N1
         createdAt: new Date(),
         updatedAt: new Date(),
         files: ticketFiles.length > 0 ? ticketFiles : undefined,

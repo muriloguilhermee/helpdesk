@@ -15,6 +15,7 @@ import {
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
+import Logo from './Logo';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -102,6 +103,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
+        {/* Logo no topo */}
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <Logo size="md" showText={false} />
+        </div>
+        
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 lg:hidden">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Menu</h2>
           <button
@@ -111,7 +117,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             <X className="w-5 h-5" />
           </button>
         </div>
-        <nav className="p-4 overflow-y-auto" style={{ height: '100vh', overflowY: 'auto' }}>
+        <nav className="p-4 overflow-y-auto" style={{ height: 'calc(100vh - 80px)', overflowY: 'auto' }}>
         <ul className="space-y-2">
           {menuItems.map((item) => {
             const Icon = item.icon;

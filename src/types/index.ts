@@ -64,11 +64,20 @@ export interface Ticket {
   client?: User;
   createdBy: User;
   assignedTo?: User;
+  queue?: string; // Nome da fila do chamado
   createdAt: Date;
   updatedAt: Date;
   comments?: Comment[];
   interactions?: Interaction[]; // Novo sistema de interações
   files?: TicketFile[];
+}
+
+export interface Queue {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Comment {

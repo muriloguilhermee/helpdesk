@@ -8,7 +8,7 @@ import { formatDate } from '../utils/formatDate';
 import { formatFileSize } from '../utils/formatFileSize';
 import { formatCurrency } from '../utils/formatCurrency';
 import { UserAvatar } from '../utils/userAvatar';
-import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType } from '../types';
+import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType, Queue } from '../types';
 import { mockUsers } from '../data/mockData';
 import { database } from '../services/database';
 
@@ -234,6 +234,78 @@ export default function TicketDetails() {
     loadTechnicians();
   }, []);
 
+  // Estado para armazenar filas
+  const [queues, setQueues] = useState<Queue[]>([]);
+
+  // Carregar filas do banco de dados
+  useEffect(() => {
+    const loadQueues = async () => {
+      try {
+        await database.init();
+        const allQueues = await database.getQueues();
+        setQueues(allQueues);
+        
+        // Se não houver filas, garantir que as filas padrão existem
+        if (allQueues.length === 0) {
+          const suporteN1: Queue = {
+            id: `queue-n1-${Date.now()}`,
+            name: 'Suporte N1',
+            description: 'Fila padrão de suporte nível 1',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          const suporteN2: Queue = {
+            id: `queue-n2-${Date.now()}`,
+            name: 'Suporte N2',
+            description: 'Fila de suporte nível 2 (Desenvolvedores)',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+          await database.saveQueue(suporteN1);
+          await database.saveQueue(suporteN2);
+          setQueues([suporteN1, suporteN2]);
+        } else {
+          // Verificar se as filas padrão existem e criar se necessário
+          const queueNames = allQueues.map(q => q.name);
+          const queuesToCreate: Queue[] = [];
+          
+          if (!queueNames.includes('Suporte N1')) {
+            queuesToCreate.push({
+              id: `queue-n1-${Date.now()}`,
+              name: 'Suporte N1',
+              description: 'Fila padrão de suporte nível 1',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+          
+          if (!queueNames.includes('Suporte N2')) {
+            queuesToCreate.push({
+              id: `queue-n2-${Date.now()}`,
+              name: 'Suporte N2',
+              description: 'Fila de suporte nível 2 (Desenvolvedores)',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            });
+          }
+          
+          if (queuesToCreate.length > 0) {
+            for (const queue of queuesToCreate) {
+              await database.saveQueue(queue);
+            }
+            const updatedQueues = await database.getQueues();
+            setQueues(updatedQueues);
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao carregar filas:', error);
+        setQueues([]);
+      }
+    };
+
+    loadQueues();
+  }, []);
+
   // Função para capitalizar status corretamente (primeira letra maiúscula, exceto "de")
   const capitalizeStatus = (status: TicketStatus): string => {
     const label = getStatusLabel(status);
@@ -313,14 +385,8 @@ export default function TicketDetails() {
 
   const handleTransferToQueue = async () => {
     if (ticket && user && selectedQueue) {
-      const currentQueue = ticket.assignedTo?.name || 'Sem atribuição';
-      const queueNames: Record<string, string> = {
-        'n2': 'Suporte N2',
-        'n1': 'Suporte N1',
-        'desenvolvimento': 'Desenvolvimento',
-        'infraestrutura': 'Infraestrutura',
-      };
-      const queueName = queueNames[selectedQueue] || selectedQueue;
+      const currentQueue = ticket.queue || 'Sem atribuição';
+      const queueName = selectedQueue;
       
       // Criar interação de transferência
       const transferInteraction: Interaction = {
@@ -336,6 +402,7 @@ export default function TicketDetails() {
       };
       
       await addInteraction(ticket.id, transferInteraction);
+      updateTicket(ticket.id, { queue: queueName });
       setShowTransferModal(false);
       setSelectedQueue('');
     }
@@ -447,9 +514,9 @@ export default function TicketDetails() {
                 </p>
                 <p className="text-gray-900 dark:text-gray-100">
                   <span className="font-medium text-gray-700 dark:text-gray-300">Fila:</span>{' '}
-                  {ticket.assignedTo ? (
+                  {ticket.queue ? (
                     <span className="text-primary-600 dark:text-primary-400 hover:underline cursor-pointer">
-                      {ticket.assignedTo.name}
+                      {ticket.queue}
                     </span>
                   ) : (
                     'Sem atribuição'
@@ -1236,10 +1303,11 @@ export default function TicketDetails() {
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
                 <option value="">Selecione uma fila</option>
-                <option value="n2">Suporte N2 (Desenvolvedores)</option>
-                <option value="n1">Suporte N1</option>
-                <option value="desenvolvimento">Desenvolvimento</option>
-                <option value="infraestrutura">Infraestrutura</option>
+                {queues.map((queue) => (
+                  <option key={queue.id} value={queue.name}>
+                    {queue.name}
+                  </option>
+                ))}
               </select>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                 O chamado será transferido para a fila selecionada e uma interação será registrada.

@@ -1,27 +1,35 @@
-import { useState } from 'react';
-import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save, DollarSign, Wrench } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save, DollarSign, Wrench, RefreshCw, Send, Filter, Eye, Zap } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
-import { getStatusColor, getPriorityColor } from '../utils/statusColors';
+import { getStatusColor, getPriorityColor, getStatusLabel } from '../utils/statusColors';
 import { formatDate } from '../utils/formatDate';
 import { formatFileSize } from '../utils/formatFileSize';
 import { formatCurrency } from '../utils/formatCurrency';
 import { UserAvatar } from '../utils/userAvatar';
-import { TicketStatus, Comment, TicketCategory, TicketPriority } from '../types';
+import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType } from '../types';
 import { mockUsers } from '../data/mockData';
 
 export default function TicketDetails() {
   const { hasPermission, user } = useAuth();
-  const { tickets, deleteTicket, updateTicket, addComment } = useTickets();
+  const { tickets, deleteTicket, updateTicket, addComment, addInteraction } = useTickets();
   const { id } = useParams();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'interactions' | 'ticket'>('interactions');
+  const [replyText, setReplyText] = useState('');
+  const [showReplyBox, setShowReplyBox] = useState(false);
+  const [interactionOrder, setInteractionOrder] = useState<'asc' | 'desc'>('asc');
+  const [interactionFilter, setInteractionFilter] = useState<'all' | InteractionType>('all');
+  const [viewMode, setViewMode] = useState<'normal' | 'compact'>('normal');
   const [comment, setComment] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [showServiceModal, setShowServiceModal] = useState(false);
   const [showAddValueModal, setShowAddValueModal] = useState(false);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedQueue, setSelectedQueue] = useState<string>('');
   const [selectedStatus, setSelectedStatus] = useState<TicketStatus>('aberto');
   const [selectedTechnician, setSelectedTechnician] = useState<string>('');
   const [serviceType, setServiceType] = useState('');
@@ -29,7 +37,7 @@ export default function TicketDetails() {
   const [integrationValue, setIntegrationValue] = useState('');
   const [newIntegrationValue, setNewIntegrationValue] = useState('');
 
-  const ticket = tickets.find(t => t.id === id);
+  const ticket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
   
   // Verificar se o chamado está fechado (fechado ou resolvido)
   const isClosed = ticket?.status === 'fechado' || ticket?.status === 'resolvido';
@@ -97,6 +105,73 @@ export default function TicketDetails() {
     }
   };
 
+  const handleAddInteraction = async () => {
+    if (replyText.trim() && user && ticket) {
+      const newInteraction: Interaction = {
+        id: `interaction-${Date.now()}`,
+        type: 'user',
+        content: replyText.trim(),
+        author: user,
+        createdAt: new Date(),
+      };
+      await addInteraction(ticket.id, newInteraction);
+      setReplyText('');
+      setShowReplyBox(false);
+    }
+  };
+
+  // Combinar comentários antigos com interações e criar interações iniciais se necessário
+  const allInteractions = useMemo(() => {
+    const interactions: Interaction[] = [];
+    
+    // Adicionar interação inicial do criador do chamado
+    if (ticket) {
+      interactions.push({
+        id: `initial-${ticket.id}`,
+        type: 'user',
+        content: ticket.description,
+        author: ticket.createdBy,
+        createdAt: ticket.createdAt,
+      });
+
+      // Converter comentários antigos para interações
+      if (ticket.comments && ticket.comments.length > 0) {
+        ticket.comments.forEach(comment => {
+          interactions.push({
+            id: comment.id,
+            type: 'user',
+            content: comment.content,
+            author: comment.author,
+            createdAt: comment.createdAt,
+          });
+        });
+      }
+
+      // Adicionar interações do sistema
+      if (ticket.interactions && ticket.interactions.length > 0) {
+        interactions.push(...ticket.interactions);
+      }
+
+      // Adicionar interação do sistema quando status muda
+      // (isso será adicionado quando o status for atualizado)
+    }
+
+    // Ordenar por data
+    return interactions.sort((a, b) => {
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
+      return interactionOrder === 'asc' ? dateA - dateB : dateB - dateA;
+    });
+  }, [ticket, ticket?.interactions, ticket?.comments, interactionOrder]);
+
+  // Filtrar interações
+  const filteredInteractions = useMemo(() => {
+    if (interactionFilter === 'all') {
+      return allInteractions;
+    }
+    return allInteractions.filter(i => i.type === interactionFilter);
+  }, [allInteractions, interactionFilter]);
+
   const handleUpdateStatus = () => {
     if (ticket && selectedStatus) {
       // Se o chamado está fechado/resolvido e o usuário está tentando reabrir, verificar se é admin
@@ -105,6 +180,21 @@ export default function TicketDetails() {
           alert('Apenas administradores podem reabrir chamados fechados.');
           return;
         }
+      }
+      // Criar interação do sistema para mudança de status
+      if (ticket.status !== selectedStatus && user) {
+        const statusInteraction: Interaction = {
+          id: `status-${Date.now()}`,
+          type: 'status_change',
+          content: `Status alterado de "${getStatusLabel(ticket.status)}" para "${getStatusLabel(selectedStatus)}"`,
+          author: user,
+          createdAt: new Date(),
+          metadata: {
+            oldStatus: ticket.status,
+            newStatus: selectedStatus,
+          },
+        };
+        addInteraction(ticket.id, statusInteraction);
       }
       // Manter o status como "resolvido" se selecionado (não mudar para "fechado")
       updateTicket(ticket.id, { status: selectedStatus });
@@ -131,21 +221,115 @@ export default function TicketDetails() {
     u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
   );
   
-  const allTechnicians = customTechnicians;
+  // Ordenar técnicos alfabeticamente
+  const allTechnicians = [...customTechnicians].sort((a: any, b: any) => 
+    a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+  );
+
+  // Função para capitalizar status corretamente (primeira letra maiúscula, exceto "de")
+  const capitalizeStatus = (status: TicketStatus): string => {
+    const label = getStatusLabel(status);
+    return label
+      .split(' ')
+      .map((word, index) => {
+        // Primeira palavra sempre maiúscula, "de" sempre minúscula
+        if (word.toLowerCase() === 'de' && index > 0) {
+          return word.toLowerCase();
+        }
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(' ');
+  };
+
+  // Array de status ordenado alfabeticamente
+  const statusOptions: TicketStatus[] = [
+    'aberto',
+    'aguardando_cliente',
+    'em_andamento',
+    'em_atendimento',
+    'em_fase_de_testes',
+    'fechado',
+    'homologacao',
+    'pendente',
+    'resolvido',
+  ].sort((a, b) => {
+    const labelA = capitalizeStatus(a);
+    const labelB = capitalizeStatus(b);
+    return labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
+  }) as TicketStatus[];
 
   const handleAssignTechnician = () => {
-    if (ticket) {
+    if (ticket && user) {
       if (selectedTechnician) {
         const technician = allTechnicians.find((u: any) => u.id === selectedTechnician);
         if (technician) {
+          // Criar interação do sistema para atribuição
+          const assignmentInteraction: Interaction = {
+            id: `assignment-${Date.now()}`,
+            type: 'assignment',
+            content: ticket.assignedTo 
+              ? `Chamado atribuído de "${ticket.assignedTo.name}" para "${technician.name}"`
+              : `Chamado atribuído para "${technician.name}"`,
+            author: user,
+            createdAt: new Date(),
+            metadata: {
+              previousAssignee: ticket.assignedTo,
+              assignedTo: technician,
+            },
+          };
+          addInteraction(ticket.id, assignmentInteraction);
           updateTicket(ticket.id, { assignedTo: technician });
         }
       } else {
+        // Criar interação do sistema para remoção de atribuição
+        if (ticket.assignedTo) {
+          const unassignmentInteraction: Interaction = {
+            id: `unassignment-${Date.now()}`,
+            type: 'assignment',
+            content: `Atribuição removida de "${ticket.assignedTo.name}"`,
+            author: user,
+            createdAt: new Date(),
+            metadata: {
+              previousAssignee: ticket.assignedTo,
+            },
+          };
+          addInteraction(ticket.id, unassignmentInteraction);
+        }
         // Remover atribuição
         updateTicket(ticket.id, { assignedTo: undefined });
       }
       setShowAssignModal(false);
       setSelectedTechnician('');
+    }
+  };
+
+  const handleTransferToQueue = async () => {
+    if (ticket && user && selectedQueue) {
+      const currentQueue = ticket.assignedTo?.name || 'Sem atribuição';
+      const queueNames: Record<string, string> = {
+        'n2': 'Suporte N2',
+        'n1': 'Suporte N1',
+        'desenvolvimento': 'Desenvolvimento',
+        'infraestrutura': 'Infraestrutura',
+      };
+      const queueName = queueNames[selectedQueue] || selectedQueue;
+      
+      // Criar interação de transferência
+      const transferInteraction: Interaction = {
+        id: `transfer-${Date.now()}`,
+        type: 'queue_transfer',
+        content: `Chamado transferido para fila de ${queueName}`,
+        author: user,
+        createdAt: new Date(),
+        metadata: {
+          fromQueue: currentQueue,
+          toQueue: queueName,
+        },
+      };
+      
+      await addInteraction(ticket.id, transferInteraction);
+      setShowTransferModal(false);
+      setSelectedQueue('');
     }
   };
 
@@ -294,43 +478,246 @@ export default function TicketDetails() {
             </div>
           )}
 
+          {/* Sistema de Abas e Interações */}
           <div className="card dark:bg-gray-800 dark:border-gray-700">
-            <div className="flex items-center gap-2 mb-4">
-              <MessageSquare className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Comentários</h2>
+            {/* Abas */}
+            <div className="flex border-b border-gray-200 dark:border-gray-700 mb-4">
+              <button
+                onClick={() => setActiveTab('interactions')}
+                className={`px-6 py-3 font-medium text-sm transition-colors ${
+                  activeTab === 'interactions'
+                    ? 'text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                INTERAÇÕES
+              </button>
+              <button
+                onClick={() => setActiveTab('ticket')}
+                className={`px-6 py-3 font-medium text-sm transition-colors ${
+                  activeTab === 'ticket'
+                    ? 'text-primary-600 dark:text-primary-400 border-b-2 border-primary-600 dark:border-primary-400'
+                    : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                }`}
+              >
+                CHAMADO
+              </button>
+              <div className="flex-1"></div>
+              <div className="flex items-center px-4 text-sm font-medium text-gray-700 dark:text-gray-300">
+                Chamado #{ticket.id.slice(-5)}
+              </div>
             </div>
 
-            <div className="space-y-4 mb-6">
-              {ticket.comments && ticket.comments.length > 0 ? (
-                ticket.comments.map((comment) => (
-                  <div key={comment.id} className="p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
-                    <div className="flex items-center gap-2 mb-2">
-                      <UserAvatar user={comment.author} size="sm" />
-                      <div>
-                        <p className="font-medium text-gray-900 dark:text-gray-100">{comment.author.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{formatDate(comment.createdAt)}</p>
+            {activeTab === 'interactions' ? (
+              <div className="space-y-4">
+                {/* Barra de Ferramentas */}
+                <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setShowReplyBox(!showReplyBox)}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                  >
+                    <Send className="w-4 h-4" />
+                    Responder
+                  </button>
+                  <select
+                    value={interactionOrder}
+                    onChange={(e) => setInteractionOrder(e.target.value as 'asc' | 'desc')}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  >
+                    <option value="asc">Primeira para última</option>
+                    <option value="desc">Última para primeira</option>
+                  </select>
+                  <select
+                    value={interactionFilter}
+                    onChange={(e) => setInteractionFilter(e.target.value as 'all' | InteractionType)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  >
+                    <option value="all">Todas</option>
+                    <option value="user">Usuários</option>
+                    <option value="system">Sistema</option>
+                    <option value="status_change">Mudanças de Status</option>
+                    <option value="assignment">Atribuições</option>
+                    <option value="queue_transfer">Transferências</option>
+                  </select>
+                  <select
+                    value={viewMode}
+                    onChange={(e) => setViewMode(e.target.value as 'normal' | 'compact')}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  >
+                    <option value="normal">Visão normal</option>
+                    <option value="compact">Visão compacta</option>
+                  </select>
+                </div>
+
+                {/* Resumo do Chamado */}
+                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">Chamado #{ticket.id.slice(-5)}</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Status Atual:</span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
+                          {getStatusLabel(ticket.status).toUpperCase()}
+                        </span>
                       </div>
                     </div>
-                    <p className="text-gray-700 dark:text-gray-300">{comment.content}</p>
+                    <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
+                      <p><strong>Aberto em:</strong> {formatDate(ticket.createdAt)}</p>
+                      <p><strong>Assunto:</strong> {ticket.title}</p>
+                      <p><strong>Criado por:</strong> {ticket.createdBy.name} ({ticket.createdBy.email})</p>
+                      {ticket.assignedTo && (
+                        <p><strong>Fila:</strong> {ticket.assignedTo.name}</p>
+                      )}
+                    </div>
                   </div>
-                ))
-              ) : (
-                <p className="text-gray-500 dark:text-gray-400 text-center py-4">Nenhum comentário ainda</p>
-              )}
-            </div>
+                </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="Adicione um comentário..."
-                rows={3}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-              />
-              <button onClick={handleAddComment} className="btn-primary">
-                Adicionar Comentário
-              </button>
-            </div>
+                {/* Timeline de Interações */}
+                <div className="space-y-4">
+                  {filteredInteractions.length > 0 ? (
+                    filteredInteractions.map((interaction, index) => {
+                      const isSystem = interaction.type === 'system' || interaction.type === 'status_change' || interaction.type === 'assignment';
+                      const isTransfer = interaction.type === 'queue_transfer';
+                      const isCreator = interaction.type === 'user' && interaction.author?.id === ticket.createdBy.id;
+                      
+                      return (
+                        <div key={interaction.id} className="flex gap-4">
+                          <div className="flex-shrink-0">
+                            {isTransfer ? (
+                              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                                <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                              </div>
+                            ) : isSystem ? (
+                              <div className="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                                <RefreshCw className="w-5 h-5 text-green-600 dark:text-green-400" />
+                              </div>
+                            ) : interaction.author ? (
+                              <UserAvatar user={interaction.author} size="md" />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center">
+                                <User className="w-5 h-5 text-gray-500" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="font-medium text-gray-900 dark:text-gray-100">
+                                {isTransfer
+                                  ? 'Analista'
+                                  : isSystem 
+                                    ? 'Sistema' 
+                                    : interaction.author 
+                                      ? interaction.author.name 
+                                      : 'Usuário'}
+                              </span>
+                              {interaction.author && !isSystem && !isTransfer && (
+                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                  ({interaction.author.email})
+                                </span>
+                              )}
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {formatDate(interaction.createdAt)}
+                              </span>
+                            </div>
+                            <div className={`${
+                              isCreator
+                                ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
+                                : isTransfer
+                                  ? 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800'
+                                  : isSystem
+                                    ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
+                                    : 'bg-gray-50 dark:bg-gray-700/50'
+                            } rounded-lg p-3`}>
+                              <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <p className="text-gray-500 dark:text-gray-400 text-center py-8">Nenhuma interação encontrada</p>
+                  )}
+                </div>
+
+                {/* Caixa de Resposta */}
+                {showReplyBox && (
+                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Digite sua resposta..."
+                      rows={4}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                    />
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setShowReplyBox(false);
+                          setReplyText('');
+                        }}
+                        className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleAddInteraction}
+                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+                      >
+                        <Send className="w-4 h-4" />
+                        Enviar
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {ticket.system && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Sistema</h3>
+                    <p className="text-gray-700 dark:text-gray-300">{ticket.system}</p>
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Descrição</h3>
+                  <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{ticket.description}</p>
+                </div>
+                {ticket.files && ticket.files.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 flex items-center gap-2">
+                      <Paperclip className="w-5 h-5" />
+                      Arquivos Anexados ({ticket.files.length})
+                    </h3>
+                    <div className="space-y-2">
+                      {ticket.files.map((file) => (
+                        <div
+                          key={file.id}
+                          className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700"
+                        >
+                          <div className="flex items-center gap-3 flex-1 min-w-0">
+                            <File className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{file.name}</p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</p>
+                            </div>
+                          </div>
+                          {file.data && (
+                            <a
+                              href={file.data}
+                              download={file.name}
+                              className="p-2 text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
+                              title="Download"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -461,6 +848,15 @@ export default function TicketDetails() {
                   Atribuir Técnico
                 </button>
               )}
+              {hasPermission('edit:ticket') && (
+                <button 
+                  onClick={() => setShowTransferModal(true)}
+                  className="w-full btn-secondary flex items-center justify-center gap-2"
+                >
+                  <Zap className="w-4 h-4" />
+                  Transferir para Fila
+                </button>
+              )}
               {hasPermission('edit:ticket') && !isClosed && (
                 <button 
                   onClick={handleCloseTicket}
@@ -545,15 +941,11 @@ export default function TicketDetails() {
                 onChange={(e) => setSelectedStatus(e.target.value as TicketStatus)}
                 className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               >
-                <option value="aberto">Aberto</option>
-                <option value="em_andamento">Em Andamento</option>
-                <option value="em_atendimento">Em Atendimento</option>
-                <option value="pendente">Pendente</option>
-                <option value="aguardando_cliente">Aguardando Cliente</option>
-                <option value="resolvido">Resolvido</option>
-                <option value="em_fase_de_testes">Em fase de testes</option>
-                <option value="homologacao">Homologação</option>
-                <option value="fechado">Fechado</option>
+                {statusOptions.map((status) => (
+                  <option key={status} value={status}>
+                    {capitalizeStatus(status)}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -804,6 +1196,69 @@ export default function TicketDetails() {
               >
                 <Save className="w-5 h-5" />
                 Adicionar Valor
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Transferir para Fila */}
+      {showTransferModal && ticket && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-6 my-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                Transferir para Fila
+              </h2>
+              <button
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setSelectedQueue('');
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Selecionar Fila
+              </label>
+              <select
+                value={selectedQueue}
+                onChange={(e) => setSelectedQueue(e.target.value)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="">Selecione uma fila</option>
+                <option value="n2">Suporte N2 (Desenvolvedores)</option>
+                <option value="n1">Suporte N1</option>
+                <option value="desenvolvimento">Desenvolvimento</option>
+                <option value="infraestrutura">Infraestrutura</option>
+              </select>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                O chamado será transferido para a fila selecionada e uma interação será registrada.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setSelectedQueue('');
+                }}
+                className="btn-secondary"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleTransferToQueue}
+                disabled={!selectedQueue}
+                className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Zap className="w-4 h-4" />
+                Transferir
               </button>
             </div>
           </div>

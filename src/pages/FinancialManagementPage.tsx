@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useEffect } from 'react';
 import { Plus, Save, X, Upload, Download, FileText, Calendar, DollarSign, Trash2, Edit, Search } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useFinancial } from '../contexts/FinancialContext';
@@ -7,6 +7,7 @@ import { formatDate } from '../utils/formatDate';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatFileSize } from '../utils/formatFileSize';
 import { mockUsers } from '../data/mockData';
+import { database } from '../services/database';
 
 export default function FinancialManagementPage() {
   const { user, hasPermission } = useAuth();
@@ -31,23 +32,82 @@ export default function FinancialManagementPage() {
   const [invoiceFile, setInvoiceFile] = useState<TicketFile | null>(null);
   const [receiptFile, setReceiptFile] = useState<TicketFile | null>(null);
 
-  // Buscar todos os usuários para seleção de cliente
-  const allUsers = (() => {
-    const savedUsers = localStorage.getItem('allUsers');
-    if (savedUsers) {
-      try {
-        return JSON.parse(savedUsers);
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  })();
+  // Estado para armazenar clientes
+  const [allClients, setAllClients] = useState<any[]>([]);
 
-  // Filtrar apenas clientes (usuários normais) que foram criados pelo usuário (não mock users)
-  const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-  const customUsers = allUsers.filter((u: any) => !mockUserEmails.has(u.email.toLowerCase()));
-  const clients = customUsers.filter((u: any) => u.role === 'user');
+  // Buscar todos os usuários do banco de dados
+  useEffect(() => {
+    const loadClients = async () => {
+      try {
+        await database.init();
+        const allUsers = await database.getUsers();
+        
+        // Filtrar apenas clientes (usuários normais) que foram criados pelo usuário (não mock users)
+        const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+        const customUsers = allUsers.filter((u: any) => !mockUserEmails.has(u.email.toLowerCase()));
+        const clients = customUsers.filter((u: any) => u.role === 'user');
+        
+        setAllClients(clients);
+      } catch (error) {
+        console.error('Erro ao carregar clientes:', error);
+        setAllClients([]);
+      }
+    };
+
+    loadClients();
+  }, []);
+
+  // Recarregar clientes quando o modal de criar for aberto (para pegar novos usuários)
+  useEffect(() => {
+    if (showCreateModal || showEditModal) {
+      const loadClients = async () => {
+        try {
+          await database.init();
+          const allUsers = await database.getUsers();
+          
+          const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+          const customUsers = allUsers.filter((u: any) => !mockUserEmails.has(u.email.toLowerCase()));
+          const clients = customUsers.filter((u: any) => u.role === 'user');
+          
+          setAllClients(clients);
+        } catch (error) {
+          console.error('Erro ao recarregar clientes:', error);
+        }
+      };
+      
+      loadClients();
+    }
+  }, [showCreateModal, showEditModal]);
+
+  // Agrupar clientes por empresa e ordenar
+  const clientsByCompany = useMemo(() => {
+    return allClients.reduce((acc: Record<string, any[]>, client: any) => {
+      const company = client.company || 'Sem Empresa';
+      if (!acc[company]) {
+        acc[company] = [];
+      }
+      acc[company].push(client);
+      return acc;
+    }, {});
+  }, [allClients]);
+
+  // Ordenar empresas e clientes dentro de cada empresa
+  const sortedCompanies = useMemo(() => {
+    const companies = Object.keys(clientsByCompany).sort((a, b) => 
+      a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })
+    );
+    
+    // Ordenar clientes dentro de cada empresa
+    companies.forEach(company => {
+      clientsByCompany[company].sort((a: any, b: any) => 
+        a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+      );
+    });
+    
+    return companies;
+  }, [clientsByCompany]);
+
+
 
   const filteredTickets = financialTickets.filter((ticket) => {
     if (searchQuery && !ticket.title.toLowerCase().includes(searchQuery.toLowerCase())) {
@@ -93,43 +153,76 @@ export default function FinancialManagementPage() {
     }
   };
 
-  const handleCreateTicket = () => {
-    if (!user || !formData.clientId) return;
+  const handleCreateTicket = async () => {
+    try {
+      if (!user || !formData.clientId) {
+        alert('Por favor, selecione um cliente');
+        return;
+      }
 
-    const client = clients.find((c: any) => c.id === formData.clientId);
-    if (!client) return;
+      if (!formData.title.trim()) {
+        alert('Por favor, preencha o título');
+        return;
+      }
 
-    const newTicket: FinancialTicket = {
-      id: `FT-${Date.now()}`,
-      title: formData.title,
-      description: formData.description || undefined,
-      amount: parseFloat(formData.amount),
-      dueDate: new Date(formData.dueDate),
-      status: formData.status,
-      client: client,
-      createdBy: user,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      invoiceFile: invoiceFile || undefined,
-      receiptFile: receiptFile || undefined,
-      notes: formData.notes || undefined,
-    };
+      const amount = parseFloat(formData.amount);
+      if (!formData.amount || isNaN(amount) || amount <= 0) {
+        alert('Por favor, informe um valor válido');
+        return;
+      }
 
-    addFinancialTicket(newTicket);
-    
-    // Limpar formulário
-    setFormData({
-      title: '',
-      description: '',
-      amount: '',
-      dueDate: '',
-      clientId: '',
-      status: 'pending',
-      notes: '',
-    });
-    setInvoiceFile(null);
-    setReceiptFile(null);
-    setShowCreateModal(false);
+      if (!formData.dueDate) {
+        alert('Por favor, selecione uma data de vencimento');
+        return;
+      }
+
+      const dueDate = new Date(formData.dueDate);
+      if (isNaN(dueDate.getTime())) {
+        alert('Por favor, selecione uma data de vencimento válida');
+        return;
+      }
+
+      const client = allClients.find((c: any) => c.id === formData.clientId);
+      if (!client) {
+        alert('Cliente não encontrado. Por favor, selecione novamente.');
+        return;
+      }
+
+      const newTicket: FinancialTicket = {
+        id: `FT-${Date.now()}`,
+        title: formData.title.trim(),
+        description: formData.description?.trim() || undefined,
+        amount: amount,
+        dueDate: dueDate,
+        status: formData.status,
+        client: client,
+        createdBy: user,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        invoiceFile: invoiceFile || undefined,
+        receiptFile: receiptFile || undefined,
+        notes: formData.notes?.trim() || undefined,
+      };
+
+      await addFinancialTicket(newTicket);
+      
+      // Limpar formulário
+      setFormData({
+        title: '',
+        description: '',
+        amount: '',
+        dueDate: '',
+        clientId: '',
+        status: 'pending',
+        notes: '',
+      });
+      setInvoiceFile(null);
+      setReceiptFile(null);
+      setShowCreateModal(false);
+    } catch (error) {
+      console.error('Erro ao criar ticket financeiro:', error);
+      alert('Erro ao criar ticket financeiro. Por favor, tente novamente.');
+    }
   };
 
   const handleEditClick = (ticket: FinancialTicket) => {
@@ -151,7 +244,7 @@ export default function FinancialManagementPage() {
   const handleUpdateTicket = () => {
     if (!editingTicket || !user) return;
 
-    const client = clients.find((c: any) => c.id === formData.clientId);
+    const client = allClients.find((c: any) => c.id === formData.clientId);
     if (!client) return;
 
     updateFinancialTicket(editingTicket.id, {
@@ -395,12 +488,21 @@ export default function FinancialManagementPage() {
                   required
                 >
                   <option value="">Selecione um cliente</option>
-                  {clients.map((client: any) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name} ({client.email})
-                    </option>
+                  {sortedCompanies.map((company) => (
+                    <optgroup key={company} label={company}>
+                      {clientsByCompany[company].map((client: any) => (
+                        <option key={client.id} value={client.id}>
+                          {client.name} ({client.email})
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
+                {allClients.length === 0 && (
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
+                    Nenhum cliente cadastrado. Cadastre usuários com role "user" primeiro.
+                  </p>
+                )}
               </div>
 
               <div>
@@ -579,6 +681,7 @@ export default function FinancialManagementPage() {
                 Cancelar
               </button>
               <button
+                type="button"
                 onClick={handleCreateTicket}
                 className="btn-primary flex items-center gap-2"
               >
@@ -616,12 +719,21 @@ export default function FinancialManagementPage() {
                   required
                 >
                   <option value="">Selecione um cliente</option>
-                  {clients.map((client: any) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name} ({client.email})
-                    </option>
+                  {sortedCompanies.map((company) => (
+                    <optgroup key={company} label={company}>
+                      {clientsByCompany[company].map((client: any) => (
+                        <option key={client.id} value={client.id}>
+                          {client.name} ({client.email})
+                        </option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
+                {allClients.length === 0 && (
+                  <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-1">
+                    Nenhum cliente cadastrado. Cadastre usuários com role "user" primeiro.
+                  </p>
+                )}
               </div>
 
               <div>

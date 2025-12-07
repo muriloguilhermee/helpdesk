@@ -1,4 +1,5 @@
-import { FinancialTicket, PaymentStatus } from '../../types';
+import { FinancialTicket, PaymentStatus, User } from '../../types';
+import { database } from '../database';
 
 /**
  * Interface para dados recebidos do ERP
@@ -13,6 +14,7 @@ export interface ERPTicketData {
   clientEmail: string;
   clientName: string;
   clientDocument?: string; // CPF/CNPJ
+  clientCompany?: string; // Nome da empresa do cliente
   invoiceNumber?: string; // Número da nota fiscal
   barcode?: string; // Código de barras do boleto
   ourNumber?: string; // Nosso número
@@ -47,28 +49,48 @@ export class ERPService {
     financialTickets: FinancialTicket[],
     addFinancialTicket: (ticket: FinancialTicket) => void,
     updateFinancialTicket: (id: string, updates: Partial<FinancialTicket>) => void,
-    allUsers: any[]
+    allUsers?: any[] // Opcional, agora busca do banco de dados
   ): Promise<{ success: boolean; ticketId?: string; message: string }> {
     try {
       // Buscar ou criar cliente baseado no email
-      let client = allUsers.find((u: any) => 
+      // Primeiro, buscar do banco de dados
+      await database.init();
+      const allUsersFromDB = await database.getUsers();
+      
+      let client = allUsersFromDB.find((u: any) => 
         u.email.toLowerCase() === erpData.clientEmail.toLowerCase() && u.role === 'user'
       );
 
-      // Se não encontrar cliente, criar um novo
+      // Se não encontrar cliente, criar um novo e salvar no banco de dados
       if (!client) {
-        client = {
-          id: `user-${Date.now()}`,
+        // Tentar extrair nome da empresa do nome do cliente ou usar campo específico
+        // Se o nome contém " - " ou " | ", pode ser que a empresa venha separada
+        let companyName = erpData.clientCompany;
+        if (!companyName && erpData.clientName.includes(' - ')) {
+          const parts = erpData.clientName.split(' - ');
+          companyName = parts[0].trim();
+        } else if (!companyName && erpData.clientName.includes(' | ')) {
+          const parts = erpData.clientName.split(' | ');
+          companyName = parts[0].trim();
+        }
+        
+        const newClient: User = {
+          id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: erpData.clientName,
           email: erpData.clientEmail,
           role: 'user',
-          company: erpData.clientDocument || undefined,
+          company: companyName || undefined, // Usar nome da empresa se disponível
         };
-        // Salvar novo usuário
-        const savedUsers = localStorage.getItem('allUsers');
-        const users = savedUsers ? JSON.parse(savedUsers) : [];
-        users.push(client);
-        localStorage.setItem('allUsers', JSON.stringify(users));
+        
+        // Salvar novo usuário no banco de dados
+        try {
+          await database.saveUser(newClient);
+          client = newClient;
+        } catch (error) {
+          console.error('Erro ao salvar novo cliente do ERP:', error);
+          // Em caso de erro, usar o cliente temporário mesmo assim
+          client = newClient;
+        }
       }
 
       // Verificar se já existe ticket com este erpId

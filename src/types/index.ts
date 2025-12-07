@@ -67,6 +67,7 @@ export interface Ticket {
   createdAt: Date;
   updatedAt: Date;
   comments?: Comment[];
+  interactions?: Interaction[]; // Novo sistema de interações
   files?: TicketFile[];
 }
 
@@ -75,6 +76,24 @@ export interface Comment {
   content: string;
   author: User;
   createdAt: Date;
+}
+
+export type InteractionType = 'user' | 'system' | 'status_change' | 'assignment' | 'internal_note' | 'queue_transfer';
+
+export interface Interaction {
+  id: string;
+  type: InteractionType;
+  content: string;
+  author?: User; // Opcional para interações do sistema
+  createdAt: Date;
+  metadata?: {
+    oldStatus?: TicketStatus;
+    newStatus?: TicketStatus;
+    assignedTo?: User;
+    previousAssignee?: User;
+    fromQueue?: string;
+    toQueue?: string;
+  };
 }
 
 export interface TicketFilters {

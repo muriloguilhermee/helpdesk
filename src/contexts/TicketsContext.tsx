@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
-import { Ticket, User, Comment } from '../types';
+import { Ticket, User, Comment, Interaction } from '../types';
 import { mockTickets } from '../data/mockData';
 import { database } from '../services/database';
 
@@ -9,6 +9,7 @@ interface TicketsContextType {
   updateTicket: (id: string, updates: Partial<Ticket>) => void;
   addTicket: (ticket: Ticket) => void;
   addComment: (ticketId: string, comment: Comment) => void;
+  addInteraction: (ticketId: string, interaction: Interaction) => void;
 }
 
 const TicketsContext = createContext<TicketsContextType | undefined>(undefined);
@@ -197,6 +198,29 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     );
   };
 
+  const addInteraction = async (ticketId: string, interaction: Interaction) => {
+    const updatedTickets = tickets.map((ticket) =>
+      ticket.id === ticketId
+        ? {
+            ...ticket,
+            interactions: [...(ticket.interactions || []), interaction],
+            updatedAt: new Date(),
+          }
+        : ticket
+    );
+    setTickets(updatedTickets);
+    
+    // Encontrar o ticket atualizado e salvar no banco
+    const updatedTicket = updatedTickets.find(t => t.id === ticketId);
+    if (updatedTicket) {
+      try {
+        await database.saveTicket(updatedTicket);
+      } catch (error) {
+        console.error('Erro ao salvar interação no banco de dados:', error);
+      }
+    }
+  };
+
   return (
     <TicketsContext.Provider
       value={{
@@ -205,6 +229,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         updateTicket,
         addTicket,
         addComment,
+        addInteraction,
       }}
     >
       {children}

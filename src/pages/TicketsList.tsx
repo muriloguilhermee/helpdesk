@@ -3,7 +3,7 @@ import { Plus, Search, Trash2, Edit, HelpCircle, Clock, CheckCircle, X } from 'l
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
-import { TicketFilters } from '../types';
+import { TicketFilters, TicketStatus } from '../types';
 import { getStatusColor, getStatusLabel, getStatusIcon } from '../utils/statusColors';
 import { formatDateShort } from '../utils/formatDate';
 import { formatCurrency } from '../utils/formatCurrency';
@@ -16,6 +16,38 @@ export default function TicketsList() {
   const [filters, setFilters] = useState<TicketFilters>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+
+  // Função para capitalizar status corretamente (primeira letra maiúscula, exceto "de")
+  const capitalizeStatus = (status: TicketStatus): string => {
+    const label = getStatusLabel(status);
+    return label
+      .split(' ')
+      .map((word, index) => {
+        // Primeira palavra sempre maiúscula, "de" sempre minúscula
+        if (word.toLowerCase() === 'de' && index > 0) {
+          return word.toLowerCase();
+        }
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join(' ');
+  };
+
+  // Array de status ordenado alfabeticamente
+  const statusOptions: TicketStatus[] = [
+    'aberto',
+    'aguardando_cliente',
+    'em_andamento',
+    'em_atendimento',
+    'em_fase_de_testes',
+    'fechado',
+    'homologacao',
+    'pendente',
+    'resolvido',
+  ].sort((a, b) => {
+    const labelA = capitalizeStatus(a);
+    const labelB = capitalizeStatus(b);
+    return labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
+  }) as TicketStatus[];
 
   // Filtrar tickets baseado no role do usuário
   // Usuários veem seus próprios chamados E chamados de melhoria
@@ -125,15 +157,11 @@ export default function TicketsList() {
             onChange={(e) => setFilters({ ...filters, status: e.target.value as any || undefined })}
           >
             <option value="">Todos os status</option>
-            <option value="aberto">Aberto</option>
-            <option value="em_atendimento">Em Atendimento</option>
-            <option value="em_andamento">Em Andamento</option>
-            <option value="pendente">Pendente</option>
-            <option value="aguardando_cliente">Aguardando Cliente</option>
-            <option value="resolvido">Resolvido</option>
-            <option value="em_fase_de_testes">Em fase de testes</option>
-            <option value="homologacao">Homologação</option>
-            <option value="fechado">Fechado</option>
+            {statusOptions.map((status) => (
+              <option key={status} value={status}>
+                {capitalizeStatus(status)}
+              </option>
+            ))}
           </select>
         </div>
       </div>

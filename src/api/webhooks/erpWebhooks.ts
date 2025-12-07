@@ -14,9 +14,10 @@ import { useFinancial } from '../../contexts/FinancialContext';
  *   description?: string,
  *   amount: number,
  *   dueDate: string (ISO),
- *   clientEmail: string,
- *   clientName: string,
- *   clientDocument?: string,
+ *   clientEmail: string, // Email do cliente (usado para buscar/criar usuário)
+ *   clientName: string, // Nome completo do cliente
+ *   clientDocument?: string, // CPF/CNPJ
+ *   clientCompany?: string, // Nome da empresa do cliente (opcional)
  *   invoiceNumber?: string,
  *   barcode?: string,
  *   ourNumber?: string,

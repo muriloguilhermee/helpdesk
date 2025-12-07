@@ -397,33 +397,59 @@ export default function TicketDetails() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <button
-          onClick={() => navigate('/tickets')}
-          className="self-start p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100 break-words">{ticket.title}</h1>
-          {ticket.system && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              <span className="font-medium">Sistema:</span> {ticket.system}
-            </p>
-          )}
-          {ticket.serviceType && (
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">{ticket.serviceType}</p>
-          )}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-2">
-            <span className="text-xs text-primary-600 dark:text-primary-400 font-medium capitalize px-2 py-1 bg-primary-50 dark:bg-primary-900/20 rounded">
-              {ticket.category}
-            </span>
-            <span className={`badge ${getStatusColor(ticket.status)}`}>
-              {ticket.status.replace('_', ' ')}
-            </span>
-            <span className={`badge ${getPriorityColor(ticket.priority)}`}>
-              {ticket.priority}
-            </span>
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <button
+            onClick={() => navigate('/tickets')}
+            className="self-start p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 dark:text-gray-100 break-words">
+              Chamado #{ticket.id.slice(-5)}
+            </h1>
+          </div>
+        </div>
+
+        {/* Informações do Chamado */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+              <Zap className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+            </div>
+            <div className="flex-1">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                Chamado #{ticket.id.slice(-5)}
+              </h3>
+              <div className="space-y-2 text-sm">
+                <p className="text-gray-900 dark:text-gray-100">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Aberto em:</span> {formatDate(ticket.createdAt)}
+                </p>
+                <p className="text-gray-900 dark:text-gray-100">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Assunto:</span> {ticket.title}
+                </p>
+                <p className="text-gray-900 dark:text-gray-100">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Criado por:</span> {ticket.createdBy.name} ({ticket.createdBy.email})
+                </p>
+                <p className="text-gray-900 dark:text-gray-100">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Fila:</span>{' '}
+                  {ticket.assignedTo ? (
+                    <span className="text-primary-600 dark:text-primary-400 hover:underline cursor-pointer">
+                      {ticket.assignedTo.name}
+                    </span>
+                  ) : (
+                    'Sem atribuição'
+                  )}
+                </p>
+                <p className="text-gray-900 dark:text-gray-100 flex items-center gap-2">
+                  <span className="font-medium text-gray-700 dark:text-gray-300">Status Atual:</span>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
+                    {getStatusLabel(ticket.status).toUpperCase()}
+                  </span>
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -547,29 +573,6 @@ export default function TicketDetails() {
                     <option value="normal">Visão normal</option>
                     <option value="compact">Visão compacta</option>
                   </select>
-                </div>
-
-                {/* Resumo do Chamado */}
-                <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mb-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <h3 className="font-semibold text-gray-900 dark:text-gray-100">Chamado #{ticket.id.slice(-5)}</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">Status Atual:</span>
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(ticket.status)}`}>
-                          {getStatusLabel(ticket.status).toUpperCase()}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-sm text-gray-700 dark:text-gray-300 space-y-1">
-                      <p><strong>Aberto em:</strong> {formatDate(ticket.createdAt)}</p>
-                      <p><strong>Assunto:</strong> {ticket.title}</p>
-                      <p><strong>Criado por:</strong> {ticket.createdBy.name} ({ticket.createdBy.email})</p>
-                      {ticket.assignedTo && (
-                        <p><strong>Fila:</strong> {ticket.assignedTo.name}</p>
-                      )}
-                    </div>
-                  </div>
                 </div>
 
                 {/* Timeline de Interações */}

@@ -181,6 +181,7 @@ export default function ReportsPage() {
     em_andamento: 'Em Andamento',
     em_atendimento: 'Em Atendimento',
     pendente: 'Pendente',
+    aguardando_cliente: 'Aguardando Cliente',
     resolvido: 'Resolvido',
     fechado: 'Fechado',
     em_fase_de_testes: 'Em fase de testes',
@@ -191,6 +192,7 @@ export default function ReportsPage() {
     em_andamento: '#f59e0b', // amber
     em_atendimento: '#3b82f6', // blue
     pendente: '#f97316', // orange
+    aguardando_cliente: '#fbbf24', // amber-400
     resolvido: '#10b981', // green
     fechado: '#6b7280', // gray
     em_fase_de_testes: '#8b5cf6', // purple

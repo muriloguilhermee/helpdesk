@@ -377,3 +377,4 @@ CMD ["node", "server.js"]
 
 **Nota**: Esta é uma implementação de referência. Adapte conforme sua stack tecnológica e necessidades específicas.
 
+

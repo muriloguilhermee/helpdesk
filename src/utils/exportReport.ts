@@ -309,3 +309,4 @@ export async function exportToPDF(
   doc.save(`relatorio-chamados-${new Date().toISOString().split('T')[0]}.pdf`);
 }
 
+

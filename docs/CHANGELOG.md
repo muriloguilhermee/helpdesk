@@ -159,3 +159,4 @@ O banco de dados IndexedDB usa a seguinte estrutura:
 
 **Última atualização**: Dezembro 2024
 
+

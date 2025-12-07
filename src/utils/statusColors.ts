@@ -11,6 +11,7 @@ export const getStatusColor = (status: TicketStatus): string => {
     fechado: 'bg-gray-100 text-gray-800',
     em_fase_de_testes: 'bg-purple-50 text-purple-700 border border-purple-200',
     homologacao: 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+    aguardando_cliente: 'bg-amber-50 text-amber-700 border border-amber-200',
   };
   return colors[status] || 'bg-gray-100 text-gray-800';
 };
@@ -25,6 +26,7 @@ export const getStatusLabel = (status: TicketStatus): string => {
     fechado: 'Fechado',
     em_fase_de_testes: 'Em fase de testes',
     homologacao: 'Homologação',
+    aguardando_cliente: 'Aguardando Cliente',
   };
   return labels[status] || status;
 };

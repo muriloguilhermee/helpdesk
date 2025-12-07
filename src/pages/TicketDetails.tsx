@@ -549,6 +549,7 @@ export default function TicketDetails() {
                 <option value="em_andamento">Em Andamento</option>
                 <option value="em_atendimento">Em Atendimento</option>
                 <option value="pendente">Pendente</option>
+                <option value="aguardando_cliente">Aguardando Cliente</option>
                 <option value="resolvido">Resolvido</option>
                 <option value="em_fase_de_testes">Em fase de testes</option>
                 <option value="homologacao">Homologação</option>

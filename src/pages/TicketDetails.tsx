@@ -423,6 +423,11 @@ export default function TicketDetails() {
                 Chamado #{ticket.id.slice(-5)}
               </h3>
               <div className="space-y-2 text-sm">
+                {ticket.system && (
+                  <p className="text-gray-900 dark:text-gray-100">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">Sistema:</span> {ticket.system}
+                  </p>
+                )}
                 <p className="text-gray-900 dark:text-gray-100">
                   <span className="font-medium text-gray-700 dark:text-gray-300">Aberto em:</span> {formatDate(ticket.createdAt)}
                 </p>
@@ -456,12 +461,6 @@ export default function TicketDetails() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {ticket.system && (
-            <div className="card dark:bg-gray-800 dark:border-gray-700">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-2">Sistema</h2>
-              <p className="text-gray-700 dark:text-gray-300">{ticket.system}</p>
-            </div>
-          )}
           <div className="card dark:bg-gray-800 dark:border-gray-700">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Descrição</h2>
             <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{ticket.description}</p>
@@ -675,12 +674,6 @@ export default function TicketDetails() {
               </div>
             ) : (
               <div className="space-y-6">
-                {ticket.system && (
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Sistema</h3>
-                    <p className="text-gray-700 dark:text-gray-300">{ticket.system}</p>
-                  </div>
-                )}
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">Descrição</h3>
                   <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{ticket.description}</p>

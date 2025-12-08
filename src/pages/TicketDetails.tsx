@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save, DollarSign, Wrench, RefreshCw, Send, Filter, Eye, Zap, CheckCircle } from 'lucide-react';
+import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save, DollarSign, Wrench, RefreshCw, Send, Filter, Eye, Zap, CheckCircle, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
@@ -40,6 +40,8 @@ export default function TicketDetails() {
   const [integrationValue, setIntegrationValue] = useState('');
   const [newIntegrationValue, setNewIntegrationValue] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [showFileViewer, setShowFileViewer] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<TicketFile | null>(null);
 
   const ticket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
   
@@ -620,30 +622,63 @@ export default function TicketDetails() {
                 <span className="text-sm text-gray-500 dark:text-gray-400">({ticket.files.length})</span>
               </div>
               <div className="space-y-2">
-                {ticket.files.map((file) => (
-                  <div
-                    key={file.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <File className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{file.name}</p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</p>
+                {ticket.files.map((file) => {
+                  const isImage = file.type?.startsWith('image/');
+                  const isPdf = file.type === 'application/pdf';
+                  const canPreview = isImage || isPdf;
+                  
+                  return (
+                    <div
+                      key={file.id}
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        {isImage ? (
+                          <img 
+                            src={file.data} 
+                            alt={file.name}
+                            className="w-10 h-10 object-cover rounded flex-shrink-0 cursor-pointer"
+                            loading="lazy"
+                            onClick={() => {
+                              setSelectedFile(file);
+                              setShowFileViewer(true);
+                            }}
+                          />
+                        ) : (
+                          <File className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{file.name}</p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {canPreview && (
+                          <button
+                            onClick={() => {
+                              setSelectedFile(file);
+                              setShowFileViewer(true);
+                            }}
+                            className="p-2 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                            title="Visualizar arquivo"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                        )}
+                        {file.data && (
+                          <a
+                            href={file.data}
+                            download={file.name}
+                            className="p-2 text-primary-600 hover:text-primary-700 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                            title="Baixar arquivo"
+                          >
+                            <Download className="w-4 h-4" />
+                          </a>
+                        )}
                       </div>
                     </div>
-                    {file.data && (
-                      <a
-                        href={file.data}
-                        download={file.name}
-                        className="p-2 text-primary-600 hover:text-primary-700 hover:bg-primary-50 rounded-lg transition-colors"
-                        title="Download"
-                      >
-                        <Download className="w-4 h-4" />
-                      </a>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -787,26 +822,61 @@ export default function TicketDetails() {
                                     </span>
                                   </div>
                                   <div className="space-y-2">
-                                    {interaction.files.map((file) => (
-                                      <div
-                                        key={file.id}
-                                        className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
-                                      >
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                          <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{file.name}</span>
-                                          <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
-                                        </div>
-                                        <a
-                                          href={file.data}
-                                          download={file.name}
-                                          className="p-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
-                                          title="Baixar arquivo"
+                                    {interaction.files.map((file) => {
+                                      const isImage = file.type?.startsWith('image/');
+                                      const isPdf = file.type === 'application/pdf';
+                                      const canPreview = isImage || isPdf;
+                                      
+                                      return (
+                                        <div
+                                          key={file.id}
+                                          className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                         >
-                                          <Download className="w-4 h-4" />
-                                        </a>
-                                      </div>
-                                    ))}
+                                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            {isImage ? (
+                                              <img 
+                                                src={file.data} 
+                                                alt={file.name}
+                                                className="w-8 h-8 object-cover rounded flex-shrink-0 cursor-pointer"
+                                                loading="lazy"
+                                                onClick={() => {
+                                                  setSelectedFile(file);
+                                                  setShowFileViewer(true);
+                                                }}
+                                              />
+                                            ) : (
+                                              <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                            )}
+                                            <div className="flex-1 min-w-0">
+                                              <span className="text-sm text-gray-700 dark:text-gray-300 truncate block">{file.name}</span>
+                                              <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
+                                            </div>
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            {canPreview && (
+                                              <button
+                                                onClick={() => {
+                                                  setSelectedFile(file);
+                                                  setShowFileViewer(true);
+                                                }}
+                                                className="p-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                                                title="Visualizar arquivo"
+                                              >
+                                                <Eye className="w-4 h-4" />
+                                              </button>
+                                            )}
+                                            <a
+                                              href={file.data}
+                                              download={file.name}
+                                              className="p-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+                                              title="Baixar arquivo"
+                                            >
+                                              <Download className="w-4 h-4" />
+                                            </a>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                   </div>
                                 </div>
                               )}
@@ -1483,6 +1553,68 @@ export default function TicketDetails() {
                 <Zap className="w-4 h-4" />
                 Transferir
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Visualização de Arquivo */}
+      {showFileViewer && selectedFile && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={() => setShowFileViewer(false)}>
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-6xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <File className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">{selectedFile.name}</h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{formatFileSize(selectedFile.size)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={selectedFile.data}
+                  download={selectedFile.name}
+                  className="p-2 text-primary-600 dark:text-primary-400 hover:bg-primary-50 dark:hover:bg-primary-900/20 rounded-lg transition-colors"
+                  title="Baixar arquivo"
+                >
+                  <Download className="w-5 h-5" />
+                </a>
+                <button
+                  onClick={() => setShowFileViewer(false)}
+                  className="p-2 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+              {selectedFile.type?.startsWith('image/') ? (
+                <img 
+                  src={selectedFile.data} 
+                  alt={selectedFile.name}
+                  className="max-w-full max-h-full object-contain rounded-lg"
+                  loading="eager"
+                />
+              ) : selectedFile.type === 'application/pdf' ? (
+                <iframe
+                  src={selectedFile.data}
+                  className="w-full h-full min-h-[600px] rounded-lg border border-gray-200 dark:border-gray-700"
+                  title={selectedFile.name}
+                />
+              ) : (
+                <div className="text-center py-12">
+                  <File className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">Visualização não disponível para este tipo de arquivo</p>
+                  <a
+                    href={selectedFile.data}
+                    download={selectedFile.name}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                  >
+                    <Download className="w-4 h-4" />
+                    Baixar arquivo
+                  </a>
+                </div>
+              )}
             </div>
           </div>
         </div>

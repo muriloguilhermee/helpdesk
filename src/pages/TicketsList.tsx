@@ -93,18 +93,25 @@ export default function TicketsList() {
   }
   // Admins veem todos os chamados (availableTickets = tickets)
 
-  const filteredTickets = availableTickets.filter((ticket) => {
-    if (filters.status && ticket.status !== filters.status) return false;
-    if (filters.priority && ticket.priority !== filters.priority) return false;
-    if (filters.category && ticket.category !== filters.category) return false;
-    if (searchQuery && searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      const titleMatch = ticket.title?.toLowerCase().includes(query) || false;
-      const descriptionMatch = ticket.description?.toLowerCase().includes(query) || false;
-      if (!titleMatch && !descriptionMatch) return false;
-    }
-    return true;
-  });
+  const filteredTickets = availableTickets
+    .filter((ticket) => {
+      if (filters.status && ticket.status !== filters.status) return false;
+      if (filters.priority && ticket.priority !== filters.priority) return false;
+      if (filters.category && ticket.category !== filters.category) return false;
+      if (searchQuery && searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const titleMatch = ticket.title?.toLowerCase().includes(query) || false;
+        const descriptionMatch = ticket.description?.toLowerCase().includes(query) || false;
+        if (!titleMatch && !descriptionMatch) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      // Ordenar por data de atualização (mais recentes primeiro)
+      const dateA = new Date(a.updatedAt).getTime();
+      const dateB = new Date(b.updatedAt).getTime();
+      return dateB - dateA; // Decrescente (mais recente primeiro)
+    });
 
   const handleDeleteClick = (e: React.MouseEvent, ticketId: string) => {
     e.preventDefault();

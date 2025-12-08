@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react';
-import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save, DollarSign, Wrench, RefreshCw, Send, Filter, Eye, Zap } from 'lucide-react';
+import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save, DollarSign, Wrench, RefreshCw, Send, Filter, Eye, Zap, CheckCircle } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
@@ -37,6 +37,7 @@ export default function TicketDetails() {
   const [totalValue, setTotalValue] = useState('');
   const [integrationValue, setIntegrationValue] = useState('');
   const [newIntegrationValue, setNewIntegrationValue] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const ticket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
   
@@ -118,6 +119,8 @@ export default function TicketDetails() {
       await addInteraction(ticket.id, newInteraction);
       setReplyText('');
       setShowReplyBox(false);
+      setSuccessMessage('Resposta enviada com sucesso!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
@@ -200,37 +203,40 @@ export default function TicketDetails() {
       // Manter o status como "resolvido" se selecionado (não mudar para "fechado")
       updateTicket(ticket.id, { status: selectedStatus });
       setShowStatusModal(false);
+      setSuccessMessage('Status atualizado com sucesso!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
   // Estado para armazenar técnicos
   const [allTechnicians, setAllTechnicians] = useState<any[]>([]);
 
-  // Carregar técnicos do banco de dados
-  useEffect(() => {
-    const loadTechnicians = async () => {
-      try {
-        await database.init();
-        const allUsers = await database.getUsers();
-        
-        // Filtrar apenas técnicos que NÃO são mockados
-        const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-        const customTechnicians = allUsers.filter((u: any) => 
-          u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
-        );
-        
-        // Ordenar técnicos alfabeticamente
-        const sortedTechnicians = [...customTechnicians].sort((a: any, b: any) => 
-          a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
-        );
-        
-        setAllTechnicians(sortedTechnicians);
-      } catch (error) {
-        console.error('Erro ao carregar técnicos:', error);
-        setAllTechnicians([]);
-      }
-    };
+  // Função para carregar técnicos do banco de dados
+  const loadTechnicians = async () => {
+    try {
+      await database.init();
+      const allUsers = await database.getUsers();
+      
+      // Filtrar apenas técnicos que NÃO são mockados
+      const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+      const customTechnicians = allUsers.filter((u: any) => 
+        u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
+      );
+      
+      // Ordenar técnicos alfabeticamente
+      const sortedTechnicians = [...customTechnicians].sort((a: any, b: any) => 
+        a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
+      );
+      
+      setAllTechnicians(sortedTechnicians);
+    } catch (error) {
+      console.error('Erro ao carregar técnicos:', error);
+      setAllTechnicians([]);
+    }
+  };
 
+  // Carregar técnicos quando o componente é montado
+  useEffect(() => {
     loadTechnicians();
   }, []);
 
@@ -332,7 +338,7 @@ export default function TicketDetails() {
     'homologacao',
     'pendente',
     'resolvido',
-  ].sort((a, b) => {
+  ].sort((a: TicketStatus, b: TicketStatus) => {
     const labelA = capitalizeStatus(a);
     const labelB = capitalizeStatus(b);
     return labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
@@ -359,6 +365,7 @@ export default function TicketDetails() {
           };
           addInteraction(ticket.id, assignmentInteraction);
           updateTicket(ticket.id, { assignedTo: technician });
+          setSuccessMessage('Técnico atribuído com sucesso!');
         }
       } else {
         // Criar interação do sistema para remoção de atribuição
@@ -377,9 +384,11 @@ export default function TicketDetails() {
         }
         // Remover atribuição
         updateTicket(ticket.id, { assignedTo: undefined });
+        setSuccessMessage('Atribuição removida com sucesso!');
       }
       setShowAssignModal(false);
       setSelectedTechnician('');
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
@@ -405,12 +414,16 @@ export default function TicketDetails() {
       updateTicket(ticket.id, { queue: queueName });
       setShowTransferModal(false);
       setSelectedQueue('');
+      setSuccessMessage('Chamado transferido com sucesso!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
   const handleCloseTicket = () => {
     if (ticket) {
       updateTicket(ticket.id, { status: 'fechado' });
+      setSuccessMessage('Chamado fechado com sucesso!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
@@ -434,6 +447,8 @@ export default function TicketDetails() {
       setServiceType('');
       setTotalValue('');
       setIntegrationValue('');
+      setSuccessMessage('Serviço e valor atualizados com sucesso!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
@@ -460,6 +475,8 @@ export default function TicketDetails() {
       });
       setShowAddValueModal(false);
       setNewIntegrationValue('');
+      setSuccessMessage('Valor de integração atualizado com sucesso!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
@@ -472,6 +489,14 @@ export default function TicketDetails() {
 
   return (
     <div className="space-y-6">
+      {/* Mensagem de sucesso */}
+      {successMessage && (
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" />
+          <span className="text-sm font-medium">{successMessage}</span>
+        </div>
+      )}
+
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
           <button
@@ -908,8 +933,10 @@ export default function TicketDetails() {
               )}
               {hasPermission('assign:ticket') && (
                 <button 
-                  onClick={() => {
+                  onClick={async () => {
                     if (ticket) {
+                      // Recarregar técnicos antes de abrir o modal
+                      await loadTechnicians();
                       setSelectedTechnician(ticket.assignedTo?.id || '');
                       setShowAssignModal(true);
                     }

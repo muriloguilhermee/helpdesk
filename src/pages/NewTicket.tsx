@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Save, Paperclip, X, File } from 'lucide-react';
+import { ArrowLeft, Save, Paperclip, X, File, CheckCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
@@ -13,6 +13,7 @@ export default function NewTicket() {
   const { tickets, addTicket } = useTickets();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [successMessage, setSuccessMessage] = useState('');
   const [formData, setFormData] = useState({
     title: '',
     system: '',
@@ -146,8 +147,13 @@ export default function NewTicket() {
       // Aguardar um pouco para garantir que o salvamento foi concluído
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Redirecionar para a lista de chamados
-      navigate('/tickets');
+      // Mostrar mensagem de sucesso
+      setSuccessMessage('Chamado criado com sucesso!');
+      
+      // Redirecionar para a lista de chamados após 1 segundo
+      setTimeout(() => {
+        navigate('/tickets');
+      }, 1000);
     } catch (error) {
       console.error('Erro ao criar chamado:', error);
       alert('Erro ao criar chamado. Por favor, tente novamente.');
@@ -156,6 +162,14 @@ export default function NewTicket() {
 
   return (
     <div className="space-y-6">
+      {/* Mensagem de sucesso */}
+      {successMessage && (
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" />
+          <span className="text-sm font-medium">{successMessage}</span>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <button
           onClick={() => navigate('/tickets')}

@@ -457,8 +457,16 @@ export default function TicketDetails() {
         },
       };
       
-      await addInteraction(ticket.id, transferInteraction);
-      updateTicket(ticket.id, { queue: queueName });
+      // Adicionar interação e atualizar fila em uma única operação
+      // Primeiro adicionamos a interação ao array existente
+      const updatedInteractions = [...(ticket.interactions || []), transferInteraction];
+      
+      // Atualizar o ticket com a nova interação e a nova fila
+      await updateTicket(ticket.id, { 
+        queue: queueName,
+        interactions: updatedInteractions
+      });
+      
       setShowTransferModal(false);
       setSelectedQueue('');
       setSuccessMessage('Chamado transferido com sucesso!');
@@ -762,11 +770,15 @@ export default function TicketDetails() {
                       const isTransfer = interaction.type === 'queue_transfer';
                       const isCreator = interaction.type === 'user' && interaction.author?.id === ticket.createdBy.id;
                       
+                      // Extrair nome da fila do conteúdo da transferência
+                      const queueNameMatch = isTransfer ? interaction.content.match(/fila de (.+)/i) : null;
+                      const queueName = queueNameMatch ? queueNameMatch[1] : null;
+                      
                       return (
                         <div key={interaction.id} className="flex gap-4">
                           <div className="flex-shrink-0">
                             {isTransfer ? (
-                              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                              <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center border-2 border-purple-300 dark:border-purple-700 shadow-sm">
                                 <Zap className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                               </div>
                             ) : isSystem ? (
@@ -785,14 +797,14 @@ export default function TicketDetails() {
                             <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className="font-medium text-gray-900 dark:text-gray-100">
                                 {isTransfer
-                                  ? 'Analista'
+                                  ? interaction.author ? interaction.author.name : 'Analista'
                                   : isSystem 
                                     ? 'Sistema' 
                                     : interaction.author 
                                       ? interaction.author.name 
                                       : 'Usuário'}
                               </span>
-                              {interaction.author && !isSystem && !isTransfer && (
+                              {interaction.author && !isSystem && (
                                 <span className="text-xs text-gray-500 dark:text-gray-400">
                                   ({interaction.author.email})
                                 </span>
@@ -810,7 +822,14 @@ export default function TicketDetails() {
                                     ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
                                     : 'bg-gray-50 dark:bg-gray-700/50'
                             } rounded-lg p-3`}>
-                              <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>
+                              {isTransfer && queueName ? (
+                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                  {interaction.content.replace(queueName, '').trim()}{' '}
+                                  <span className="text-purple-600 dark:text-purple-400 font-semibold">{queueName}</span>
+                                </p>
+                              ) : (
+                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>
+                              )}
                               
                               {/* Exibir arquivos anexados */}
                               {interaction.files && interaction.files.length > 0 && (

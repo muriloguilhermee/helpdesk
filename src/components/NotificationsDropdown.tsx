@@ -1,11 +1,15 @@
 import { Bell, X, CheckCheck, Trash2, Ticket, User as UserIcon, LogIn, LogOut, MessageSquare, UserCheck } from 'lucide-react';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useNotifications } from '../contexts/NotificationsContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { formatDate } from '../utils/formatDate';
+import { useTickets } from '../contexts/TicketsContext';
 
 export default function NotificationsDropdown() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, clearAll } = useNotifications();
+  const { user } = useAuth();
+  const { tickets } = useTickets();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
@@ -44,6 +48,53 @@ export default function NotificationsDropdown() {
     }
   };
 
+  // Filtrar notificações baseado no usuário logado
+  const filteredNotifications = useMemo(() => {
+    if (!user) return [];
+    
+    // Admin vê todas as notificações
+    if (user.role === 'admin') {
+      return notifications;
+    }
+    
+    return notifications.filter(notification => {
+      // Notificações de login/logout sempre aparecem
+      if (notification.type === 'login' || notification.type === 'logout') {
+        return notification.userId === user.id;
+      }
+      
+      // Para notificações de tickets, verificar se o usuário está relacionado
+      if (notification.ticketId) {
+        const ticket = tickets.find(t => t.id === notification.ticketId);
+        if (!ticket) return false;
+        
+        // Usuário comum: apenas seus próprios tickets
+        if (user.role === 'user') {
+          return ticket.createdBy.id === user.id || ticket.client?.id === user.id;
+        }
+        
+        // Técnico: tickets atribuídos a ele ou não atribuídos
+        if (user.role === 'technician') {
+          const isAssignedToMe = ticket.assignedTo?.id === user.id;
+          const isNotAssigned = !ticket.assignedTo;
+          const isMyTicket = ticket.createdBy.id === user.id;
+          
+          // Notificação de atribuição: apenas se foi atribuído a ele
+          if (notification.type === 'ticket_assigned') {
+            return notification.userId === user.id;
+          }
+          
+          // Outras notificações: se está atribuído a ele ou não atribuído
+          return isAssignedToMe || isNotAssigned || isMyTicket;
+        }
+      }
+      
+      return false;
+    });
+  }, [notifications, user, tickets]);
+
+  const filteredUnreadCount = filteredNotifications.filter(n => !n.read).length;
+
   const handleNotificationClick = (notification: any) => {
     markAsRead(notification.id);
     if (notification.ticketId) {
@@ -59,12 +110,12 @@ export default function NotificationsDropdown() {
         className="relative p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
       >
         <Bell className="w-5 h-5" />
-        {unreadCount > 0 && (
+        {filteredUnreadCount > 0 && (
           <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
         )}
-        {unreadCount > 0 && (
+        {filteredUnreadCount > 0 && (
           <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-            {unreadCount > 9 ? '9+' : unreadCount}
+            {filteredUnreadCount > 9 ? '9+' : filteredUnreadCount}
           </span>
         )}
       </button>
@@ -74,14 +125,14 @@ export default function NotificationsDropdown() {
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Notificações
-              {unreadCount > 0 && (
+              {filteredUnreadCount > 0 && (
                 <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
-                  ({unreadCount} não lidas)
+                  ({filteredUnreadCount} não lidas)
                 </span>
               )}
             </h3>
             <div className="flex items-center gap-2">
-              {unreadCount > 0 && (
+              {filteredUnreadCount > 0 && (
                 <button
                   onClick={markAllAsRead}
                   className="p-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
@@ -90,7 +141,7 @@ export default function NotificationsDropdown() {
                   <CheckCheck className="w-4 h-4" />
                 </button>
               )}
-              {notifications.length > 0 && (
+              {filteredNotifications.length > 0 && (
                 <button
                   onClick={clearAll}
                   className="p-1 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
@@ -109,14 +160,14 @@ export default function NotificationsDropdown() {
           </div>
 
           <div className="overflow-y-auto flex-1">
-            {notifications.length === 0 ? (
+            {filteredNotifications.length === 0 ? (
               <div className="p-8 text-center">
                 <Bell className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
                 <p className="text-gray-500 dark:text-gray-400">Nenhuma notificação</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {notifications.map((notification) => (
+                {filteredNotifications.map((notification) => (
                   <div
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}

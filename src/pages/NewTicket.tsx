@@ -109,6 +109,12 @@ export default function NewTicket() {
       return;
     }
 
+    // Validar campo sistema obrigatório
+    if (!formData.system || formData.system.trim() === '') {
+      alert('Por favor, selecione o sistema.');
+      return;
+    }
+
     try {
       // Gerar ID no formato 00001, 00002, etc.
       const existingIds = tickets.map(t => {
@@ -128,7 +134,7 @@ export default function NewTicket() {
       const newTicket: Ticket = {
         id: ticketId,
         title: formData.title,
-        system: formData.system || undefined,
+        system: formData.system,
         description: formData.description,
         status: 'aberto',
         priority: formData.priority,
@@ -187,7 +193,7 @@ export default function NewTicket() {
         <div className="space-y-6">
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Título do Chamado
+              Título do Chamado <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
@@ -202,10 +208,11 @@ export default function NewTicket() {
 
           <div>
             <label htmlFor="system" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Sistema
+              Sistema <span className="text-red-500">*</span>
             </label>
             <select
               id="system"
+              required
               value={formData.system}
               onChange={(e) => setFormData({ ...formData, system: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
@@ -219,7 +226,7 @@ export default function NewTicket() {
 
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Descrição
+              Descrição <span className="text-red-500">*</span>
             </label>
             <textarea
               id="description"

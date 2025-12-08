@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save, DollarSign, Wrench, RefreshCw, Send, Filter, Eye, Zap, CheckCircle } from 'lucide-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -8,7 +8,7 @@ import { formatDate } from '../utils/formatDate';
 import { formatFileSize } from '../utils/formatFileSize';
 import { formatCurrency } from '../utils/formatCurrency';
 import { UserAvatar } from '../utils/userAvatar';
-import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType, Queue } from '../types';
+import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType, Queue, TicketFile } from '../types';
 import { mockUsers } from '../data/mockData';
 import { database } from '../services/database';
 
@@ -20,6 +20,8 @@ export default function TicketDetails() {
   const [activeTab, setActiveTab] = useState<'interactions' | 'ticket'>('interactions');
   const [replyText, setReplyText] = useState('');
   const [showReplyBox, setShowReplyBox] = useState(false);
+  const [replyFiles, setReplyFiles] = useState<File[]>([]);
+  const replyFileInputRef = useRef<HTMLInputElement>(null);
   const [interactionOrder, setInteractionOrder] = useState<'asc' | 'desc'>('asc');
   const [interactionFilter, setInteractionFilter] = useState<'all' | InteractionType>('all');
   const [viewMode, setViewMode] = useState<'normal' | 'compact'>('normal');
@@ -107,17 +109,60 @@ export default function TicketDetails() {
     }
   };
 
+  // Função para converter arquivo para TicketFile
+  const convertFileToTicketFile = async (file: File, index: number): Promise<TicketFile> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        resolve({
+          id: `file-${Date.now()}-${index}`,
+          name: file.name,
+          size: file.size,
+          type: file.type,
+          data: reader.result as string, // Base64
+        });
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleReplyFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    const remainingSlots = 10 - replyFiles.length;
+    if (files.length > remainingSlots) {
+      alert(`Você pode anexar no máximo 10 arquivos. Você já tem ${replyFiles.length} arquivo(s) selecionado(s).`);
+      return;
+    }
+    setReplyFiles([...replyFiles, ...files.slice(0, remainingSlots)]);
+    if (replyFileInputRef.current) {
+      replyFileInputRef.current.value = '';
+    }
+  };
+
+  const handleRemoveReplyFile = (index: number) => {
+    setReplyFiles(replyFiles.filter((_, i) => i !== index));
+  };
+
   const handleAddInteraction = async () => {
-    if (replyText.trim() && user && ticket) {
+    if ((replyText.trim() || replyFiles.length > 0) && user && ticket) {
+      // Converter arquivos
+      const interactionFiles: TicketFile[] = [];
+      for (let i = 0; i < replyFiles.length; i++) {
+        const ticketFile = await convertFileToTicketFile(replyFiles[i], i);
+        interactionFiles.push(ticketFile);
+      }
+
       const newInteraction: Interaction = {
         id: `interaction-${Date.now()}`,
         type: 'user',
-        content: replyText.trim(),
+        content: replyText.trim() || '(Sem texto)',
         author: user,
         createdAt: new Date(),
+        files: interactionFiles.length > 0 ? interactionFiles : undefined,
       };
       await addInteraction(ticket.id, newInteraction);
       setReplyText('');
+      setReplyFiles([]);
       setShowReplyBox(false);
       setSuccessMessage('Resposta enviada com sucesso!');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -328,7 +373,7 @@ export default function TicketDetails() {
   };
 
   // Array de status ordenado alfabeticamente
-  const statusOptions: TicketStatus[] = [
+  const statusOptions = ([
     'aberto',
     'aguardando_cliente',
     'em_andamento',
@@ -338,11 +383,11 @@ export default function TicketDetails() {
     'homologacao',
     'pendente',
     'resolvido',
-  ].sort((a: TicketStatus, b: TicketStatus) => {
+  ] as TicketStatus[]).sort((a, b) => {
     const labelA = capitalizeStatus(a);
     const labelB = capitalizeStatus(b);
     return labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
-  }) as TicketStatus[];
+  });
 
   const handleAssignTechnician = () => {
     if (ticket && user) {
@@ -731,6 +776,40 @@ export default function TicketDetails() {
                                     : 'bg-gray-50 dark:bg-gray-700/50'
                             } rounded-lg p-3`}>
                               <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>
+                              
+                              {/* Exibir arquivos anexados */}
+                              {interaction.files && interaction.files.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Paperclip className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                      Arquivos anexados ({interaction.files.length})
+                                    </span>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {interaction.files.map((file) => (
+                                      <div
+                                        key={file.id}
+                                        className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700"
+                                      >
+                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                          <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                          <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{file.name}</span>
+                                          <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
+                                        </div>
+                                        <a
+                                          href={file.data}
+                                          download={file.name}
+                                          className="p-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+                                          title="Baixar arquivo"
+                                        >
+                                          <Download className="w-4 h-4" />
+                                        </a>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -751,11 +830,55 @@ export default function TicketDetails() {
                       rows={4}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                     />
+                    
+                    {/* Upload de Arquivos */}
+                    <div className="mb-3">
+                      <input
+                        ref={replyFileInputRef}
+                        type="file"
+                        multiple
+                        onChange={handleReplyFileSelect}
+                        className="hidden"
+                        id="reply-file-input"
+                      />
+                      <label
+                        htmlFor="reply-file-input"
+                        className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                        Anexar Arquivos
+                      </label>
+                      
+                      {replyFiles.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {replyFiles.map((file, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700"
+                            >
+                              <div className="flex items-center gap-2 flex-1 min-w-0">
+                                <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{file.name}</span>
+                                <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
+                              </div>
+                              <button
+                                onClick={() => handleRemoveReplyFile(index)}
+                                className="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
                     <div className="flex items-center justify-end gap-2">
                       <button
                         onClick={() => {
                           setShowReplyBox(false);
                           setReplyText('');
+                          setReplyFiles([]);
                         }}
                         className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                       >
@@ -763,7 +886,8 @@ export default function TicketDetails() {
                       </button>
                       <button
                         onClick={handleAddInteraction}
-                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
+                        disabled={!replyText.trim() && replyFiles.length === 0}
+                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Send className="w-4 h-4" />
                         Enviar

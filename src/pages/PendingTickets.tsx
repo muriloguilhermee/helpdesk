@@ -212,7 +212,7 @@ export default function PendingTickets() {
                           </span>
                           {ticket.assignedTo && (
                             <div className="flex items-center gap-1.5 text-xs text-gray-600 dark:text-gray-400">
-                              <UserAvatar user={ticket.assignedTo} size="xs" />
+                              <UserAvatar user={ticket.assignedTo} size="sm" />
                               <span>{ticket.assignedTo.name}</span>
                             </div>
                           )}

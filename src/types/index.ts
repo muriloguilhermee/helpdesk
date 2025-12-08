@@ -95,6 +95,7 @@ export interface Interaction {
   content: string;
   author?: User; // Opcional para interações do sistema
   createdAt: Date;
+  files?: TicketFile[]; // Arquivos anexados à interação
   metadata?: {
     oldStatus?: TicketStatus;
     newStatus?: TicketStatus;

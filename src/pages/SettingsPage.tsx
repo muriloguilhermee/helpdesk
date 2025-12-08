@@ -187,7 +187,6 @@ export default function SettingsPage() {
                     onChange={(e) => {
                       toggleDarkMode();
                     }}
-                    disabled={!canEditSettings}
                     className="sr-only"
                     id="dark-mode-toggle"
                   />
@@ -195,7 +194,7 @@ export default function SettingsPage() {
                     htmlFor="dark-mode-toggle"
                     className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
                       darkMode ? 'bg-primary-600' : 'bg-gray-300 dark:bg-gray-600'
-                    } ${!canEditSettings ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    }`}
                   >
                     <span
                       className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Edit, Trash2, UserPlus, X, Save, AlertTriangle, Camera, User } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, UserPlus, X, Save, AlertTriangle, Camera, User, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { mockUsers } from '../data/mockData';
 import { User as UserType } from '../types';
@@ -73,6 +73,7 @@ export default function UsersPage() {
     company: '',
   });
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Salvar usuários customizados no banco de dados sempre que houver mudanças
   useEffect(() => {
@@ -188,25 +189,49 @@ export default function UsersPage() {
       console.error('Erro ao verificar duplicatas:', error);
     }
 
-    // Criar novo usuário
+    // Criar novo usuário (normalizar email para lowercase)
+    const emailNormalized = newUser.email.toLowerCase().trim();
     const createdUser: UserType = {
       id: Date.now().toString(),
       name: newUser.name,
-      email: newUser.email,
+      email: emailNormalized,
       role: newUser.role,
       avatar: newUserPhoto || undefined,
       company: newUser.company || undefined,
     };
+
+    // IMPORTANTE: Salvar no banco de dados primeiro
+    try {
+      await database.init();
+      await database.saveUser(createdUser);
+    } catch (error) {
+      console.error('Erro ao salvar usuário no banco de dados:', error);
+      setError('Erro ao salvar usuário. Tente novamente.');
+      return;
+    }
 
     const updatedUsers = [...users, createdUser];
     setUsers(updatedUsers);
 
     // Salvar senha no localStorage (em produção, isso seria no backend de forma segura)
     const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
-    usersWithPasswords.push({
+    
+    // Verificar se já existe um usuário com este email (case-insensitive)
+    const existingIndex = usersWithPasswords.findIndex(
+      (u: any) => u.email && u.email.toLowerCase().trim() === emailNormalized
+    );
+    
+    const userWithPassword = {
       ...createdUser,
       password: newUser.password,
-    });
+    };
+    
+    if (existingIndex >= 0) {
+      usersWithPasswords[existingIndex] = userWithPassword;
+    } else {
+      usersWithPasswords.push(userWithPassword);
+    }
+    
     localStorage.setItem('usersWithPasswords', JSON.stringify(usersWithPasswords));
 
     // Limpar formulário e fechar modal
@@ -224,6 +249,12 @@ export default function UsersPage() {
     }
     setShowCreateModal(false);
     setError('');
+    setSuccessMessage('Usuário cadastrado com sucesso!');
+    
+    // Limpar mensagem de sucesso após 3 segundos
+    setTimeout(() => {
+      setSuccessMessage('');
+    }, 3000);
   };
 
   const handleEditClick = (user: UserType) => {
@@ -282,15 +313,26 @@ export default function UsersPage() {
       return;
     }
 
-    // Atualizar usuário
+    // Atualizar usuário (normalizar email para lowercase)
+    const emailNormalized = editUser.email.toLowerCase().trim();
     const updatedUser = {
       ...editingUser,
       name: editUser.name,
-      email: editUser.email,
+      email: emailNormalized,
       role: editUser.role,
       avatar: editUserPhoto || undefined,
       company: editUser.company || undefined
     };
+    
+    // IMPORTANTE: Salvar no banco de dados
+    try {
+      await database.init();
+      await database.saveUser(updatedUser);
+    } catch (error) {
+      console.error('Erro ao atualizar usuário no banco de dados:', error);
+      setError('Erro ao atualizar usuário. Tente novamente.');
+      return;
+    }
     
     const updatedUsers = users.map(u =>
       u.id === editingUser.id ? updatedUser : u
@@ -299,27 +341,32 @@ export default function UsersPage() {
 
     // Atualizar usersWithPasswords sempre (não só quando senha muda)
     const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
-    const userIndex = usersWithPasswords.findIndex((u: any) => u.id === editingUser.id);
+    
+    // Buscar por ID primeiro
+    let userIndex = usersWithPasswords.findIndex((u: any) => u.id === editingUser.id);
+    
+    // Se não encontrar por ID, buscar por email (case-insensitive)
+    if (userIndex < 0) {
+      userIndex = usersWithPasswords.findIndex(
+        (u: any) => u.email && u.email.toLowerCase().trim() === emailNormalized
+      );
+    }
+    
+    const userWithPassword = {
+      ...updatedUser,
+      password: editUser.password || (userIndex >= 0 ? usersWithPasswords[userIndex].password : ''),
+    };
     
     if (userIndex >= 0) {
-      // Atualizar usuário existente
-      usersWithPasswords[userIndex] = {
-        ...usersWithPasswords[userIndex],
-        ...updatedUser,
-        password: editUser.password || usersWithPasswords[userIndex].password,
-      };
+      usersWithPasswords[userIndex] = userWithPassword;
     } else {
-      // Adicionar novo usuário se não existir
-      usersWithPasswords.push({
-        ...updatedUser,
-        password: editUser.password || '',
-      });
+      usersWithPasswords.push(userWithPassword);
     }
     localStorage.setItem('usersWithPasswords', JSON.stringify(usersWithPasswords));
 
     // Se o usuário editado for o usuário atual logado, atualizar o AuthContext
     if (editingUser.id === currentUser?.id) {
-      const { password: _, ...userWithoutPassword } = usersWithPasswords[userIndex >= 0 ? userIndex : usersWithPasswords.length - 1];
+      const { password: _, ...userWithoutPassword } = userWithPassword;
       updateUser(userWithoutPassword);
     }
 
@@ -339,6 +386,12 @@ export default function UsersPage() {
       editPhotoInputRef.current.value = '';
     }
     setError('');
+    setSuccessMessage('Usuário atualizado com sucesso!');
+    
+    // Limpar mensagem de sucesso após 3 segundos
+    setTimeout(() => {
+      setSuccessMessage('');
+    }, 3000);
   };
 
   const handleDeleteUser = async () => {
@@ -381,6 +434,22 @@ export default function UsersPage() {
           </button>
         )}
       </div>
+
+      {/* Mensagem de sucesso */}
+      {successMessage && (
+        <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg flex items-center gap-2">
+          <CheckCircle className="w-5 h-5" />
+          <span className="text-sm font-medium">{successMessage}</span>
+        </div>
+      )}
+
+      {/* Mensagem de erro */}
+      {error && (
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg flex items-center gap-2">
+          <AlertTriangle className="w-5 h-5" />
+          <span className="text-sm font-medium">{error}</span>
+        </div>
+      )}
 
       <div className="card dark:bg-gray-800 dark:border-gray-700">
         <div className="mb-6">

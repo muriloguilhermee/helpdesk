@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Ticket, User, Comment, Interaction } from '../types';
 import { mockTickets } from '../data/mockData';
-import { database } from '../services/database';
+import { dbAdapter as database } from '../services/dbAdapter';
 
 interface TicketsContextType {
   tickets: Ticket[];

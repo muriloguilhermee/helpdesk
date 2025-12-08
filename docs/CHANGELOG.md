@@ -162,3 +162,5 @@ O banco de dados IndexedDB usa a seguinte estrutura:
 
 
 
+
+

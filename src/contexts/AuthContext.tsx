@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import { User } from '../types';
 import { mockUsers } from '../data/mockData';
 import { database } from '../services/database';
+import { api } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -75,10 +76,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const initializeUsers = async () => {
       try {
         await database.init();
-        
+
         // Carregar usuários do banco
         let allUsersArray = await database.getUsers();
-        
+
         // Se não houver usuários, inicializar com mockUsers
         if (!allUsersArray || allUsersArray.length === 0) {
           await database.saveUsers(mockUsers);
@@ -87,14 +88,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Garantir que os usuários padrão estejam presentes
           const mockUsersMap = new Map(mockUsers.map(u => [u.id, u]));
           const existingUsersMap = new Map(allUsersArray.map(u => [u.id, u]));
-          
+
           // Adicionar usuários mockados que não existem
           mockUsers.forEach(mockUser => {
             if (!existingUsersMap.has(mockUser.id)) {
               existingUsersMap.set(mockUser.id, mockUser);
             }
           });
-          
+
           const mergedUsers = Array.from(existingUsersMap.values());
           await database.saveUsers(mergedUsers);
         }
@@ -104,11 +105,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           ...user,
           password,
         }));
-        
+
         // Manter usersWithPasswords no localStorage para login (temporário)
         const usersWithPasswordsSaved = localStorage.getItem('usersWithPasswords');
         let savedUsersWithPasswords: any[] = [];
-        
+
         if (usersWithPasswordsSaved) {
           try {
             savedUsersWithPasswords = JSON.parse(usersWithPasswordsSaved);
@@ -116,20 +117,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             savedUsersWithPasswords = [];
           }
         }
-        
+
         // Criar mapa para combinar usuários
         const usersWithPasswordsMap = new Map();
-        
+
         // Adicionar usuários salvos primeiro
         savedUsersWithPasswords.forEach((u: any) => {
           usersWithPasswordsMap.set(u.email.toLowerCase(), u);
         });
-        
+
         // Adicionar/atualizar usuários padrão (garantindo que sempre existam)
         usersWithPasswordsToSave.forEach((u: any) => {
           usersWithPasswordsMap.set(u.email.toLowerCase(), u);
         });
-        
+
         // Salvar no localStorage (temporário para login)
         const finalUsersWithPasswords = Array.from(usersWithPasswordsMap.values());
         localStorage.setItem('usersWithPasswords', JSON.stringify(finalUsersWithPasswords));
@@ -173,17 +174,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Normalizar email para comparação (lowercase e trim)
+    // Try API first
+    try {
+      const { user, token } = await api.login(email, password);
+      setUser(user);
+      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('token', token);
+      return true;
+    } catch (apiError) {
+      // Fallback to local authentication
+      console.log('API not available, using local auth');
+    }
+
+    // Fallback: Local authentication
     const normalizedEmail = email.trim().toLowerCase();
-    
-    // PRIMEIRO: Garantir que os usuários padrão sempre estejam no localStorage
-    // Isso é crítico para garantir que o admin padrão sempre funcione
+
     const usersWithPasswordsToSave = usersWithPassword.map(({ password, ...user }) => ({
       ...user,
       password,
     }));
-    
-    // Buscar usuários salvos no localStorage (criados pelo admin)
+
     let savedUsers: any[] = [];
     try {
       const savedUsersStr = localStorage.getItem('usersWithPasswords');
@@ -191,69 +201,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         savedUsers = JSON.parse(savedUsersStr);
       }
     } catch {
-      // Se houver erro, usar array vazio
       savedUsers = [];
     }
-    
-    // Criar mapa para combinar usuários (email em lowercase como chave)
+
     const usersMap = new Map();
-    
-    // PRIMEIRO: Adicionar usuários padrão (garantindo que sempre existam)
     usersWithPasswordsToSave.forEach((u: any) => {
       usersMap.set(u.email.toLowerCase(), u);
     });
-    
-    // DEPOIS: Adicionar usuários salvos (podem sobrescrever os padrão se necessário)
+
     savedUsers.forEach((u: any) => {
-      // Só adicionar se não for um usuário padrão (para preservar senhas customizadas)
-      // Mas se for um usuário padrão, garantir que a senha padrão esteja disponível
       const isDefaultUser = usersWithPasswordsToSave.some(
         (defaultUser: any) => defaultUser.email.toLowerCase() === u.email.toLowerCase()
       );
-      
+
       if (!isDefaultUser) {
-        // É um usuário customizado, adicionar
         usersMap.set(u.email.toLowerCase(), u);
       } else {
-        // É um usuário padrão, garantir que a senha padrão esteja disponível
-        // Mas manter dados atualizados do usuário (como avatar, etc)
         const defaultUser = usersWithPasswordsToSave.find(
           (du: any) => du.email.toLowerCase() === u.email.toLowerCase()
         );
         if (defaultUser) {
-          // Manter senha padrão, mas atualizar outros dados do usuário
           usersMap.set(u.email.toLowerCase(), {
             ...u,
-            password: defaultUser.password, // Sempre usar senha padrão para usuários padrão
+            password: defaultUser.password,
           });
         }
       }
     });
-    
-    // Salvar no localStorage
+
     const allUsersWithPasswords = Array.from(usersMap.values());
     localStorage.setItem('usersWithPasswords', JSON.stringify(allUsersWithPasswords));
-    
-    // Buscar também de allUsers no banco de dados para pegar atualizações
+
     let allUsersArray: User[] = [];
     try {
       await database.init();
       allUsersArray = await database.getUsers();
     } catch {
-      // Se houver erro, continuar sem allUsers
+      // Continue without database
     }
 
-    // Combinar todos os usuários para autenticação
-    const allUsers = allUsersWithPasswords;
-    
-    // Simular autenticação (em produção, isso seria uma chamada à API)
-    // Comparar email em lowercase e senha exata
-    const foundUser = allUsers.find(
+    const foundUser = allUsersWithPasswords.find(
       (u: any) => u.email.toLowerCase() === normalizedEmail && u.password === password
     );
 
     if (foundUser) {
-      // Buscar versão atualizada do usuário em allUsers se disponível
       const updatedUser = allUsersArray.find(u => u.id === foundUser.id) || foundUser;
       const { password: _, ...userWithoutPassword } = updatedUser;
       setUser(userWithoutPassword);
@@ -267,6 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
   };
 
   const hasPermission = (permission: string): boolean => {
@@ -297,10 +289,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Atualizar no banco de dados IndexedDB
       try {
         await database.init();
-        
+
         // Salvar usuário atualizado diretamente no banco
         await database.saveUser(updatedUser);
-        
+
         // Atualizar também na lista completa de usuários
         let allUsersArray = await database.getUsers();
         const updatedAllUsers = allUsersArray.map(u => {
@@ -310,13 +302,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
           return u;
         });
-        
+
         // Salvar todos os usuários atualizados
         await database.saveUsers(updatedAllUsers);
-        
-        console.log('Perfil atualizado no banco de dados com sucesso', { 
-          userId: updatedUser.id, 
-          hasAvatar: !!updatedUser.avatar 
+
+        console.log('Perfil atualizado no banco de dados com sucesso', {
+          userId: updatedUser.id,
+          hasAvatar: !!updatedUser.avatar
         });
       } catch (error) {
         console.error('Erro ao atualizar usuário no banco de dados:', error);

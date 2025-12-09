@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode, useRef } fro
 import { Ticket, User, Comment, Interaction } from '../types';
 import { mockTickets } from '../data/mockData';
 import { dbAdapter as database } from '../services/dbAdapter';
+import { api } from '../services/api';
 
 interface TicketsContextType {
   tickets: Ticket[];
@@ -33,25 +34,55 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carregar tickets do banco de dados
+  // Carregar tickets do banco de dados ou API
   useEffect(() => {
     const loadTickets = async () => {
       try {
+        // Try API first
+        const apiTickets = await api.getTickets();
+        if (apiTickets && apiTickets.length > 0) {
+          // Transform API response to Ticket format
+          const transformedTickets = apiTickets.map((t: any) => ({
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            priority: t.priority,
+            category: t.category,
+            serviceType: t.service_type,
+            totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
+            createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
+            assignedTo: t.assigned_to_user,
+            client: t.client_user,
+            files: t.files || [],
+            comments: t.comments || [],
+            createdAt: new Date(t.created_at),
+            updatedAt: new Date(t.updated_at),
+          }));
+          previousTicketsCountRef.current = transformedTickets.length;
+          setTickets(transformedTickets);
+          setIsLoading(false);
+          return;
+        }
+      } catch (apiError) {
+        console.log('API not available, using local storage');
+      }
+
+      // Fallback to local database
+      try {
         await database.init();
         const savedTickets = await database.getTickets();
-        
+
         if (savedTickets && savedTickets.length > 0) {
           previousTicketsCountRef.current = savedTickets.length;
           setTickets(savedTickets);
         } else {
-          // Se não houver tickets, usar os mockados e salvar no banco
           await database.saveTickets(mockTickets);
           previousTicketsCountRef.current = mockTickets.length;
           setTickets(mockTickets);
         }
       } catch (error) {
         console.error('Erro ao carregar tickets:', error);
-        // Fallback para mockTickets em caso de erro
         setTickets(mockTickets);
       } finally {
         setIsLoading(false);
@@ -148,9 +179,14 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   const deleteTicket = async (id: string) => {
     setTickets((prev) => prev.filter((ticket) => ticket.id !== id));
     try {
-      await database.deleteTicket(id);
-    } catch (error) {
-      console.error('Erro ao deletar ticket do banco de dados:', error);
+      await api.deleteTicket(id);
+    } catch (apiError) {
+      // Fallback to local
+      try {
+        await database.deleteTicket(id);
+      } catch (error) {
+        console.error('Erro ao deletar ticket:', error);
+      }
     }
   };
 
@@ -161,14 +197,29 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         : ticket
     );
     setTickets(updatedTickets);
-    
-    // Encontrar o ticket atualizado e salvar no banco
+
     const updatedTicket = updatedTickets.find(t => t.id === id);
     if (updatedTicket) {
       try {
-        await database.saveTicket(updatedTicket);
-      } catch (error) {
-        console.error('Erro ao atualizar ticket no banco de dados:', error);
+        // Try API first
+        await api.updateTicket(id, {
+          title: updates.title,
+          description: updates.description,
+          status: updates.status as any,
+          priority: updates.priority as any,
+          category: updates.category as any,
+          serviceType: updates.serviceType,
+          totalValue: updates.totalValue,
+          assignedTo: updates.assignedTo?.id || null,
+          clientId: updates.client?.id,
+        });
+      } catch (apiError) {
+        // Fallback to local
+        try {
+          await database.saveTicket(updatedTicket);
+        } catch (error) {
+          console.error('Erro ao atualizar ticket:', error);
+        }
       }
     }
   };
@@ -176,15 +227,35 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   const addTicket = async (ticket: Ticket) => {
     const newTickets = [...tickets, ticket];
     setTickets(newTickets);
-    
+
     try {
-      await database.saveTicket(ticket);
-    } catch (error) {
-      console.error('Erro ao salvar ticket no banco de dados:', error);
+      // Try API first
+      await api.createTicket({
+        title: ticket.title,
+        description: ticket.description,
+        priority: ticket.priority as any,
+        category: ticket.category as any,
+        serviceType: ticket.serviceType,
+        totalValue: ticket.totalValue,
+        clientId: ticket.client?.id || ticket.createdBy.id,
+        files: ticket.files?.map(f => ({
+          name: f.name,
+          size: f.size,
+          type: f.type,
+          dataUrl: f.data,
+        })),
+      });
+    } catch (apiError) {
+      // Fallback to local
+      try {
+        await database.saveTicket(ticket);
+      } catch (error) {
+        console.error('Erro ao salvar ticket:', error);
+      }
     }
   };
 
-  const addComment = (ticketId: string, comment: Comment) => {
+  const addComment = async (ticketId: string, comment: Comment) => {
     setTickets((prev) =>
       prev.map((ticket) =>
         ticket.id === ticketId
@@ -196,6 +267,13 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           : ticket
       )
     );
+
+    try {
+      await api.addComment(ticketId, comment.content);
+    } catch (apiError) {
+      // Fallback: comment already added to state
+      console.log('API not available, comment saved locally');
+    }
   };
 
   const addInteraction = async (ticketId: string, interaction: Interaction) => {
@@ -209,7 +287,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         : ticket
     );
     setTickets(updatedTickets);
-    
+
     // Encontrar o ticket atualizado e salvar no banco
     const updatedTicket = updatedTickets.find(t => t.id === ticketId);
     if (updatedTicket) {

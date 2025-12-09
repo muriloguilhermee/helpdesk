@@ -1,3 +1,8 @@
+/**
+ * Configuração alternativa para usar Supabase diretamente no backend
+ * Use esta configuração se preferir usar Supabase ao invés de PostgreSQL direto
+ */
+
 import knex, { Knex } from 'knex';
 import dotenv from 'dotenv';
 
@@ -14,20 +19,15 @@ export const getDatabase = (): Knex => {
 
 export const initializeDatabase = async (): Promise<void> => {
   try {
-    // Suporta connection string (para Supabase, Neon, etc) ou configuração individual
-    const connectionConfig = process.env.DATABASE_URL
-      ? process.env.DATABASE_URL // Connection string completa
-      : {
-          host: process.env.DB_HOST || 'localhost',
-          port: parseInt(process.env.DB_PORT || '5432'),
-          user: process.env.DB_USER || 'postgres',
-          password: process.env.DB_PASSWORD || 'postgres',
-          database: process.env.DB_NAME || 'helpdesk',
-        };
+    // Se usar Supabase, pegue a connection string em:
+    // Supabase Dashboard → Settings → Database → Connection string → URI
+
+    const connectionString = process.env.DATABASE_URL ||
+      `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`;
 
     db = knex({
       client: 'pg',
-      connection: connectionConfig,
+      connection: connectionString,
       pool: {
         min: 2,
         max: 10,
@@ -48,7 +48,6 @@ export const initializeDatabase = async (): Promise<void> => {
 
 const runMigrations = async (): Promise<void> => {
   try {
-    // Create tables if they don't exist
     const hasUsersTable = await db!.schema.hasTable('users');
     if (!hasUsersTable) {
       await db!.schema.createTable('users', (table) => {
@@ -90,7 +89,7 @@ const runMigrations = async (): Promise<void> => {
         table.string('name').notNullable();
         table.bigInteger('size').notNullable();
         table.string('type').notNullable();
-        table.text('data_url').notNullable(); // Base64 ou URL
+        table.text('data_url').notNullable();
         table.timestamps(true, true);
       });
       console.log('✅ Created ticket_files table');
@@ -108,7 +107,6 @@ const runMigrations = async (): Promise<void> => {
       console.log('✅ Created comments table');
     }
 
-    // Create indexes for performance
     await db!.schema.raw(`
       CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
       CREATE INDEX IF NOT EXISTS idx_tickets_created_by ON tickets(created_by);

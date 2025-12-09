@@ -1,0 +1,8 @@
+# Configuração para Node.js na HostGator
+# Este arquivo ajuda a rotear requisições para o Node.js
+
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ dist/index.js [L]
+

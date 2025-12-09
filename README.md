@@ -54,30 +54,46 @@ Sistema completo de gestão de chamados (helpdesk) com módulo financeiro e inte
 
 ## 🗄️ Banco de Dados
 
-O sistema utiliza **IndexedDB** para armazenamento persistente e robusto:
+O sistema suporta **dois modos de armazenamento**:
 
-- ✅ **Sincronização consistente** entre diferentes navegadores
-- ✅ **Migração automática** de dados do localStorage
-- ✅ **Estrutura preparada** para migração futura para banco de dados real
-- ✅ **Performance otimizada** para grandes volumes de dados
+### Modo Local (IndexedDB)
+- ✅ Funciona sem configuração
+- ✅ Dados salvos no navegador
+- ✅ Ideal para desenvolvimento e testes
+
+### Modo Produção (PostgreSQL/Supabase)
+- ✅ Banco de dados real na nuvem
+- ✅ Dados persistentes e seguros
+- ✅ Pronto para produção
+
+**O sistema detecta automaticamente** qual modo usar baseado nas variáveis de ambiente.
 
 ### Estrutura de Dados
 
 - **users**: Usuários do sistema
 - **tickets**: Chamados de suporte
-- **financialTickets**: Tickets financeiros
-- **settings**: Configurações
-- **notifications**: Notificações
+- **comments**: Comentários nos chamados
+- **interactions**: Histórico de interações
+- **ticket_files**: Arquivos anexados
+- **queues**: Filas de atendimento
 
 ## 🚀 Tecnologias
 
+### Frontend
 - **React 18** com TypeScript
 - **Vite** para build
 - **Tailwind CSS** para estilização
 - **React Router** para navegação
-- **IndexedDB** para banco de dados local
-- **jsPDF** para exportação de PDF
 - **Lucide React** para ícones
+- **jsPDF** para exportação de PDF
+
+### Backend
+- **Node.js** + **Express**
+- **TypeScript**
+- **Knex.js** (Query Builder)
+- **PostgreSQL** (Supabase)
+- **JWT** para autenticação
+- **bcryptjs** para hash de senhas
 
 ## 📦 Instalação
 
@@ -103,10 +119,15 @@ npm run build
 
 ## 📚 Documentação
 
-Consulte a pasta `docs/` para documentação completa:
+### Deploy e Configuração
+- **[Deploy Supabase](./DEPLOY_SUPABASE.md)**: Guia completo de deploy
+- **[Quick Start](./QUICK_START_SUPABASE.md)**: Deploy rápido (5 minutos)
+- **[Deploy HostGator](./docs/DEPLOY_HOSTGATOR.md)**: Deploy em servidor próprio
 
+### Funcionalidades
 - **[Integração ERP](./docs/INTEGRACAO_ERP.md)**: Guia de integração com ERPs
 - **[Implementação Backend](./docs/IMPLEMENTACAO_BACKEND.md)**: Guia técnico para backend
+- **[Monitor ao Vivo](./docs/MONITOR_AO_VIVO.md)**: Documentação do monitor
 - **[Changelog](./docs/CHANGELOG.md)**: Histórico de mudanças
 
 ## 🎯 Próximos Passos

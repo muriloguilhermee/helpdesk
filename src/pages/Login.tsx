@@ -13,20 +13,36 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('🚀 [LOGIN] handleSubmit chamado', { email, password: '***' });
     setError('');
     setIsLoading(true);
 
     try {
+      console.log('🚀 [LOGIN] Chamando função login...');
       const success = await login(email, password);
+      console.log('🚀 [LOGIN] Resultado do login:', success);
+
       if (success) {
+        console.log('🚀 [LOGIN] Login bem-sucedido, redirecionando...');
         navigate('/');
       } else {
+        console.log('🚀 [LOGIN] Login falhou (retornou false)');
         setError('Email ou senha incorretos');
       }
-    } catch (err) {
-      setError('Erro ao fazer login. Tente novamente.');
+    } catch (err: any) {
+      console.error('🚀 [LOGIN] Erro capturado:', err);
+      // Mostrar mensagem de erro mais específica
+      const errorMessage = err.message || 'Erro ao fazer login. Tente novamente.';
+      console.error('🚀 [LOGIN] Mensagem de erro:', errorMessage);
+      setError(errorMessage);
+
+      // Se for erro de backend não configurado, mostrar instruções
+      if (errorMessage.includes('Backend não configurado') || errorMessage.includes('backend está rodando')) {
+        setError(`${errorMessage}\n\nInicie o backend com: cd server && npm run dev`);
+      }
     } finally {
       setIsLoading(false);
+      console.log('🚀 [LOGIN] handleSubmit finalizado');
     }
   };
 

@@ -101,7 +101,9 @@ class LocalDatabase {
     });
   }
 
-  async saveUser(user: User): Promise<void> {
+  async saveUser(user: User, password?: string): Promise<void> {
+    // IndexedDB não armazena senha (fica no localStorage)
+    // password é ignorado aqui, mas mantido na assinatura para compatibilidade
     const db = await this.ensureDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['users'], 'readwrite');
@@ -118,14 +120,14 @@ class LocalDatabase {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['users'], 'readwrite');
       const store = transaction.objectStore('users');
-      
+
       // Limpar todos os usuários primeiro
       store.clear();
-      
+
       // Adicionar todos os usuários
       let completed = 0;
       const total = users.length;
-      
+
       if (total === 0) {
         resolve();
         return;
@@ -192,7 +194,7 @@ class LocalDatabase {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['tickets'], 'readwrite');
       const store = transaction.objectStore('tickets');
-      
+
       // Converter datas para ISO string
       const ticketToSave = {
         ...ticket,
@@ -203,7 +205,7 @@ class LocalDatabase {
           createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
         })) : undefined,
       };
-      
+
       const request = store.put(ticketToSave);
 
       request.onsuccess = () => resolve();
@@ -216,14 +218,14 @@ class LocalDatabase {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['tickets'], 'readwrite');
       const store = transaction.objectStore('tickets');
-      
+
       // Limpar todos os tickets primeiro
       store.clear();
-      
+
       // Adicionar todos os tickets
       let completed = 0;
       const total = tickets.length;
-      
+
       if (total === 0) {
         resolve();
         return;
@@ -239,7 +241,7 @@ class LocalDatabase {
             createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
           })) : undefined,
         };
-        
+
         const request = store.add(ticketToSave);
         request.onsuccess = () => {
           completed++;
@@ -298,7 +300,7 @@ class LocalDatabase {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['financialTickets'], 'readwrite');
       const store = transaction.objectStore('financialTickets');
-      
+
       // Converter datas para ISO string
       const ticketToSave = {
         ...ticket,
@@ -307,7 +309,7 @@ class LocalDatabase {
         createdAt: ticket.createdAt instanceof Date ? ticket.createdAt.toISOString() : ticket.createdAt,
         updatedAt: ticket.updatedAt instanceof Date ? ticket.updatedAt.toISOString() : ticket.updatedAt,
       };
-      
+
       const request = store.put(ticketToSave);
 
       request.onsuccess = () => resolve();
@@ -320,14 +322,14 @@ class LocalDatabase {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['financialTickets'], 'readwrite');
       const store = transaction.objectStore('financialTickets');
-      
+
       // Limpar todos os tickets primeiro
       store.clear();
-      
+
       // Adicionar todos os tickets
       let completed = 0;
       const total = tickets.length;
-      
+
       if (total === 0) {
         resolve();
         return;
@@ -341,7 +343,7 @@ class LocalDatabase {
           createdAt: ticket.createdAt instanceof Date ? ticket.createdAt.toISOString() : ticket.createdAt,
           updatedAt: ticket.updatedAt instanceof Date ? ticket.updatedAt.toISOString() : ticket.updatedAt,
         };
-        
+
         const request = store.add(ticketToSave);
         request.onsuccess = () => {
           completed++;
@@ -433,14 +435,14 @@ class LocalDatabase {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['notifications'], 'readwrite');
       const store = transaction.objectStore('notifications');
-      
+
       // Limpar todas as notificações primeiro
       store.clear();
-      
+
       // Adicionar todas as notificações
       let completed = 0;
       const total = notifications.length;
-      
+
       if (total === 0) {
         resolve();
         return;
@@ -539,7 +541,7 @@ class LocalDatabase {
 
   async importData(jsonData: string): Promise<void> {
     const data = JSON.parse(jsonData);
-    
+
     if (data.users) await this.saveUsers(data.users);
     if (data.tickets) await this.saveTickets(data.tickets);
     if (data.financialTickets) await this.saveFinancialTickets(data.financialTickets);
@@ -552,7 +554,7 @@ class LocalDatabase {
     const db = await this.ensureDB();
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['users', 'tickets', 'financialTickets', 'settings', 'notifications'], 'readwrite');
-      
+
       transaction.objectStore('users').clear();
       transaction.objectStore('tickets').clear();
       transaction.objectStore('financialTickets').clear();
@@ -596,13 +598,13 @@ class LocalDatabase {
     return new Promise((resolve, reject) => {
       const transaction = db.transaction(['queues'], 'readwrite');
       const store = transaction.objectStore('queues');
-      
+
       const queueToSave = {
         ...queue,
         createdAt: queue.createdAt instanceof Date ? queue.createdAt.toISOString() : queue.createdAt,
         updatedAt: queue.updatedAt instanceof Date ? queue.updatedAt.toISOString() : queue.updatedAt,
       };
-      
+
       const request = store.put(queueToSave);
 
       request.onsuccess = () => resolve();
@@ -631,12 +633,12 @@ database.init().then(async () => {
   console.log('Banco de dados inicializado com sucesso!');
   // Migrar dados do localStorage na primeira vez
   await database.migrateFromLocalStorage();
-  
+
   // Garantir que as filas padrão existem
   try {
     const queues = await database.getQueues();
     const queueNames = queues.map((q: any) => q.name);
-    
+
     // Criar Suporte N1 se não existir
     if (!queueNames.includes('Suporte N1')) {
       const suporteN1: Queue = {
@@ -649,7 +651,7 @@ database.init().then(async () => {
       await database.saveQueue(suporteN1);
       console.log('Fila "Suporte N1" criada com sucesso!');
     }
-    
+
     // Criar Suporte N2 se não existir
     if (!queueNames.includes('Suporte N2')) {
       const suporteN2: Queue = {

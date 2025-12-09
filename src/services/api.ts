@@ -26,7 +26,10 @@ class ApiService {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-      throw new Error(error.error || `HTTP error! status: ${response.status}`);
+      const errorMessage = error.error || `HTTP error! status: ${response.status}`;
+      const errorWithStatus = new Error(errorMessage);
+      (errorWithStatus as any).status = response.status;
+      throw errorWithStatus;
     }
 
     if (response.status === 204) {
@@ -38,10 +41,18 @@ class ApiService {
 
   // Auth
   async login(email: string, password: string) {
-    return this.request<{ user: any; token: string }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
+    console.log('📡 Fazendo requisição de login para:', `${API_URL}/auth/login`);
+    try {
+      const response = await this.request<{ user: any; token: string }>('/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      console.log('✅ Login bem-sucedido, resposta:', response);
+      return response;
+    } catch (error: any) {
+      console.error('❌ Erro na requisição de login:', error);
+      throw error;
+    }
   }
 
   async register(data: {

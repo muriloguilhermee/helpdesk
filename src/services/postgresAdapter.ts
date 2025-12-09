@@ -36,18 +36,21 @@ export class PostgresAdapter {
       .from('users')
       .select('*')
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
     return (data || []).map(this.transformUser);
   }
 
-  async saveUser(user: User): Promise<void> {
-    const userData = this.prepareUserForDB(user);
+  async saveUser(user: User, password?: string): Promise<void> {
+    const userData = this.prepareUserForDB(user, password);
     const { error } = await this.supabaseClient
       .from('users')
       .upsert(userData, { onConflict: 'id' });
-    
-    if (error) throw error;
+
+    if (error) {
+      console.error('Erro ao salvar usuário no Supabase:', error);
+      throw error;
+    }
   }
 
   // ============ TICKETS ============
@@ -61,12 +64,12 @@ export class PostgresAdapter {
         queue:queues(*)
       `)
       .order('created_at', { ascending: false });
-    
+
     if (error) throw error;
-    
+
     // Buscar interações e arquivos separadamente
     const tickets = (data || []).map(this.transformTicket);
-    
+
     // Buscar interações para cada ticket
     for (const ticket of tickets) {
       const { data: interactions } = await this.supabaseClient
@@ -74,7 +77,7 @@ export class PostgresAdapter {
         .select('*, author:users(*)')
         .eq('ticket_id', ticket.id)
         .order('created_at', { ascending: true });
-      
+
       ticket.interactions = (interactions || []).map(this.transformInteraction);
 
       // Buscar arquivos
@@ -82,10 +85,10 @@ export class PostgresAdapter {
         .from('ticket_files')
         .select('*')
         .eq('ticket_id', ticket.id);
-      
+
       ticket.files = (files || []).map(this.transformFile);
     }
-    
+
     return tickets;
   }
 
@@ -100,12 +103,12 @@ export class PostgresAdapter {
       `)
       .eq('id', id)
       .single();
-    
+
     if (error) {
       if (error.code === 'PGRST116') return null;
       throw error;
     }
-    
+
     if (!data) return null;
 
     const ticket = this.transformTicket(data);
@@ -116,7 +119,7 @@ export class PostgresAdapter {
       .select('*, author:users(*)')
       .eq('ticket_id', id)
       .order('created_at', { ascending: true });
-    
+
     ticket.interactions = (interactions || []).map(this.transformInteraction);
 
     // Buscar arquivos
@@ -124,7 +127,7 @@ export class PostgresAdapter {
       .from('ticket_files')
       .select('*')
       .eq('ticket_id', id);
-    
+
     ticket.files = (files || []).map(this.transformFile);
 
     return ticket;
@@ -132,11 +135,11 @@ export class PostgresAdapter {
 
   async saveTicket(ticket: Ticket): Promise<void> {
     const ticketData = this.prepareTicketForDB(ticket);
-    
+
     const { error: ticketError } = await this.supabaseClient
       .from('tickets')
       .upsert(ticketData, { onConflict: 'id' });
-    
+
     if (ticketError) throw ticketError;
 
     // Salvar interações
@@ -150,11 +153,11 @@ export class PostgresAdapter {
         metadata: i.metadata || null,
         created_at: i.createdAt?.toISOString() || new Date().toISOString(),
       }));
-      
+
       const { error: intError } = await this.supabaseClient
         .from('interactions')
         .upsert(interactions, { onConflict: 'id' });
-      
+
       if (intError) throw intError;
     }
 
@@ -170,11 +173,11 @@ export class PostgresAdapter {
         data_url: f.data,
         created_at: new Date().toISOString(),
       }));
-      
+
       const { error: filesError } = await this.supabaseClient
         .from('ticket_files')
         .upsert(files, { onConflict: 'id' });
-      
+
       if (filesError) throw filesError;
     }
   }
@@ -190,7 +193,7 @@ export class PostgresAdapter {
       .from('tickets')
       .delete()
       .eq('id', id);
-    
+
     if (error) throw error;
   }
 
@@ -200,7 +203,7 @@ export class PostgresAdapter {
       .from('queues')
       .select('*')
       .order('name', { ascending: true });
-    
+
     if (error) throw error;
     return (data || []).map(this.transformQueue);
   }
@@ -210,7 +213,7 @@ export class PostgresAdapter {
     const { error } = await this.supabaseClient
       .from('queues')
       .upsert(queueData, { onConflict: 'id' });
-    
+
     if (error) throw error;
   }
 
@@ -229,7 +232,7 @@ export class PostgresAdapter {
     const { error } = await this.supabaseClient
       .from('interactions')
       .insert(interactionData);
-    
+
     if (error) throw error;
   }
 
@@ -244,14 +247,25 @@ export class PostgresAdapter {
     };
   }
 
-  private prepareUserForDB(user: User): any {
-    return {
+  private prepareUserForDB(user: User, password?: string): any {
+    const userData: any = {
       id: user.id,
       email: user.email,
       name: user.name,
       role: user.role,
       avatar_url: user.avatar,
     };
+
+    // Se password for fornecido, incluir (mas em produção deve ser hasheado no backend)
+    // NOTA: Em produção, sempre use a API do backend para criar usuários com senha hasheada
+    if (password) {
+      // AVISO: Isso não é seguro! A senha deve ser hasheada no backend.
+      // Este é apenas um fallback para desenvolvimento.
+      // Em produção, sempre use a API REST que faz hash corretamente.
+      userData.password = password;
+    }
+
+    return userData;
   }
 
   private transformTicket(data: any): Ticket {

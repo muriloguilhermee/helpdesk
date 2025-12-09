@@ -14,7 +14,7 @@ const hasPostgresConfig = !!import.meta.env.VITE_SUPABASE_URL || !!import.meta.e
 interface DatabaseAdapter {
   init(): Promise<void>;
   getUsers(): Promise<User[]>;
-  saveUser(user: User): Promise<void>;
+  saveUser(user: User, password?: string): Promise<void>;
   getTickets(): Promise<Ticket[]>;
   getTicket(id: string): Promise<Ticket | null>;
   saveTicket(ticket: Ticket): Promise<void>;
@@ -30,7 +30,7 @@ let postgresAdapter: DatabaseAdapter | null = null;
 
 async function getPostgresAdapter(): Promise<DatabaseAdapter | null> {
   if (!hasPostgresConfig) return null;
-  
+
   if (postgresAdapter) return postgresAdapter;
 
   try {
@@ -67,7 +67,11 @@ class UnifiedDatabaseAdapter implements DatabaseAdapter {
     return this.adapter.getUsers();
   }
 
-  async saveUser(user: User): Promise<void> {
+  async saveUser(user: User, password?: string): Promise<void> {
+    // Se for PostgresAdapter, passar password se disponível
+    if (this.adapter && typeof (this.adapter as any).saveUser === 'function') {
+      return (this.adapter as any).saveUser(user, password);
+    }
     return this.adapter.saveUser(user);
   }
 

@@ -146,9 +146,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Verificar se há usuário salvo no localStorage
     const loadUser = async () => {
       const savedUser = localStorage.getItem('user');
+      const savedToken = localStorage.getItem('token');
+
+      // Se tem Supabase configurado, OBRIGATORIAMENTE precisa ter token
+      const hasSupabase = !!import.meta.env.VITE_SUPABASE_URL;
+      const apiUrl = import.meta.env.VITE_API_URL;
+
+      if (hasSupabase && apiUrl && (!savedToken || !savedUser)) {
+        // Se está usando Supabase mas não tem token, limpar tudo e forçar login
+        console.log('⚠️ Supabase configurado mas sem token. Limpando sessão...');
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        return;
+      }
+
       if (savedUser) {
         try {
           const user = JSON.parse(savedUser);
+
+          // Se tem Supabase mas não tem token, não permitir login automático
+          if (hasSupabase && apiUrl && !savedToken) {
+            console.log('⚠️ Usuário encontrado mas sem token. Limpando sessão...');
+            localStorage.removeItem('user');
+            return;
+          }
+
           // Buscar versão atualizada do usuário no banco de dados
           try {
             await database.init();
@@ -166,6 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } catch {
           // Se houver erro ao parsear, limpar
           localStorage.removeItem('user');
+          localStorage.removeItem('token');
         }
       }
     };
@@ -174,16 +197,63 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
+    console.log('🔐 [AUTH] Função login chamada', { email, hasPassword: !!password });
+    const apiUrl = import.meta.env.VITE_API_URL;
+    const hasSupabase = !!import.meta.env.VITE_SUPABASE_URL;
+
+    console.log('🔐 [AUTH] Variáveis de ambiente:', {
+      apiUrl,
+      hasSupabase,
+      VITE_API_URL: import.meta.env.VITE_API_URL,
+      VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL
+    });
+
+    // Se Supabase está configurado, OBRIGATORIAMENTE usar API
+    if (hasSupabase && !apiUrl) {
+      console.error('❌ [AUTH] Supabase configurado mas API_URL não configurada');
+      throw new Error('Backend não configurado! Configure VITE_API_URL no arquivo .env');
+    }
+
     // Try API first
-    try {
-      const { user, token } = await api.login(email, password);
-      setUser(user);
-      localStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('token', token);
-      return true;
-    } catch (apiError) {
-      // Fallback to local authentication
-      console.log('API not available, using local auth');
+    if (apiUrl) {
+      console.log('🔐 [AUTH] API URL encontrada, tentando login via API...');
+      try {
+        console.log('🔐 Tentando login via API...', { apiUrl, email });
+        const response = await api.login(email, password);
+        console.log('✅ Resposta da API:', response);
+
+        if (!response || !response.token) {
+          throw new Error('Token não recebido da API');
+        }
+
+        const { user, token } = response;
+        console.log('💾 Salvando token no localStorage...', { token: token.substring(0, 20) + '...' });
+
+        setUser(user);
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('token', token);
+
+        // Verificar se foi salvo
+        const savedToken = localStorage.getItem('token');
+        console.log('✅ Token salvo?', !!savedToken);
+
+        return true;
+      } catch (apiError: any) {
+        console.error('❌ Erro no login via API:', apiError);
+        console.error('Detalhes do erro:', {
+          message: apiError.message,
+          status: (apiError as any).status,
+          stack: apiError.stack
+        });
+
+        // Se Supabase está configurado, não permitir fallback local
+        if (hasSupabase) {
+          const errorMsg = apiError.message || 'Erro ao fazer login. Verifique se o backend está rodando na porta 3001.';
+          throw new Error(errorMsg);
+        }
+        // Fallback to local authentication apenas se não estiver usando Supabase
+        console.log('⚠️ API not available, using local auth');
+      }
     }
 
     // Fallback: Local authentication

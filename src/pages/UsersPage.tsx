@@ -5,6 +5,7 @@ import { mockUsers } from '../data/mockData';
 import { User as UserType } from '../types';
 import { UserAvatar, getInitials } from '../utils/userAvatar';
 import { database } from '../services/database';
+import { api } from '../services/api';
 
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
@@ -32,11 +33,11 @@ export default function UsersPage() {
       try {
         await database.init();
         const allUsers = await database.getUsers();
-        
+
         // Filtrar apenas usuários que NÃO são mockados
         const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
         const customUsers = allUsers.filter(u => !mockUserEmails.has(u.email.toLowerCase()));
-        
+
         setUsers(customUsers);
       } catch (error) {
         console.error('Erro ao carregar usuários:', error);
@@ -83,13 +84,13 @@ export default function UsersPage() {
           await database.init();
           // Buscar todos os usuários do banco
           const allUsersFromDB = await database.getUsers();
-          
+
           // Filtrar mockUsers
           const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-          const existingMockUsers = allUsersFromDB.filter((u: UserType) => 
+          const existingMockUsers = allUsersFromDB.filter((u: UserType) =>
             mockUserEmails.has(u.email.toLowerCase())
           );
-          
+
           // Combinar mockUsers com usuários customizados
           const allUsers = [...existingMockUsers, ...users];
           await database.saveUsers(allUsers);
@@ -180,7 +181,7 @@ export default function UsersPage() {
     try {
       await database.init();
       const allUsersFromDB = await database.getUsers();
-      
+
       if (allUsersFromDB.some(u => u.email.toLowerCase() === newUser.email.toLowerCase())) {
         setError('Este email já está em uso');
         return;
@@ -191,48 +192,98 @@ export default function UsersPage() {
 
     // Criar novo usuário (normalizar email para lowercase)
     const emailNormalized = newUser.email.toLowerCase().trim();
-    const createdUser: UserType = {
-      id: Date.now().toString(),
-      name: newUser.name,
-      email: emailNormalized,
-      role: newUser.role,
-      avatar: newUserPhoto || undefined,
-      company: newUser.company || undefined,
-    };
 
-    // IMPORTANTE: Salvar no banco de dados primeiro
-    try {
-      await database.init();
-      await database.saveUser(createdUser);
-    } catch (error) {
-      console.error('Erro ao salvar usuário no banco de dados:', error);
-      setError('Erro ao salvar usuário. Tente novamente.');
+    let createdUser: UserType;
+
+    // Tentar usar a API do backend primeiro (faz hash da senha corretamente)
+    const apiUrl = import.meta.env.VITE_API_URL;
+    const hasSupabase = !!import.meta.env.VITE_SUPABASE_URL;
+
+    if (apiUrl) {
+      try {
+        const apiUser = await api.createUser({
+          name: newUser.name,
+          email: emailNormalized,
+          password: newUser.password,
+          role: newUser.role,
+          avatar: newUserPhoto || undefined,
+        });
+
+        createdUser = {
+          id: apiUser.id,
+          name: apiUser.name,
+          email: apiUser.email,
+          role: apiUser.role,
+          avatar: apiUser.avatar,
+          company: newUser.company || undefined,
+        };
+      } catch (apiError: any) {
+        console.error('Erro ao criar usuário via API:', apiError);
+
+        // Verificar se é erro de autenticação
+        if (apiError.message?.includes('401') || apiError.message?.includes('Unauthorized') || apiError.message?.includes('Token')) {
+          setError('Você precisa estar logado! Faça logout e login novamente para obter um token válido.');
+          return;
+        }
+
+        // Se estiver usando Supabase e a API falhar, mostrar erro claro
+        if (hasSupabase) {
+          setError(apiError.message || 'Backend não está rodando! Inicie o servidor com: cd server && npm run dev');
+          return;
+        }
+
+        // Se não estiver usando Supabase, tentar método local
+        setError(apiError.message || 'Erro ao criar usuário. Tente novamente.');
+        return;
+      }
+    } else if (hasSupabase) {
+      // Se estiver usando Supabase mas não tem API configurada
+      setError('Backend não configurado! Configure VITE_API_URL no arquivo .env');
       return;
+    } else {
+      // Método local (IndexedDB) - não salva senha no banco
+      createdUser = {
+        id: Date.now().toString(),
+        name: newUser.name,
+        email: emailNormalized,
+        role: newUser.role,
+        avatar: newUserPhoto || undefined,
+        company: newUser.company || undefined,
+      };
+
+      try {
+        await database.init();
+        await database.saveUser(createdUser);
+      } catch (error) {
+        console.error('Erro ao salvar usuário no banco de dados:', error);
+        setError('Erro ao salvar usuário. Tente novamente.');
+        return;
+      }
+
+      // Salvar senha no localStorage (apenas para método local)
+      const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
+
+      // Verificar se já existe um usuário com este email (case-insensitive)
+      const existingIndex = usersWithPasswords.findIndex(
+        (u: any) => u.email && u.email.toLowerCase().trim() === emailNormalized
+      );
+
+      const userWithPassword = {
+        ...createdUser,
+        password: newUser.password,
+      };
+
+      if (existingIndex >= 0) {
+        usersWithPasswords[existingIndex] = userWithPassword;
+      } else {
+        usersWithPasswords.push(userWithPassword);
+      }
+
+      localStorage.setItem('usersWithPasswords', JSON.stringify(usersWithPasswords));
     }
 
     const updatedUsers = [...users, createdUser];
     setUsers(updatedUsers);
-
-    // Salvar senha no localStorage (em produção, isso seria no backend de forma segura)
-    const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
-    
-    // Verificar se já existe um usuário com este email (case-insensitive)
-    const existingIndex = usersWithPasswords.findIndex(
-      (u: any) => u.email && u.email.toLowerCase().trim() === emailNormalized
-    );
-    
-    const userWithPassword = {
-      ...createdUser,
-      password: newUser.password,
-    };
-    
-    if (existingIndex >= 0) {
-      usersWithPasswords[existingIndex] = userWithPassword;
-    } else {
-      usersWithPasswords.push(userWithPassword);
-    }
-    
-    localStorage.setItem('usersWithPasswords', JSON.stringify(usersWithPasswords));
 
     // Limpar formulário e fechar modal
     setNewUser({
@@ -250,7 +301,7 @@ export default function UsersPage() {
     setShowCreateModal(false);
     setError('');
     setSuccessMessage('Usuário cadastrado com sucesso!');
-    
+
     // Limpar mensagem de sucesso após 3 segundos
     setTimeout(() => {
       setSuccessMessage('');
@@ -295,7 +346,7 @@ export default function UsersPage() {
       try {
         await database.init();
         const allUsersFromDB = await database.getUsers();
-        
+
         if (allUsersFromDB.some(u => u.email.toLowerCase() === editUser.email.toLowerCase() && u.id !== editingUser.id)) {
           setError('Este email já está em uso');
           return;
@@ -323,7 +374,7 @@ export default function UsersPage() {
       avatar: editUserPhoto || undefined,
       company: editUser.company || undefined
     };
-    
+
     // IMPORTANTE: Salvar no banco de dados
     try {
       await database.init();
@@ -333,7 +384,7 @@ export default function UsersPage() {
       setError('Erro ao atualizar usuário. Tente novamente.');
       return;
     }
-    
+
     const updatedUsers = users.map(u =>
       u.id === editingUser.id ? updatedUser : u
     );
@@ -341,22 +392,22 @@ export default function UsersPage() {
 
     // Atualizar usersWithPasswords sempre (não só quando senha muda)
     const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
-    
+
     // Buscar por ID primeiro
     let userIndex = usersWithPasswords.findIndex((u: any) => u.id === editingUser.id);
-    
+
     // Se não encontrar por ID, buscar por email (case-insensitive)
     if (userIndex < 0) {
       userIndex = usersWithPasswords.findIndex(
         (u: any) => u.email && u.email.toLowerCase().trim() === emailNormalized
       );
     }
-    
+
     const userWithPassword = {
       ...updatedUser,
       password: editUser.password || (userIndex >= 0 ? usersWithPasswords[userIndex].password : ''),
     };
-    
+
     if (userIndex >= 0) {
       usersWithPasswords[userIndex] = userWithPassword;
     } else {
@@ -387,7 +438,7 @@ export default function UsersPage() {
     }
     setError('');
     setSuccessMessage('Usuário atualizado com sucesso!');
-    
+
     // Limpar mensagem de sucesso após 3 segundos
     setTimeout(() => {
       setSuccessMessage('');

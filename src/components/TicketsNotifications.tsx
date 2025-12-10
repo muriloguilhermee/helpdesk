@@ -31,7 +31,7 @@ export function TicketsNotifications() {
           const isMyTicket = ticket.createdBy.id === user.id || ticket.client?.id === user.id;
           const isTechnicianUnassigned = user.role === 'technician' && !ticket.assignedTo;
           const isAdmin = user.role === 'admin';
-          
+
           if (isMyTicket || isTechnicianUnassigned || isAdmin) {
             addNotification({
               type: 'ticket_created',
@@ -44,14 +44,14 @@ export function TicketsNotifications() {
         }
       } else {
         const previousTicket = previousTicketsRef.current.get(ticket.id)!;
-        
+
         // Verificar mudanças de status - apenas para usuários relacionados
         if (previousTicket.status !== ticket.status && user) {
           const isMyTicket = ticket.createdBy.id === user.id || ticket.client?.id === user.id;
           const isAssignedToMe = ticket.assignedTo?.id === user.id;
           const isTechnicianUnassigned = user.role === 'technician' && !ticket.assignedTo;
           const isAdmin = user.role === 'admin';
-          
+
           if (isMyTicket || isAssignedToMe || isTechnicianUnassigned || isAdmin) {
             if (ticket.status === 'fechado') {
               addNotification({
@@ -101,19 +101,21 @@ export function TicketsNotifications() {
             const isAssignedToMe = ticket.assignedTo?.id === user.id;
             const isTechnicianUnassigned = user.role === 'technician' && !ticket.assignedTo;
             const isAdmin = user.role === 'admin';
-            const isNotMyInteraction = newInteraction.author.id !== user.id;
-            
-            // Notificar apenas se não for a própria interação e se o usuário está relacionado ao ticket
-            if (isNotMyInteraction && (isMyTicket || isAssignedToMe || isTechnicianUnassigned || isAdmin)) {
-              addNotification({
-                type: 'comment_added',
-                title: 'Nova interação',
-                message: `${newInteraction.author.name} interagiu no chamado "${ticket.title}"`,
-                ticketId: ticket.id,
-                ticketTitle: ticket.title,
-                userId: newInteraction.author.id,
-                userName: newInteraction.author.name,
-              });
+            if (newInteraction.author) {
+              const isNotMyInteraction = newInteraction.author.id !== user.id;
+
+              // Notificar apenas se não for a própria interação e se o usuário está relacionado ao ticket
+              if (isNotMyInteraction && (isMyTicket || isAssignedToMe || isTechnicianUnassigned || isAdmin)) {
+                addNotification({
+                  type: 'comment_added',
+                  title: 'Nova interação',
+                  message: `${newInteraction.author.name} interagiu no chamado "${ticket.title}"`,
+                  ticketId: ticket.id,
+                  ticketTitle: ticket.title,
+                  userId: newInteraction.author.id,
+                  userName: newInteraction.author.name,
+                });
+              }
             }
           }
         }

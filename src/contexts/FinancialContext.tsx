@@ -80,13 +80,13 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         paymentDate: ticket.paymentDate,
         status: ticket.status,
         clientId: ticket.client.id,
-        invoiceFile: ticket.invoiceFile ? {
+        invoiceFile: ticket.invoiceFile && ticket.invoiceFile.data ? {
           name: ticket.invoiceFile.name,
           size: ticket.invoiceFile.size,
           type: ticket.invoiceFile.type,
           data: ticket.invoiceFile.data,
         } : undefined,
-        receiptFile: ticket.receiptFile ? {
+        receiptFile: ticket.receiptFile && ticket.receiptFile.data ? {
           name: ticket.receiptFile.name,
           size: ticket.receiptFile.size,
           type: ticket.receiptFile.type,
@@ -154,13 +154,13 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         paymentDate: updates.paymentDate,
         status: updates.status,
         clientId: updates.client?.id,
-        invoiceFile: updates.invoiceFile !== undefined ? (updates.invoiceFile ? {
+        invoiceFile: updates.invoiceFile !== undefined ? (updates.invoiceFile && updates.invoiceFile.data ? {
           name: updates.invoiceFile.name,
           size: updates.invoiceFile.size,
           type: updates.invoiceFile.type,
           data: updates.invoiceFile.data,
         } : null) : undefined,
-        receiptFile: updates.receiptFile !== undefined ? (updates.receiptFile ? {
+        receiptFile: updates.receiptFile !== undefined ? (updates.receiptFile && updates.receiptFile.data ? {
           name: updates.receiptFile.name,
           size: updates.receiptFile.size,
           type: updates.receiptFile.type,

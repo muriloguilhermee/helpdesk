@@ -19,7 +19,7 @@ export default function TicketsList() {
     return localStorage.getItem('dashboardSearchQuery') || '';
   });
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  
+
   // Sincronizar busca com Header via localStorage
   useEffect(() => {
     const handleSearchChange = () => {
@@ -28,7 +28,7 @@ export default function TicketsList() {
         setSearchQuery(stored);
       }
     };
-    
+
     window.addEventListener('dashboardSearchChange', handleSearchChange);
     // Verificar mudanças periodicamente (para mesma aba)
     const interval = setInterval(() => {
@@ -37,7 +37,7 @@ export default function TicketsList() {
         setSearchQuery(stored);
       }
     }, 100);
-    
+
     return () => {
       window.removeEventListener('dashboardSearchChange', handleSearchChange);
       clearInterval(interval);
@@ -71,8 +71,8 @@ export default function TicketsList() {
     'pendente',
     'resolvido',
   ].sort((a, b) => {
-    const labelA = capitalizeStatus(a);
-    const labelB = capitalizeStatus(b);
+    const labelA = capitalizeStatus(a as TicketStatus);
+    const labelB = capitalizeStatus(b as TicketStatus);
     return labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
   }) as TicketStatus[];
 
@@ -82,12 +82,12 @@ export default function TicketsList() {
   let availableTickets = tickets;
   if (user?.role === 'technician') {
     // Técnicos veem chamados atribuídos a eles OU chamados de melhoria
-    availableTickets = tickets.filter(ticket => 
+    availableTickets = tickets.filter(ticket =>
       ticket.assignedTo?.id === user.id || ticket.category === 'melhoria'
     );
   } else if (user?.role === 'user') {
     // Usuários veem chamados que eles criaram OU chamados de melhoria
-    availableTickets = tickets.filter(ticket => 
+    availableTickets = tickets.filter(ticket =>
       ticket.createdBy.id === user.id || ticket.category === 'melhoria'
     );
   }
@@ -216,7 +216,7 @@ export default function TicketsList() {
                         </div>
                       </td>
                       <td className="py-4 px-4 text-sm text-gray-900 dark:text-gray-100">
-                        {ticket.category === 'integracao' 
+                        {ticket.category === 'integracao'
                           ? (ticket.integrationValue ? formatCurrency(ticket.integrationValue) : '-')
                           : (ticket.totalValue ? formatCurrency(ticket.totalValue) : '-')
                         }

@@ -222,7 +222,7 @@ export default function UsersPage() {
           name: newUser.name,
           email: emailNormalized,
           password: newUser.password,
-          role: newUser.role,
+          role: newUser.role === 'financial' ? 'user' : newUser.role,
           avatar: newUserPhoto || undefined,
           company: newUser.company || undefined,
         });
@@ -402,7 +402,7 @@ export default function UsersPage() {
           name: editUser.name,
           email: emailNormalized,
           password: editUser.password || undefined,
-          role: editUser.role,
+          role: editUser.role === 'financial' ? 'user' : editUser.role,
           avatar: editUserPhoto || null,
           company: editUser.company || null,
         });
@@ -844,6 +844,7 @@ export default function UsersPage() {
                     password: '',
                     confirmPassword: '',
                     role: 'user',
+                    company: '',
                   });
                   setEditUserPhoto(null);
                   if (editPhotoInputRef.current) {
@@ -1008,6 +1009,7 @@ export default function UsersPage() {
                     password: '',
                     confirmPassword: '',
                     role: 'user',
+                    company: '',
                   });
                 }}
                 className="btn-secondary"

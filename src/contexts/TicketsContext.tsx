@@ -191,7 +191,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         totalValue: updates.totalValue,
         assignedTo: updates.assignedTo?.id || null,
         clientId: updates.client?.id,
-        queueId: updates.queue?.id || null,
+        queueId: (updates.queue && typeof updates.queue === 'object' && 'id' in updates.queue) ? (updates.queue as any).id : (typeof updates.queue === 'string' ? updates.queue : null),
       });
 
       // Transform API response to Ticket format
@@ -243,7 +243,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           name: f.name,
           size: f.size,
           type: f.type,
-          dataUrl: f.data,
+          dataUrl: f.data || '',
         })),
       });
 

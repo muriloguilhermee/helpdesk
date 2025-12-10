@@ -282,7 +282,7 @@ export class PostgresAdapter {
       serviceType: data.service_type,
       totalValue: data.total_value,
       integrationValue: data.integration_value,
-      client: data.client_id ? { id: data.client_id } : undefined,
+      client: data.client_id ? { id: data.client_id, name: '', email: '', role: 'user' as const } : undefined,
       interactions: [],
       files: [],
       createdAt: new Date(data.created_at),

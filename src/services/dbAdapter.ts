@@ -48,7 +48,7 @@ async function getPostgresAdapter(): Promise<DatabaseAdapter | null> {
 
 // Adaptador unificado que escolhe automaticamente
 class UnifiedDatabaseAdapter implements DatabaseAdapter {
-  private adapter: DatabaseAdapter = database;
+  private adapter: DatabaseAdapter = database as any;
 
   async init(): Promise<void> {
     // Sempre inicializar IndexedDB primeiro (fallback)

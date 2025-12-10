@@ -61,12 +61,8 @@ export default function FinancialManagementPage() {
     if (showCreateModal || showEditModal) {
       const loadClients = async () => {
         try {
-          await database.init();
-          const allUsers = await database.getUsers();
-
-          const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-          const customUsers = allUsers.filter((u: any) => !mockUserEmails.has(u.email.toLowerCase()));
-          const clients = customUsers.filter((u: any) => u.role === 'user');
+          const allUsers = await api.getUsers();
+          const clients = allUsers.filter((u: any) => u.role === 'user');
 
           setAllClients(clients);
         } catch (error) {

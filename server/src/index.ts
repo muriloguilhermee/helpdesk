@@ -54,9 +54,11 @@ app.use(errorHandler);
 // Initialize Database and Start Server
 initializeDatabase()
   .then(() => {
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on http://localhost:${PORT}`);
-      console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    app.listen(PORT, '0.0.0.0', () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+      console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
+      console.log(`✅ Server ready to accept connections`);
     });
   })
   .catch((error) => {

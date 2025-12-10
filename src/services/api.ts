@@ -16,7 +16,7 @@ class ApiService {
     };
 
     if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
     }
 
     const response = await fetch(`${API_URL}${endpoint}`, {
@@ -83,6 +83,7 @@ class ApiService {
     password: string;
     role: 'admin' | 'technician' | 'user';
     avatar?: string;
+    company?: string;
   }) {
     return this.request<any>('/users', {
       method: 'POST',
@@ -167,6 +168,7 @@ class ApiService {
     totalValue?: number;
     assignedTo?: string | null;
     clientId?: string;
+    queueId?: string | null;
   }) {
     return this.request<any>(`/tickets/${id}`, {
       method: 'PUT',

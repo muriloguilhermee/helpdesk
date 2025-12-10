@@ -8,7 +8,8 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
-    minify: 'esbuild', // Usar esbuild em vez de terser (mais rápido e já incluído)
+    minify: 'esbuild', // Usar esbuild (já incluído no Vite, não precisa instalar terser)
+    terserOptions: undefined, // Garantir que não tenta usar terser
     rollupOptions: {
       output: {
         manualChunks: {

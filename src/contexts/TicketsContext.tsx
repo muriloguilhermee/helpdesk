@@ -34,58 +34,43 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carregar tickets do banco de dados ou API
+  // Carregar tickets APENAS do banco de dados (API)
   useEffect(() => {
     const loadTickets = async () => {
       try {
-        // Try API first
+        console.log('📡 Carregando tickets da API...');
+        // SEMPRE usar API - sem fallback para dados locais
         const apiTickets = await api.getTickets();
-        if (apiTickets && apiTickets.length > 0) {
-          // Transform API response to Ticket format
-          const transformedTickets = apiTickets.map((t: any) => ({
-            id: t.id,
-            title: t.title,
-            description: t.description,
-            status: t.status,
-            priority: t.priority,
-            category: t.category,
-            serviceType: t.service_type,
-            totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
-            createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
-            assignedTo: t.assigned_to_user,
-            client: t.client_user,
-            files: t.files || [],
-            comments: t.comments || [],
-            createdAt: new Date(t.created_at),
-            updatedAt: new Date(t.updated_at),
-          }));
-          previousTicketsCountRef.current = transformedTickets.length;
-          setTickets(transformedTickets);
-          setIsLoading(false);
-          return;
-        }
-      } catch (apiError) {
-        console.log('API not available, using local storage');
-      }
 
-      // Fallback to local database
-      try {
-        await database.init();
-        const savedTickets = await database.getTickets();
+        // Transform API response to Ticket format
+        const transformedTickets = apiTickets.map((t: any) => ({
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          status: t.status,
+          priority: t.priority,
+          category: t.category,
+          serviceType: t.service_type,
+          totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
+          createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
+          assignedTo: t.assigned_to_user,
+          client: t.client_user,
+          files: t.files || [],
+          comments: t.comments || [],
+          createdAt: new Date(t.created_at),
+          updatedAt: new Date(t.updated_at),
+        }));
 
-        if (savedTickets && savedTickets.length > 0) {
-          previousTicketsCountRef.current = savedTickets.length;
-          setTickets(savedTickets);
-        } else {
-          await database.saveTickets(mockTickets);
-          previousTicketsCountRef.current = mockTickets.length;
-          setTickets(mockTickets);
-        }
-      } catch (error) {
-        console.error('Erro ao carregar tickets:', error);
-        setTickets(mockTickets);
-      } finally {
+        console.log('✅ Tickets carregados da API:', transformedTickets.length);
+        previousTicketsCountRef.current = transformedTickets.length;
+        setTickets(transformedTickets);
         setIsLoading(false);
+      } catch (apiError: any) {
+        console.error('❌ Erro ao carregar tickets da API:', apiError);
+        // Se a API falhar, mostrar lista vazia ao invés de dados locais
+        setTickets([]);
+        setIsLoading(false);
+        alert('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
       }
     };
 
@@ -177,60 +162,76 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   }, [tickets, isLoading]);
 
   const deleteTicket = async (id: string) => {
-    setTickets((prev) => prev.filter((ticket) => ticket.id !== id));
     try {
+      // SEMPRE usar API - sem fallback para dados locais
+      console.log('🗑️ Deletando ticket via API:', id);
       await api.deleteTicket(id);
-    } catch (apiError) {
-      // Fallback to local
-      try {
-        await database.deleteTicket(id);
-      } catch (error) {
-        console.error('Erro ao deletar ticket:', error);
-      }
+
+      // Remover ticket da lista local
+      setTickets((prev) => prev.filter((ticket) => ticket.id !== id));
+      previousTicketsCountRef.current = tickets.length - 1;
+      console.log('✅ Ticket deletado com sucesso');
+    } catch (apiError: any) {
+      console.error('❌ Erro ao deletar ticket:', apiError);
+      throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
 
   const updateTicket = async (id: string, updates: Partial<Ticket>) => {
-    const updatedTickets = tickets.map((ticket) =>
-      ticket.id === id
-        ? { ...ticket, ...updates, updatedAt: new Date() }
-        : ticket
-    );
-    setTickets(updatedTickets);
+    try {
+      // SEMPRE usar API - sem fallback para dados locais
+      console.log('📝 Atualizando ticket via API:', id, updates);
+      const updatedTicket = await api.updateTicket(id, {
+        title: updates.title,
+        description: updates.description,
+        status: updates.status as any,
+        priority: updates.priority as any,
+        category: updates.category as any,
+        serviceType: updates.serviceType,
+        totalValue: updates.totalValue,
+        assignedTo: updates.assignedTo?.id || null,
+        clientId: updates.client?.id,
+        queueId: updates.queue?.id || null,
+      });
 
-    const updatedTicket = updatedTickets.find(t => t.id === id);
-    if (updatedTicket) {
-      try {
-        // Try API first
-        await api.updateTicket(id, {
-          title: updates.title,
-          description: updates.description,
-          status: updates.status as any,
-          priority: updates.priority as any,
-          category: updates.category as any,
-          serviceType: updates.serviceType,
-          totalValue: updates.totalValue,
-          assignedTo: updates.assignedTo?.id || null,
-          clientId: updates.client?.id,
-        });
-      } catch (apiError) {
-        // Fallback to local
-        try {
-          await database.saveTicket(updatedTicket);
-        } catch (error) {
-          console.error('Erro ao atualizar ticket:', error);
-        }
-      }
+      // Transform API response to Ticket format
+      const transformedTicket = {
+        id: updatedTicket.id,
+        title: updatedTicket.title,
+        description: updatedTicket.description,
+        status: updatedTicket.status,
+        priority: updatedTicket.priority,
+        category: updatedTicket.category,
+        serviceType: updatedTicket.service_type,
+        totalValue: updatedTicket.total_value ? parseFloat(updatedTicket.total_value) : undefined,
+        createdBy: updatedTicket.created_by_user || { id: updatedTicket.created_by, name: '', email: '', role: 'user' },
+        assignedTo: updatedTicket.assigned_to_user,
+        client: updatedTicket.client_user,
+        files: updatedTicket.files || [],
+        comments: updatedTicket.comments || [],
+        createdAt: new Date(updatedTicket.created_at),
+        updatedAt: new Date(updatedTicket.updated_at),
+      };
+
+      // Atualizar lista local com dados do banco
+      setTickets((prev) =>
+        prev.map((ticket) =>
+          ticket.id === id ? transformedTicket : ticket
+        )
+      );
+
+      console.log('✅ Ticket atualizado com sucesso');
+    } catch (apiError: any) {
+      console.error('❌ Erro ao atualizar ticket:', apiError);
+      throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
 
   const addTicket = async (ticket: Ticket) => {
-    const newTickets = [...tickets, ticket];
-    setTickets(newTickets);
-
     try {
-      // Try API first
-      await api.createTicket({
+      // SEMPRE usar API - sem fallback para dados locais
+      console.log('📝 Criando ticket via API:', ticket.title);
+      const createdTicket = await api.createTicket({
         title: ticket.title,
         description: ticket.description,
         priority: ticket.priority as any,
@@ -245,34 +246,63 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           dataUrl: f.data,
         })),
       });
-    } catch (apiError) {
-      // Fallback to local
-      try {
-        await database.saveTicket(ticket);
-      } catch (error) {
-        console.error('Erro ao salvar ticket:', error);
-      }
+
+      // Transform API response to Ticket format
+      const transformedTicket = {
+        id: createdTicket.id,
+        title: createdTicket.title,
+        description: createdTicket.description,
+        status: createdTicket.status,
+        priority: createdTicket.priority,
+        category: createdTicket.category,
+        serviceType: createdTicket.service_type,
+        totalValue: createdTicket.total_value ? parseFloat(createdTicket.total_value) : undefined,
+        createdBy: createdTicket.created_by_user || { id: createdTicket.created_by, name: '', email: '', role: 'user' },
+        assignedTo: createdTicket.assigned_to_user,
+        client: createdTicket.client_user,
+        files: createdTicket.files || [],
+        comments: createdTicket.comments || [],
+        createdAt: new Date(createdTicket.created_at),
+        updatedAt: new Date(createdTicket.updated_at),
+      };
+
+      // Adicionar ticket criado à lista (dados do banco)
+      setTickets((prev) => [...prev, transformedTicket]);
+      previousTicketsCountRef.current = tickets.length + 1;
+      console.log('✅ Ticket criado com sucesso');
+    } catch (apiError: any) {
+      console.error('❌ Erro ao criar ticket:', apiError);
+      throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
 
   const addComment = async (ticketId: string, comment: Comment) => {
-    setTickets((prev) =>
-      prev.map((ticket) =>
-        ticket.id === ticketId
-          ? {
-              ...ticket,
-              comments: [...(ticket.comments || []), comment],
-              updatedAt: new Date(),
-            }
-          : ticket
-      )
-    );
-
     try {
-      await api.addComment(ticketId, comment.content);
-    } catch (apiError) {
-      // Fallback: comment already added to state
-      console.log('API not available, comment saved locally');
+      // SEMPRE usar API - sem fallback para dados locais
+      console.log('💬 Adicionando comentário via API:', ticketId);
+      const createdComment = await api.addComment(ticketId, comment.content);
+
+      // Atualizar ticket com comentário do banco
+      setTickets((prev) =>
+        prev.map((ticket) =>
+          ticket.id === ticketId
+            ? {
+                ...ticket,
+                comments: [...(ticket.comments || []), {
+                  id: createdComment.id,
+                  content: createdComment.content,
+                  author: createdComment.author,
+                  createdAt: new Date(createdComment.createdAt),
+                }],
+                updatedAt: new Date(),
+              }
+            : ticket
+        )
+      );
+      console.log('✅ Comentário adicionado com sucesso');
+    } catch (apiError: any) {
+      console.error('❌ Erro ao adicionar comentário:', apiError);
+      throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
 

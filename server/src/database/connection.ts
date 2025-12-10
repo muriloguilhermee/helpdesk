@@ -90,6 +90,18 @@ const runMigrations = async (): Promise<void> => {
 
     const hasTicketsTable = await db!.schema.hasTable('tickets');
     if (!hasTicketsTable) {
+      // Verificar se existe tabela queues primeiro
+      const hasQueuesTable = await db!.schema.hasTable('queues');
+      if (!hasQueuesTable) {
+        await db!.schema.createTable('queues', (table) => {
+          table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
+          table.string('name').notNullable();
+          table.text('description').nullable();
+          table.timestamps(true, true);
+        });
+        console.log('✅ Created queues table');
+      }
+
       await db!.schema.createTable('tickets', (table) => {
         table.string('id').primary();
         table.string('title').notNullable();
@@ -102,9 +114,29 @@ const runMigrations = async (): Promise<void> => {
         table.uuid('created_by').references('id').inTable('users').onDelete('CASCADE');
         table.uuid('assigned_to').references('id').inTable('users').onDelete('SET NULL').nullable();
         table.uuid('client_id').references('id').inTable('users').onDelete('SET NULL').nullable();
+        table.uuid('queue_id').references('id').inTable('queues').onDelete('SET NULL').nullable();
         table.timestamps(true, true);
       });
       console.log('✅ Created tickets table');
+    } else {
+      // Verificar se queue_id existe, se não, adicionar
+      const hasQueueId = await db!.schema.hasColumn('tickets', 'queue_id');
+      if (!hasQueueId) {
+        const hasQueuesTable = await db!.schema.hasTable('queues');
+        if (!hasQueuesTable) {
+          await db!.schema.createTable('queues', (table) => {
+            table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
+            table.string('name').notNullable();
+            table.text('description').nullable();
+            table.timestamps(true, true);
+          });
+          console.log('✅ Created queues table');
+        }
+        await db!.schema.alterTable('tickets', (table) => {
+          table.uuid('queue_id').references('id').inTable('queues').onDelete('SET NULL').nullable();
+        });
+        console.log('✅ Added queue_id column to tickets table');
+      }
     }
 
     const hasTicketFilesTable = await db!.schema.hasTable('ticket_files');

@@ -18,6 +18,7 @@ const createTicketSchema = z.object({
   serviceType: z.string().optional(),
   totalValue: z.number().optional(),
   clientId: z.string().uuid().optional(),
+  queueId: z.string().uuid().optional(),
   files: z.array(z.object({
     name: z.string(),
     size: z.number(),
@@ -36,6 +37,7 @@ const updateTicketSchema = z.object({
   totalValue: z.number().optional(),
   assignedTo: z.string().uuid().nullable().optional(),
   clientId: z.string().uuid().optional(),
+  queueId: z.string().uuid().nullable().optional(),
 });
 
 const commentSchema = z.object({
@@ -89,33 +91,43 @@ export const createTicketController = async (req: AuthRequest, res: Response): P
       return;
     }
 
+    console.log('📥 Recebida requisição para criar ticket:', req.body);
     const validated = createTicketSchema.parse(req.body);
     const ticket = await createTicket({
       ...validated,
       createdBy: req.user.id,
       clientId: validated.clientId || req.user.id,
     });
+    console.log('✅ Ticket criado, retornando resposta:', ticket.id);
     res.status(201).json(ticket);
   } catch (error) {
+    console.error('❌ Erro no controller de criação de ticket:', error);
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: error.errors[0].message });
       return;
     }
-    res.status(400).json({ error: (error as Error).message });
+    const errorMessage = (error as Error).message;
+    console.error('Mensagem de erro:', errorMessage);
+    res.status(400).json({ error: errorMessage });
   }
 };
 
 export const updateTicketController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('📥 Recebida requisição para atualizar ticket:', req.params.id, req.body);
     const validated = updateTicketSchema.parse(req.body);
     const ticket = await updateTicket(req.params.id, validated);
+    console.log('✅ Ticket atualizado, retornando resposta:', ticket.id);
     res.json(ticket);
   } catch (error) {
+    console.error('❌ Erro no controller de atualização de ticket:', error);
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: error.errors[0].message });
       return;
     }
-    res.status(400).json({ error: (error as Error).message });
+    const errorMessage = (error as Error).message;
+    console.error('Mensagem de erro:', errorMessage);
+    res.status(400).json({ error: errorMessage });
   }
 };
 

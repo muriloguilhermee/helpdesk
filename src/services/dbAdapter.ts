@@ -114,3 +114,4 @@ export const dbAdapter = new UnifiedDatabaseAdapter();
 // Exportar também como 'database' para compatibilidade
 export { dbAdapter as database };
 
+

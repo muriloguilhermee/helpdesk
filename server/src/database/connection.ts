@@ -16,12 +16,39 @@ export const initializeDatabase = async (): Promise<void> => {
   try {
     // Verifica se há configuração de banco de dados
     if (!process.env.DATABASE_URL && !process.env.DB_HOST) {
-      console.error('❌ Variáveis de ambiente disponíveis:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('DB')));
+      console.error('');
+      console.error('❌ ============================================');
+      console.error('❌ ERRO: Configuração de banco de dados não encontrada!');
+      console.error('❌ ============================================');
+      console.error('');
+      console.error('📋 Variáveis de ambiente encontradas relacionadas a banco:');
+      const dbVars = Object.keys(process.env).filter(k => 
+        k.includes('DATABASE') || k.includes('DB') || k.includes('SUPABASE')
+      );
+      if (dbVars.length > 0) {
+        dbVars.forEach(v => console.error(`   - ${v}`));
+      } else {
+        console.error('   (nenhuma variável encontrada)');
+      }
+      console.error('');
+      console.error('💡 SOLUÇÃO:');
+      console.error('');
+      console.error('1. Crie um arquivo .env na pasta server/');
+      console.error('2. Adicione a connection string do Supabase:');
+      console.error('');
+      console.error('   DATABASE_URL=postgresql://postgres:[SENHA]@db.xxxxx.supabase.co:5432/postgres');
+      console.error('');
+      console.error('3. Para obter a connection string:');
+      console.error('   - Acesse: https://app.supabase.com');
+      console.error('   - Vá em: Settings → Database → Connection string');
+      console.error('   - Selecione: URI');
+      console.error('   - IMPORTANTE: Substitua [SENHA] pela senha real do banco');
+      console.error('');
+      console.error('📖 Veja server/CONFIGURAR_SUPABASE.md para instruções detalhadas');
+      console.error('');
       throw new Error(
-        'Database configuration is required. Please set DATABASE_URL or DB_HOST in Railway Variables.\n' +
-        'Go to Railway Dashboard → Your Service → Variables → + New Variable\n' +
-        'Add: DATABASE_URL=postgresql://user:password@host:port/database\n' +
-        'See CONFIGURAR_RAILWAY.md for detailed instructions.'
+        'Database configuration is required. Please set DATABASE_URL in server/.env file.\n' +
+        'See server/CONFIGURAR_SUPABASE.md for detailed instructions.'
       );
     }
 

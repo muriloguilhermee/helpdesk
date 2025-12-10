@@ -148,73 +148,122 @@ export const initializeDatabase = async (): Promise<void> => {
       debug: false,
     });
 
-    // Test connection with retry logic and exponential backoff
-    let retries = 10; // Aumentado para 10 tentativas
-    let connected = false;
-    let attempt = 0;
-
-    console.log('🔄 Iniciando tentativas de conexão...');
-
-    while (retries > 0 && !connected) {
-      attempt++;
+    // Test connection with retry for temporary errors
+    console.log('🔄 Testando conexão com o banco de dados...');
+    
+    let retries = 3;
+    let lastError: any = null;
+    
+    while (retries > 0) {
       try {
-        console.log(`🔄 Tentativa ${attempt}/${retries + attempt - 1} - Conectando ao banco de dados...`);
-
-        // Tentar conectar com timeout de 60 segundos
+        // Tentar conectar com timeout de 30 segundos
         const connectionPromise = db.raw('SELECT 1 as test');
         const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Connection timeout após 60s')), 60000)
+          setTimeout(() => reject(new Error('Connection timeout após 30s')), 30000)
         );
 
         await Promise.race([connectionPromise, timeoutPromise]);
-
         console.log('✅ Database connected successfully!');
-        connected = true;
+        lastError = null;
+        break; // Sucesso, sair do loop
       } catch (error: any) {
-        retries--;
-        const errorMsg = error.message || String(error);
-        console.log(`❌ Erro na tentativa ${attempt}: ${errorMsg}`);
-
-        if (retries > 0) {
-          const waitTime = Math.min(3000 * attempt, 30000); // Backoff: 3s, 6s, 9s... max 30s
-          console.log(`⏳ Aguardando ${waitTime/1000}s antes da próxima tentativa... (${retries} tentativas restantes)`);
-
-          // Tentar destruir conexões órfãs antes de tentar novamente
-          try {
-            if (db) {
-              console.log('🧹 Limpando conexões existentes...');
-              await db.destroy().catch((e) => {
-                console.log(`   (Erro ao destruir: ${e.message})`);
-              });
-            }
-
-            // Aguardar um pouco antes de recriar
-            await new Promise(resolve => setTimeout(resolve, 2000));
-
-            // Recriar a conexão
-            console.log('🔧 Recriando conexão...');
-            db = knex({
-              client: 'pg',
-              connection: connectionConfig,
-              pool: poolConfig,
-              acquireConnectionTimeout: 300000,
-              debug: false,
-            });
-          } catch (destroyError: any) {
-            console.log(`⚠️ Erro ao limpar/recriar conexões: ${destroyError.message}`);
+        lastError = error;
+        
+        // Se for erro temporário (XX000 - db_termination), tentar novamente
+        if (error.code === 'XX000' || 
+            (error.message && (error.message.includes('shutdown') || error.message.includes('db_termination') || error.message.includes('termination')))) {
+          retries--;
+          if (retries > 0) {
+            const waitTime = (4 - retries) * 5; // 5s, 10s, 15s
+            console.log(`⚠️  Erro temporário detectado (banco reiniciando). Aguardando ${waitTime}s antes de tentar novamente... (${retries} tentativas restantes)`);
+            await new Promise(resolve => setTimeout(resolve, waitTime * 1000));
+            continue; // Tentar novamente
           }
-
-          await new Promise(resolve => setTimeout(resolve, waitTime));
         } else {
-          console.error('❌ Todas as tentativas de conexão falharam!');
-          console.error('💡 Dicas:');
-          console.error('   1. Verifique se DATABASE_URL está correto no Railway');
-          console.error('   2. Para Supabase, use a Connection String do Pooler (porta 6543)');
-          console.error('   3. Verifique se o banco de dados está acessível');
-          console.error('   4. Verifique os logs do Supabase para mais detalhes');
-          throw error;
+          // Outro tipo de erro, não tentar novamente
+          break;
         }
       }
+    }
+    
+    // Se ainda há erro após retries, mostrar mensagem
+    if (lastError) {
+      const error = lastError;
+      console.error('');
+      console.error('❌ ============================================');
+      console.error('❌ ERRO ao conectar ao banco de dados!');
+      console.error('❌ ============================================');
+      console.error('');
+      console.error('📋 Detalhes do erro:');
+      console.error(`   Mensagem: ${error.message || 'N/A'}`);
+      console.error(`   Code: ${error.code || 'N/A'}`);
+      console.error(`   Detail: ${error.detail || 'N/A'}`);
+      console.error(`   Hint: ${error.hint || 'N/A'}`);
+      console.error('');
+      
+      // Diagnóstico baseado no erro
+      console.error('💡 Diagnóstico:');
+      console.error('');
+      
+      if (error.code === 'ECONNREFUSED') {
+        console.error('   ❌ Conexão recusada - possíveis causas:');
+        console.error('      1. Host ou porta incorretos na connection string');
+        console.error('      2. Firewall bloqueando a conexão');
+        console.error('      3. IP não está na whitelist do Supabase');
+        console.error('      4. Connection string mal formatada');
+        console.error('');
+        console.error('   💡 Soluções:');
+        console.error('      - Execute: npm run test-connection (para diagnóstico detalhado)');
+        console.error('      - Verifique a connection string no arquivo .env');
+        console.error('      - No Supabase: Settings → Database → verifique Connection pooling');
+        console.error('      - Tente usar Connection Pooler (porta 6543) ao invés da porta direta');
+      } else if (error.code === '28P01' || error.message.includes('password') || error.message.includes('authentication')) {
+        console.error('   ❌ Autenticação falhou - possíveis causas:');
+        console.error('      1. Senha incorreta na connection string');
+        console.error('      2. Usuário incorreto');
+        console.error('      3. Connection string ainda contém [SENHA] como placeholder');
+        console.error('');
+        console.error('   💡 Soluções:');
+        console.error('      - Verifique a senha em: Supabase Dashboard → Settings → Database');
+        console.error('      - Se necessário, resete a senha do banco');
+        console.error('      - IMPORTANTE: Substitua [SENHA] pela senha real na connection string');
+        console.error('      - Execute: npm run check-env (para verificar configuração)');
+      } else if (error.code === '3D000' || error.message.includes('database')) {
+        console.error('   ❌ Banco de dados não encontrado');
+        console.error('      - Verifique se o nome do banco está correto (geralmente "postgres")');
+      } else if (error.message.includes('SSL') || error.message.includes('certificate')) {
+        console.error('   ❌ Erro de SSL');
+        console.error('      - Para Supabase, SSL é obrigatório');
+        console.error('      - Verifique se a connection string está correta');
+      } else if (error.message.includes('timeout')) {
+        console.error('   ❌ Timeout na conexão');
+        console.error('      - O banco pode estar sobrecarregado');
+        console.error('      - Tente usar Connection Pooler (porta 6543)');
+        console.error('      - Verifique se há problemas de rede');
+      } else if (error.code === 'XX000' || 
+                 (error.message && (error.message.includes('shutdown') || error.message.includes('db_termination') || error.message.includes('termination')))) {
+        console.error('   ❌ Banco de dados foi encerrado ou está reiniciando');
+        console.error('      - Este é geralmente um problema temporário');
+        console.error('      - O servidor tentou reconectar automaticamente 3 vezes');
+        console.error('');
+        console.error('   💡 Soluções:');
+        console.error('      1. Aguarde 1-2 minutos e tente iniciar o servidor novamente');
+        console.error('      2. Verifique o status do projeto no Supabase Dashboard');
+        console.error('      3. Verifique se há manutenção programada');
+        console.error('      4. Tente usar conexão direta (porta 5432) ao invés de pooler');
+        console.error('      5. Verifique os logs do Supabase para mais detalhes');
+      } else {
+        console.error('   ❌ Erro desconhecido');
+        console.error('      - Execute: npm run test-connection (para diagnóstico detalhado)');
+        console.error('      - Verifique os logs do Supabase');
+        console.error('      - Tente usar Connection Pooler (porta 6543)');
+      }
+      
+      console.error('');
+      console.error('📖 Para mais ajuda, veja: server/CONFIGURAR_SUPABASE.md');
+      console.error('');
+      
+      throw error;
     }
 
     // Run migrations

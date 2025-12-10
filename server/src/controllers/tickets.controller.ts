@@ -133,10 +133,14 @@ export const updateTicketController = async (req: AuthRequest, res: Response): P
 
 export const deleteTicketController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('📥 Recebida requisição para excluir ticket:', req.params.id);
     await deleteTicket(req.params.id);
+    console.log('✅ Ticket excluído com sucesso');
     res.status(204).send();
   } catch (error) {
-    res.status(404).json({ error: (error as Error).message });
+    console.error('❌ Erro no controller de exclusão de ticket:', error);
+    const errorMessage = (error as Error).message;
+    res.status(404).json({ error: errorMessage });
   }
 };
 

@@ -78,10 +78,21 @@ export const updateUserController = async (req: AuthRequest, res: Response): Pro
 
 export const deleteUserController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('📥 Recebida requisição para excluir usuário:', req.params.id);
+
+    // Não permitir que usuário exclua a si mesmo
+    if (req.user?.id === req.params.id) {
+      res.status(400).json({ error: 'Você não pode excluir sua própria conta' });
+      return;
+    }
+
     await deleteUser(req.params.id);
+    console.log('✅ Usuário excluído com sucesso');
     res.status(204).send();
   } catch (error) {
-    res.status(404).json({ error: (error as Error).message });
+    console.error('❌ Erro no controller de exclusão de usuário:', error);
+    const errorMessage = (error as Error).message;
+    res.status(404).json({ error: errorMessage });
   }
 };
 

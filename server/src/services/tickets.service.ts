@@ -347,12 +347,39 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
 };
 
 export const deleteTicket = async (id: string) => {
-  const db = getDatabase();
+  try {
+    const db = getDatabase();
 
-  // Check if ticket exists
-  await getTicketById(id);
+    console.log('🗑️ Excluindo ticket:', id);
 
-  await db('tickets').where({ id }).delete();
+    // Check if ticket exists
+    const ticket = await getTicketById(id);
+    console.log('✅ Ticket encontrado:', ticket.title);
+
+    // Verificar quantos comentários e arquivos serão excluídos
+    const commentsCount = await db('comments')
+      .where({ ticket_id: id })
+      .count('* as count')
+      .first();
+
+    const filesCount = await db('ticket_files')
+      .where({ ticket_id: id })
+      .count('* as count')
+      .first();
+
+    const totalComments = parseInt(commentsCount?.count as string) || 0;
+    const totalFiles = parseInt(filesCount?.count as string) || 0;
+
+    console.log(`📊 Dados relacionados: ${totalComments} comentário(s), ${totalFiles} arquivo(s)`);
+
+    // Excluir ticket (CASCADE vai excluir comentários e arquivos automaticamente)
+    await db('tickets').where({ id }).delete();
+
+    console.log(`✅ Ticket excluído com sucesso. ${totalComments} comentário(s) e ${totalFiles} arquivo(s) foram excluídos automaticamente.`);
+  } catch (error: any) {
+    console.error('❌ Erro ao excluir ticket:', error);
+    throw error;
+  }
 };
 
 export const addComment = async (ticketId: string, authorId: string, content: string) => {

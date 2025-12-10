@@ -137,11 +137,48 @@ export const updateUser = async (id: string, data: UpdateUserData) => {
 };
 
 export const deleteUser = async (id: string) => {
-  const db = getDatabase();
+  try {
+    const db = getDatabase();
 
-  // Check if user exists
-  await getUserById(id);
+    console.log('🗑️ Excluindo usuário:', id);
 
-  await db('users').where({ id }).delete();
+    // Check if user exists
+    const user = await getUserById(id);
+    console.log('✅ Usuário encontrado:', user.email);
+
+    // Verificar quantos tickets serão afetados
+    const ticketsCreated = await db('tickets')
+      .where({ created_by: id })
+      .count('* as count')
+      .first();
+
+    const ticketsAssigned = await db('tickets')
+      .where({ assigned_to: id })
+      .count('* as count')
+      .first();
+
+    const ticketsClient = await db('tickets')
+      .where({ client_id: id })
+      .count('* as count')
+      .first();
+
+    const totalTicketsCreated = parseInt(ticketsCreated?.count as string) || 0;
+    const totalTicketsAssigned = parseInt(ticketsAssigned?.count as string) || 0;
+    const totalTicketsClient = parseInt(ticketsClient?.count as string) || 0;
+
+    console.log(`📊 Tickets relacionados: ${totalTicketsCreated} criados, ${totalTicketsAssigned} atribuídos, ${totalTicketsClient} como cliente`);
+
+    // Excluir usuário
+    // Tickets criados terão created_by setado para NULL (ON DELETE SET NULL) - tickets permanecem
+    // Tickets atribuídos terão assigned_to setado para NULL (ON DELETE SET NULL) - tickets permanecem
+    // Tickets como cliente terão client_id setado para NULL (ON DELETE SET NULL) - tickets permanecem
+    // Comentários terão author_id setado para NULL (ON DELETE SET NULL) - comentários permanecem
+    await db('users').where({ id }).delete();
+
+    console.log(`✅ Usuário excluído com sucesso. ${totalTicketsCreated} ticket(s) criado(s) pelo usuário permanecerão no sistema (sem referência ao usuário).`);
+  } catch (error: any) {
+    console.error('❌ Erro ao excluir usuário:', error);
+    throw error;
+  }
 };
 

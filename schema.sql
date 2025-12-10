@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   service_type VARCHAR(255),
   total_value DECIMAL(10, 2),
   integration_value DECIMAL(10, 2),
-  created_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
   assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
   client_id UUID REFERENCES users(id) ON DELETE SET NULL,
   queue_id UUID REFERENCES queues(id) ON DELETE SET NULL,
@@ -51,7 +51,7 @@ CREATE TABLE IF NOT EXISTS comments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   ticket_id VARCHAR(50) NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
-  author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  author_id UUID REFERENCES users(id) ON DELETE SET NULL,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

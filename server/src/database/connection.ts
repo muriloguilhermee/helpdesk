@@ -111,13 +111,16 @@ const runMigrations = async (): Promise<void> => {
         table.enum('category', ['tecnico', 'suporte', 'financeiro', 'outros']).notNullable();
         table.string('service_type').nullable();
         table.decimal('total_value', 10, 2).nullable();
-        table.uuid('created_by').references('id').inTable('users').onDelete('CASCADE');
+        // SET NULL: quando usuário criador é excluído, mantém ticket mas remove referência
+        table.uuid('created_by').references('id').inTable('users').onDelete('SET NULL').nullable();
+        // SET NULL: quando técnico é excluído, remove atribuição mas mantém ticket
         table.uuid('assigned_to').references('id').inTable('users').onDelete('SET NULL').nullable();
+        // SET NULL: quando cliente é excluído, remove referência mas mantém ticket
         table.uuid('client_id').references('id').inTable('users').onDelete('SET NULL').nullable();
         table.uuid('queue_id').references('id').inTable('queues').onDelete('SET NULL').nullable();
         table.timestamps(true, true);
       });
-      console.log('✅ Created tickets table');
+      console.log('✅ Created tickets table with SET NULL on user references (tickets preserved when user deleted)');
     } else {
       // Verificar se queue_id existe, se não, adicionar
       const hasQueueId = await db!.schema.hasColumn('tickets', 'queue_id');
@@ -143,6 +146,7 @@ const runMigrations = async (): Promise<void> => {
     if (!hasTicketFilesTable) {
       await db!.schema.createTable('ticket_files', (table) => {
         table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
+        // CASCADE: quando ticket é excluído, exclui arquivos
         table.string('ticket_id').references('id').inTable('tickets').onDelete('CASCADE');
         table.string('name').notNullable();
         table.bigInteger('size').notNullable();
@@ -150,19 +154,21 @@ const runMigrations = async (): Promise<void> => {
         table.text('data_url').notNullable(); // Base64 ou URL
         table.timestamps(true, true);
       });
-      console.log('✅ Created ticket_files table');
+      console.log('✅ Created ticket_files table with CASCADE');
     }
 
     const hasCommentsTable = await db!.schema.hasTable('comments');
     if (!hasCommentsTable) {
       await db!.schema.createTable('comments', (table) => {
         table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
+        // CASCADE: quando ticket é excluído, exclui comentários
         table.string('ticket_id').references('id').inTable('tickets').onDelete('CASCADE');
         table.text('content').notNullable();
-        table.uuid('author_id').references('id').inTable('users').onDelete('CASCADE');
+        // SET NULL: quando usuário é excluído, mantém comentário mas remove referência ao autor
+        table.uuid('author_id').references('id').inTable('users').onDelete('SET NULL').nullable();
         table.timestamps(true, true);
       });
-      console.log('✅ Created comments table');
+      console.log('✅ Created comments table (CASCADE on ticket, SET NULL on author)');
     }
 
     // Create indexes for performance

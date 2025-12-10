@@ -27,23 +27,35 @@ export default function UsersPage() {
   const [users, setUsers] = useState<UserType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Carregar usuários do banco de dados
+  // Carregar usuários APENAS do banco de dados (API)
   useEffect(() => {
     const loadUsers = async () => {
       try {
-        await database.init();
-        const allUsers = await database.getUsers();
+        setIsLoading(true);
+        console.log('📡 Carregando usuários da API...');
 
-        // Filtrar apenas usuários que NÃO são mockados
-        const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-        const customUsers = allUsers.filter(u => !mockUserEmails.has(u.email.toLowerCase()));
+        // SEMPRE usar API - sem fallback para dados locais
+        const apiUsers = await api.getUsers();
 
-        setUsers(customUsers);
-      } catch (error) {
-        console.error('Erro ao carregar usuários:', error);
-        setUsers([]);
-      } finally {
+        // Transform API response to User format
+        const transformedUsers = apiUsers.map((u: any) => ({
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          avatar: u.avatar,
+          company: u.company || undefined,
+        }));
+
+        console.log('✅ Usuários carregados da API:', transformedUsers.length);
+        setUsers(transformedUsers);
         setIsLoading(false);
+      } catch (apiError: any) {
+        console.error('❌ Erro ao carregar usuários da API:', apiError);
+        // Se a API falhar, mostrar lista vazia ao invés de dados locais
+        setUsers([]);
+        setIsLoading(false);
+        setError('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
       }
     };
 
@@ -76,32 +88,27 @@ export default function UsersPage() {
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Salvar usuários customizados no banco de dados sempre que houver mudanças
-  useEffect(() => {
-    if (!isLoading) {
-      const saveUsers = async () => {
-        try {
-          await database.init();
-          // Buscar todos os usuários do banco
-          const allUsersFromDB = await database.getUsers();
+  // Recarregar usuários após exclusão bem-sucedida
+  const reloadUsers = async () => {
+    try {
+      console.log('🔄 Recarregando usuários da API...');
+      const apiUsers = await api.getUsers();
 
-          // Filtrar mockUsers
-          const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-          const existingMockUsers = allUsersFromDB.filter((u: UserType) =>
-            mockUserEmails.has(u.email.toLowerCase())
-          );
+      const transformedUsers = apiUsers.map((u: any) => ({
+        id: u.id,
+        name: u.name,
+        email: u.email,
+        role: u.role,
+        avatar: u.avatar,
+        company: u.company || undefined,
+      }));
 
-          // Combinar mockUsers com usuários customizados
-          const allUsers = [...existingMockUsers, ...users];
-          await database.saveUsers(allUsers);
-        } catch (error) {
-          console.error('Erro ao salvar usuários no banco de dados:', error);
-        }
-      };
-
-      saveUsers();
+      setUsers(transformedUsers);
+      console.log('✅ Usuários recarregados:', transformedUsers.length);
+    } catch (error: any) {
+      console.error('❌ Erro ao recarregar usuários:', error);
     }
-  }, [users, isLoading]);
+  };
 
   const filteredUsers = users.filter((user) =>
     user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -455,16 +462,29 @@ export default function UsersPage() {
       return;
     }
 
-    // Remover usuário
-    const updatedUsers = users.filter(u => u.id !== showDeleteConfirm);
-    setUsers(updatedUsers);
+    try {
+      setError('');
 
-    // Remover do localStorage de senhas
-    const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
-    const filteredPasswords = usersWithPasswords.filter((u: any) => u.id !== showDeleteConfirm);
-    localStorage.setItem('usersWithPasswords', JSON.stringify(filteredPasswords));
+      // SEMPRE usar API - excluir do banco de dados
+      console.log('🗑️ Excluindo usuário via API:', showDeleteConfirm);
+      await api.deleteUser(showDeleteConfirm);
+      console.log('✅ Usuário excluído do banco de dados');
 
-    setShowDeleteConfirm(null);
+      setShowDeleteConfirm(null);
+      setSuccessMessage('Usuário excluído com sucesso!');
+
+      // Recarregar lista de usuários do banco (dados atualizados)
+      await reloadUsers();
+
+      // Limpar mensagem de sucesso após 3 segundos
+      setTimeout(() => {
+        setSuccessMessage('');
+      }, 3000);
+    } catch (apiError: any) {
+      console.error('❌ Erro ao excluir usuário:', apiError);
+      setError(apiError.message || 'Erro ao excluir usuário. Verifique se o backend está rodando.');
+      setShowDeleteConfirm(null);
+    }
   };
 
   return (

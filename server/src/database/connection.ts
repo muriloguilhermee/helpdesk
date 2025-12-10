@@ -26,26 +26,36 @@ export const initializeDatabase = async (): Promise<void> => {
     }
 
     // Suporta connection string (para Supabase, Neon, etc) ou configuração individual
-    const isSupabase = process.env.DATABASE_URL?.includes('supabase');
+    const isSupabase = process.env.DATABASE_URL?.includes('supabase') ||
+                       process.env.DATABASE_URL?.includes('supabase.co');
 
     let connectionConfig: string | object;
 
     if (process.env.DATABASE_URL) {
       // Se for Supabase, converter string para objeto para adicionar SSL
       if (isSupabase) {
-        // Parse da connection string
-        const url = new URL(process.env.DATABASE_URL);
-        connectionConfig = {
-          host: url.hostname,
-          port: parseInt(url.port || '5432'),
-          user: url.username,
-          password: url.password,
-          database: url.pathname.slice(1), // Remove a barra inicial
-          ssl: { rejectUnauthorized: false },
-        };
+        try {
+          // Parse da connection string
+          const url = new URL(process.env.DATABASE_URL);
+          connectionConfig = {
+            host: url.hostname,
+            port: parseInt(url.port || '5432'),
+            user: url.username,
+            password: url.password,
+            database: url.pathname.slice(1), // Remove a barra inicial
+            ssl: { rejectUnauthorized: false },
+            connectionTimeoutMillis: 30000,
+            statement_timeout: 30000,
+          };
+          console.log(`🔗 Configurando conexão Supabase: ${url.hostname}`);
+        } catch (error) {
+          console.error('❌ Erro ao parsear DATABASE_URL:', error);
+          throw new Error('Invalid DATABASE_URL format');
+        }
       } else {
         // Para outros serviços, usar string diretamente
         connectionConfig = process.env.DATABASE_URL;
+        console.log('🔗 Usando connection string direta');
       }
     } else {
       // Configuração individual
@@ -57,42 +67,78 @@ export const initializeDatabase = async (): Promise<void> => {
         database: process.env.DB_NAME || 'helpdesk',
         // Adicionar SSL para Supabase se necessário
         ...(isSupabase ? { ssl: { rejectUnauthorized: false } } : {}),
+        connectionTimeoutMillis: 30000,
+        statement_timeout: 30000,
       };
+      console.log(`🔗 Configurando conexão individual: ${process.env.DB_HOST}`);
     }
 
     // Para Supabase, usar configuração otimizada com pool menor e timeouts maiores
+    const poolConfig = {
+      min: isSupabase ? 0 : 2,
+      max: isSupabase ? 1 : 10, // Supabase funciona melhor com menos conexões
+      acquireTimeoutMillis: 180000, // 3 minutos
+      createTimeoutMillis: 90000, // 1.5 minutos
+      idleTimeoutMillis: 30000,
+      reapIntervalMillis: 1000,
+      createRetryIntervalMillis: 2000, // 2 segundos entre tentativas
+      propagateCreateError: false, // Não propagar erro de criação
+      destroyTimeoutMillis: 5000,
+    };
+
     db = knex({
       client: 'pg',
       connection: connectionConfig,
-      pool: {
-        min: isSupabase ? 0 : 2,
-        max: isSupabase ? 1 : 10, // Supabase funciona melhor com menos conexões
-        acquireTimeoutMillis: 120000, // Aumentado para 2 minutos
-        createTimeoutMillis: 60000, // Aumentado para 1 minuto
-        idleTimeoutMillis: 30000,
-        reapIntervalMillis: 1000,
-        createRetryIntervalMillis: 500, // Aumentado para 500ms
-        propagateCreateError: false, // Não propagar erro de criação
-      },
-      acquireConnectionTimeout: 120000, // Aumentado para 2 minutos
+      pool: poolConfig,
+      acquireConnectionTimeout: 180000, // 3 minutos
       debug: false,
     });
 
-    // Test connection with retry logic
-    let retries = 3;
+    // Test connection with retry logic and exponential backoff
+    let retries = 5; // Aumentado para 5 tentativas
     let connected = false;
+    let attempt = 0;
 
     while (retries > 0 && !connected) {
+      attempt++;
       try {
-        await db.raw('SELECT 1');
+        console.log(`🔄 Tentando conectar ao banco de dados... (tentativa ${attempt})`);
+        // Usar timeout explícito na query
+        await Promise.race([
+          db.raw('SELECT 1'),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Connection timeout')), 30000)
+          )
+        ]);
         console.log('✅ Database connected successfully');
         connected = true;
       } catch (error: any) {
         retries--;
         if (retries > 0) {
-          console.log(`⏳ Tentando conectar novamente... (${retries} tentativas restantes)`);
-          await new Promise(resolve => setTimeout(resolve, 2000)); // Aguardar 2 segundos
+          const waitTime = Math.min(5000 * attempt, 20000); // Backoff exponencial, max 20s
+          console.log(`⏳ Tentando conectar novamente em ${waitTime/1000}s... (${retries} tentativas restantes)`);
+          console.log(`   Erro: ${error.message}`);
+
+          // Tentar destruir conexões órfãs antes de tentar novamente
+          try {
+            if (db) {
+              await db.destroy().catch(() => {});
+            }
+            // Recriar a conexão
+            db = knex({
+              client: 'pg',
+              connection: connectionConfig,
+              pool: poolConfig,
+              acquireConnectionTimeout: 180000,
+              debug: false,
+            });
+          } catch (destroyError) {
+            console.log('⚠️ Erro ao limpar conexões, continuando...');
+          }
+
+          await new Promise(resolve => setTimeout(resolve, waitTime));
         } else {
+          console.error('❌ Todas as tentativas de conexão falharam');
           throw error;
         }
       }

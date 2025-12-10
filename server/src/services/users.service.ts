@@ -15,8 +15,8 @@ export interface UpdateUserData {
   email?: string;
   password?: string;
   role?: 'admin' | 'technician' | 'user';
-  avatar?: string;
-  company?: string;
+  avatar?: string | null;
+  company?: string | null;
 }
 
 export const getAllUsers = async () => {

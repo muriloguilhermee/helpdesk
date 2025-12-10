@@ -18,9 +18,9 @@ router.use(authenticate);
 router.get('/', getAllTicketsController);
 
 // Get ticket by ID
-router.get('/pending', async (req, res, next) => {
+router.get('/pending', async (req, res) => {
   // This will be handled by filtering in the service
-  return getAllTicketsController(req, res, next);
+  return getAllTicketsController(req as any, res);
 });
 
 // Get ticket by ID

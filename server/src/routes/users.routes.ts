@@ -24,8 +24,9 @@ router.post('/', authorize('admin'), createUserController);
 
 // Update user (admin or self)
 router.put('/:id', (req, res, next) => {
-  if (req.user?.role === 'admin' || req.user?.id === req.params.id) {
-    return updateUserController(req, res, next);
+  const authReq = req as any;
+  if (authReq.user?.role === 'admin' || authReq.user?.id === req.params.id) {
+    return updateUserController(authReq, res);
   }
   res.status(403).json({ error: 'Acesso negado' });
 });

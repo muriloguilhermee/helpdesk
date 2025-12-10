@@ -23,8 +23,8 @@ const updateUserSchema = z.object({
   email: z.string().email().optional(),
   password: z.string().min(6).optional(),
   role: z.enum(['admin', 'technician', 'user']).optional(),
-  avatar: z.string().nullable().optional(),
-  company: z.string().nullable().optional(),
+  avatar: z.union([z.string(), z.null()]).optional(),
+  company: z.union([z.string(), z.null()]).optional(),
 });
 
 export const getAllUsersController = async (req: AuthRequest, res: Response): Promise<void> => {

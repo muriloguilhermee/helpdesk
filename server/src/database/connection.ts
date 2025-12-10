@@ -14,6 +14,14 @@ export const getDatabase = (): Knex => {
 
 export const initializeDatabase = async (): Promise<void> => {
   try {
+    // Verifica se há configuração de banco de dados
+    if (!process.env.DATABASE_URL && !process.env.DB_HOST) {
+      throw new Error(
+        'Database configuration is required. Please set DATABASE_URL or DB_HOST in .env file.\n' +
+        'Example: DATABASE_URL=postgresql://user:password@host:port/database'
+      );
+    }
+
     // Suporta connection string (para Supabase, Neon, etc) ou configuração individual
     const connectionConfig = process.env.DATABASE_URL
       ? process.env.DATABASE_URL // Connection string completa

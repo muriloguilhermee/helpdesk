@@ -49,43 +49,44 @@
 
 **📖 Veja CONFIGURAR_RAILWAY.md para instruções detalhadas**
 
-### Frontend
+### Frontend - Usar Vercel (Recomendado) ⭐
 
-**⚠️ Se não aparecer "Static Site", use uma das opções abaixo:**
+**Vercel é mais fácil e otimizado para React/Vite!**
 
-#### Opção A: Empty Project (Recomendado)
-
-1. No projeto Railway, clique em **"New"** → **"Empty Project"** (ou **"GitHub Repo"**)
-2. Selecione seu repositório
-3. Railway detectará automaticamente
-4. Vá em **"Settings"** → **"Build & Deploy"** e configure:
-   - **Root Directory**: `/` (raiz)
-   - **Build Command**: `npm install && npm run build`
-   - **Start Command**: `npm start`
-   - **Output Directory**: `dist` (não usado, mas pode deixar)
-5. Em **"Variables"**, adicione:
-   ```
-   VITE_API_URL=https://sua-url-backend.railway.app
-   ```
-6. Anote a URL do frontend
-
-#### Opção B: Usar Vercel (Mais Fácil) ⭐
-
-1. Acesse https://vercel.com
+1. Acesse: **https://vercel.com**
 2. Faça login com GitHub
-3. **"Add New"** → **"Project"**
-4. Importe seu repositório
-5. Configure:
-   - **Framework Preset**: Vite
-   - **Build Command**: `npm run build`
-   - **Output Directory**: `dist`
-6. Adicione variável:
-   ```
-   VITE_API_URL=https://sua-url-backend.railway.app
-   ```
-7. Clique em **"Deploy"**
+3. Clique em **"Add New..."** → **"Project"**
+4. Selecione seu repositório `helpdesk`
+5. Clique em **"Import"**
+6. O Vercel detecta automaticamente:
+   - ✅ Framework: Vite
+   - ✅ Build Command: `npm run build`
+   - ✅ Output Directory: `dist`
+7. **Adicione variável de ambiente:**
+   - Clique em **"Environment Variables"**
+   - Adicione:
+     ```
+     Nome: VITE_API_URL
+     Valor: https://sua-url-backend.railway.app
+     ```
+     ⚠️ **Substitua pela URL real do seu backend!**
+8. Clique em **"Deploy"**
+9. Aguarde 1-2 minutos
+10. **Pronto!** Anote a URL do Vercel (ex: `https://helpdesk.vercel.app`)
 
-**📖 Veja RAILWAY_FRONTEND.md para mais opções**
+**📖 Veja TUTORIAL_VERCEL.md para tutorial completo**
+
+#### Atualizar CORS no Backend
+
+Após fazer deploy no Vercel:
+
+1. No Railway (Backend), vá em **Variables**
+2. Atualize `CORS_ORIGIN` com a URL do Vercel:
+   ```
+   CORS_ORIGIN=https://seu-projeto.vercel.app
+   ```
+3. Backend reinicia automaticamente
+4. Pronto! Frontend e backend conectados! ✅
 
 ### Finalizar
 

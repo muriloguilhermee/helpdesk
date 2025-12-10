@@ -58,7 +58,7 @@ Para melhor performance, use o **Connection Pooler** do Supabase:
 
 1. No Dashboard do Supabase, vá em **Settings** → **Database**
 2. Role até **Connection pooling**
-3. Selecione **Session mode** ou **Transaction mode**
+3. Selecione **Session mode** ou **Transaction mode**    
 4. Copie a connection string (ela terá porta `6543` ou `5432`)
 
 **Exemplo com Pooler:**

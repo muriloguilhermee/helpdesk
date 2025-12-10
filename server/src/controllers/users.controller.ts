@@ -45,15 +45,20 @@ export const getUserByIdController = async (req: AuthRequest, res: Response): Pr
 
 export const createUserController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('📥 Recebida requisição para criar usuário:', req.body);
     const validated = createUserSchema.parse(req.body);
     const user = await createUser(validated);
+    console.log('✅ Usuário criado, retornando resposta:', user.id);
     res.status(201).json(user);
   } catch (error) {
+    console.error('❌ Erro no controller de criação de usuário:', error);
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: error.errors[0].message });
       return;
     }
-    res.status(400).json({ error: (error as Error).message });
+    const errorMessage = (error as Error).message;
+    console.error('Mensagem de erro:', errorMessage);
+    res.status(400).json({ error: errorMessage });
   }
 };
 

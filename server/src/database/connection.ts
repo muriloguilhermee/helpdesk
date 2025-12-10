@@ -23,23 +23,40 @@ export const initializeDatabase = async (): Promise<void> => {
     }
 
     // Suporta connection string (para Supabase, Neon, etc) ou configuração individual
-    const connectionConfig = process.env.DATABASE_URL
-      ? process.env.DATABASE_URL // Connection string completa
-      : {
-          host: process.env.DB_HOST || 'localhost',
-          port: parseInt(process.env.DB_PORT || '5432'),
-          user: process.env.DB_USER || 'postgres',
-          password: process.env.DB_PASSWORD || 'postgres',
-          database: process.env.DB_NAME || 'helpdesk',
-        };
+    const isSupabase = process.env.DATABASE_URL?.includes('supabase');
 
+    let connectionConfig: string | object;
+
+    if (process.env.DATABASE_URL) {
+      // Connection string completa
+      connectionConfig = process.env.DATABASE_URL;
+    } else {
+      // Configuração individual
+      connectionConfig = {
+        host: process.env.DB_HOST || 'localhost',
+        port: parseInt(process.env.DB_PORT || '5432'),
+        user: process.env.DB_USER || 'postgres',
+        password: process.env.DB_PASSWORD || 'postgres',
+        database: process.env.DB_NAME || 'helpdesk',
+        // Adicionar SSL para Supabase se necessário
+        ...(isSupabase ? { ssl: { rejectUnauthorized: false } } : {}),
+      };
+    }
+
+    // Para Supabase, usar configuração otimizada
     db = knex({
       client: 'pg',
       connection: connectionConfig,
       pool: {
-        min: 2,
-        max: 10,
+        min: isSupabase ? 0 : 2,
+        max: isSupabase ? 1 : 10, // Supabase funciona melhor com menos conexões
+        acquireTimeoutMillis: 60000,
+        createTimeoutMillis: 30000,
+        idleTimeoutMillis: 30000,
+        reapIntervalMillis: 1000,
+        createRetryIntervalMillis: 200,
       },
+      acquireConnectionTimeout: 60000,
     });
 
     // Test connection

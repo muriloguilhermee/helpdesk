@@ -159,7 +159,7 @@ Erro ao conectar com o servidor. Verifique se o backend está rodando.
 
 ### Erro: "Failed to fetch"
 - **Causa:** Backend não está acessível ou CORS não configurado
-- **Solução:** 
+- **Solução:**
   1. Verificar se backend está rodando
   2. Verificar `CORS_ORIGIN` no Railway
   3. Adicionar URL do Vercel em `CORS_ORIGIN`
@@ -170,21 +170,21 @@ Erro ao conectar com o servidor. Verifique se o backend está rodando.
 
 ### Erro: "404 Not Found"
 - **Causa:** URL do backend incorreta ou rota não existe
-- **Solução:** 
+- **Solução:**
   1. Verificar `VITE_API_URL` no Vercel
   2. Verificar se não tem `/api` no final
   3. Testar `/health` diretamente
 
 ### Erro: "Network Error"
 - **Causa:** Backend não está rodando ou URL incorreta
-- **Solução:** 
+- **Solução:**
   1. Verificar logs do Railway
   2. Verificar se backend está rodando
   3. Verificar URL do backend
 
 ### Erro aparece "às vezes"
 - **Causa:** Backend pode estar reiniciando ou timeout
-- **Solução:** 
+- **Solução:**
   1. Aguardar alguns segundos
   2. Verificar logs do Railway
   3. Limpar cache do navegador

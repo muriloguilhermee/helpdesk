@@ -19,24 +19,41 @@ class ApiService {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
     }
 
-    const response = await fetch(`${API_URL}${endpoint}`, {
-      ...options,
-      headers,
-    });
+    // Adicionar timeout e retry para conexões intermitentes
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos
 
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-      const errorMessage = error.error || `HTTP error! status: ${response.status}`;
-      const errorWithStatus = new Error(errorMessage);
-      (errorWithStatus as any).status = response.status;
-      throw errorWithStatus;
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        ...options,
+        headers,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        const errorMessage = error.error || `HTTP error! status: ${response.status}`;
+        const errorWithStatus = new Error(errorMessage);
+        (errorWithStatus as any).status = response.status;
+        throw errorWithStatus;
+      }
+
+      if (response.status === 204) {
+        return {} as T;
+      }
+
+      return response.json();
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      if (error.name === 'AbortError') {
+        throw new Error('Timeout: O servidor demorou muito para responder. Tente novamente.');
+      }
+      if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+        throw new Error('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
+      }
+      throw error;
     }
-
-    if (response.status === 204) {
-      return {} as T;
-    }
-
-    return response.json();
   }
 
   // Auth

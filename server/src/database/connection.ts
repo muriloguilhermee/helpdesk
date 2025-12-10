@@ -31,8 +31,22 @@ export const initializeDatabase = async (): Promise<void> => {
     let connectionConfig: string | object;
 
     if (process.env.DATABASE_URL) {
-      // Connection string completa
-      connectionConfig = process.env.DATABASE_URL;
+      // Se for Supabase, converter string para objeto para adicionar SSL
+      if (isSupabase) {
+        // Parse da connection string
+        const url = new URL(process.env.DATABASE_URL);
+        connectionConfig = {
+          host: url.hostname,
+          port: parseInt(url.port || '5432'),
+          user: url.username,
+          password: url.password,
+          database: url.pathname.slice(1), // Remove a barra inicial
+          ssl: { rejectUnauthorized: false },
+        };
+      } else {
+        // Para outros serviços, usar string diretamente
+        connectionConfig = process.env.DATABASE_URL;
+      }
     } else {
       // Configuração individual
       connectionConfig = {
@@ -46,25 +60,43 @@ export const initializeDatabase = async (): Promise<void> => {
       };
     }
 
-    // Para Supabase, usar configuração otimizada
+    // Para Supabase, usar configuração otimizada com pool menor e timeouts maiores
     db = knex({
       client: 'pg',
       connection: connectionConfig,
       pool: {
         min: isSupabase ? 0 : 2,
         max: isSupabase ? 1 : 10, // Supabase funciona melhor com menos conexões
-        acquireTimeoutMillis: 60000,
-        createTimeoutMillis: 30000,
+        acquireTimeoutMillis: 120000, // Aumentado para 2 minutos
+        createTimeoutMillis: 60000, // Aumentado para 1 minuto
         idleTimeoutMillis: 30000,
         reapIntervalMillis: 1000,
-        createRetryIntervalMillis: 200,
+        createRetryIntervalMillis: 500, // Aumentado para 500ms
+        propagateCreateError: false, // Não propagar erro de criação
       },
-      acquireConnectionTimeout: 60000,
+      acquireConnectionTimeout: 120000, // Aumentado para 2 minutos
+      debug: false,
     });
 
-    // Test connection
-    await db.raw('SELECT 1');
-    console.log('✅ Database connected successfully');
+    // Test connection with retry logic
+    let retries = 3;
+    let connected = false;
+
+    while (retries > 0 && !connected) {
+      try {
+        await db.raw('SELECT 1');
+        console.log('✅ Database connected successfully');
+        connected = true;
+      } catch (error: any) {
+        retries--;
+        if (retries > 0) {
+          console.log(`⏳ Tentando conectar novamente... (${retries} tentativas restantes)`);
+          await new Promise(resolve => setTimeout(resolve, 2000)); // Aguardar 2 segundos
+        } else {
+          throw error;
+        }
+      }
+    }
 
     // Run migrations
     await runMigrations();

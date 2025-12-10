@@ -8,8 +8,8 @@ export default defineConfig({
     outDir: 'dist',
     assetsDir: 'assets',
     sourcemap: false,
-    minify: 'esbuild', // Usar esbuild (já incluído no Vite, não precisa instalar terser)
-    terserOptions: undefined, // Garantir que não tenta usar terser
+    // FORÇAR uso de esbuild (já incluído no Vite, não precisa instalar terser)
+    minify: 'esbuild',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -17,6 +17,12 @@ export default defineConfig({
         },
       },
     },
+  },
+  // Garantir que não tenta usar terser em nenhum lugar
+  esbuild: {
+    minifyIdentifiers: true,
+    minifySyntax: true,
+    minifyWhitespace: true,
   },
   base: '/', // Altere para '/subpasta/' se não estiver na raiz
 })

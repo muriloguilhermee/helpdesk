@@ -71,7 +71,7 @@ export default function UsersPage() {
   const createPhotoInputRef = useRef<HTMLInputElement>(null);
   const editPhotoInputRef = useRef<HTMLInputElement>(null);
   const [newUserPhoto, setNewUserPhoto] = useState<string | null>(null);
-  const [editUserPhoto, setEditUserPhoto] = useState<string | null>(null);
+  const [editUserPhoto, setEditUserPhoto] = useState<string | null | undefined>(undefined);
   const [newUser, setNewUser] = useState({
     name: '',
     email: '',
@@ -342,7 +342,8 @@ export default function UsersPage() {
       role: user.role,
       company: user.company || '',
     });
-    setEditUserPhoto(user.avatar || null);
+    // Se o usuário tem avatar, usar a string. Se não tem, usar undefined (não foi alterado)
+    setEditUserPhoto(user.avatar || undefined);
     setError('');
     setShowEditModal(true);
   };
@@ -398,14 +399,32 @@ export default function UsersPage() {
     try {
       const apiUrl = import.meta.env.VITE_API_URL;
       if (apiUrl) {
-        const apiUser = await api.updateUser(editingUser.id, {
+        const updateData: any = {
           name: editUser.name,
           email: emailNormalized,
-          password: editUser.password || undefined,
           role: editUser.role === 'financial' ? 'user' : editUser.role,
-          avatar: editUserPhoto || null,
           company: editUser.company || null,
-        });
+        };
+
+        // Só enviar senha se foi alterada
+        if (editUser.password) {
+          updateData.password = editUser.password;
+        }
+
+        // Só enviar avatar se foi alterado
+        // undefined = não foi alterado, não enviar
+        // null = foi removido, enviar null
+        // string = foi alterado/adicionado, enviar a string
+        if (editUserPhoto !== undefined) {
+          updateData.avatar = editUserPhoto || null;
+          console.log('📤 Avatar será atualizado:', editUserPhoto ? `Avatar presente (${editUserPhoto.substring(0, 50)}...)` : 'Avatar removido (null)');
+        } else {
+          console.log('📤 Avatar não será alterado (mantém o atual)');
+        }
+
+        console.log('📤 Enviando atualização de usuário:', { ...updateData, avatar: updateData.avatar !== undefined ? (updateData.avatar ? `Avatar presente (${updateData.avatar.substring(0, 50)}...)` : 'Avatar removido') : 'Avatar não alterado' });
+
+        const apiUser = await api.updateUser(editingUser.id, updateData);
 
         // Recarregar lista de usuários do banco
         await reloadUsers();
@@ -445,7 +464,7 @@ export default function UsersPage() {
       role: 'user',
       company: '',
     });
-    setEditUserPhoto(null);
+    setEditUserPhoto(undefined);
     if (editPhotoInputRef.current) {
       editPhotoInputRef.current.value = '';
     }
@@ -846,7 +865,7 @@ export default function UsersPage() {
                     role: 'user',
                     company: '',
                   });
-                  setEditUserPhoto(null);
+                  setEditUserPhoto(undefined);
                   if (editPhotoInputRef.current) {
                     editPhotoInputRef.current.value = '';
                   }
@@ -871,7 +890,7 @@ export default function UsersPage() {
                 </label>
                 <div className="flex items-center gap-4">
                   <div className="flex-shrink-0">
-                    {editUserPhoto ? (
+                    {editUserPhoto !== undefined && editUserPhoto !== null ? (
                       <div className="relative">
                         <img
                           src={editUserPhoto}
@@ -906,7 +925,7 @@ export default function UsersPage() {
                       className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-pointer"
                     >
                       <Camera className="w-4 h-4" />
-                      {editUserPhoto ? 'Alterar Foto' : 'Adicionar Foto'}
+                      {editUserPhoto !== undefined && editUserPhoto !== null ? 'Alterar Foto' : 'Adicionar Foto'}
                     </label>
                     <p className="text-xs text-gray-500 dark:text-gray-400 dark:text-gray-500 mt-1">Máximo 5MB</p>
                   </div>

@@ -62,6 +62,8 @@ export const createUser = async (data: CreateUserData) => {
 
     console.log('📝 Criando usuário:', { email: data.email, name: data.name, role: data.role });
 
+    console.log('🖼️ Avatar recebido:', data.avatar ? `Avatar presente (${data.avatar.substring(0, 50)}...)` : 'Sem avatar');
+
     const insertResult = await db('users')
       .insert({
         email: data.email,
@@ -74,6 +76,7 @@ export const createUser = async (data: CreateUserData) => {
       .returning(['id', 'email', 'name', 'role', 'avatar', 'company', 'created_at', 'updated_at']);
 
     console.log('📦 Resultado do insert:', insertResult);
+    console.log('🖼️ Avatar salvo no banco:', insertResult[0]?.avatar ? `Avatar presente (${insertResult[0].avatar.substring(0, 50)}...)` : 'Sem avatar');
 
     // O returning pode retornar array ou objeto dependendo do driver
     const user = Array.isArray(insertResult) ? insertResult[0] : insertResult;
@@ -124,7 +127,10 @@ export const updateUser = async (id: string, data: UpdateUserData) => {
   if (data.name) updateData.name = data.name;
   if (data.email) updateData.email = data.email;
   if (data.role) updateData.role = data.role;
-  if (data.avatar !== undefined) updateData.avatar = data.avatar;
+  if (data.avatar !== undefined) {
+    updateData.avatar = data.avatar || null;
+    console.log('🖼️ Atualizando avatar:', data.avatar ? `Avatar presente (${data.avatar.substring(0, 50)}...)` : 'Avatar removido (null)');
+  }
   if (data.company !== undefined) updateData.company = data.company;
 
   // Only update password if provided
@@ -136,6 +142,8 @@ export const updateUser = async (id: string, data: UpdateUserData) => {
     .where({ id })
     .update(updateData)
     .returning(['id', 'email', 'name', 'role', 'avatar', 'company', 'created_at', 'updated_at']);
+
+  console.log('🖼️ Avatar após update:', user?.avatar ? `Avatar presente (${user.avatar.substring(0, 50)}...)` : 'Sem avatar');
 
   return user;
 };

@@ -7,6 +7,7 @@ import { getStatusColor } from '../utils/statusColors';
 import { formatDate } from '../utils/formatDate';
 import { database } from '../services/database';
 import { mockUsers } from '../data/mockData';
+import { api } from '../services/api';
 import { UserAvatar } from '../utils/userAvatar';
 import { User as UserType } from '../types';
 
@@ -17,7 +18,7 @@ export default function Dashboard() {
     // Carregar busca do localStorage se existir
     return localStorage.getItem('dashboardSearchQuery') || '';
   });
-  
+
   // Sincronizar busca com Header via localStorage
   useEffect(() => {
     const handleSearchChange = () => {
@@ -26,7 +27,7 @@ export default function Dashboard() {
         setSearchQuery(stored);
       }
     };
-    
+
     window.addEventListener('dashboardSearchChange', handleSearchChange);
     // Verificar mudanças periodicamente (para mesma aba)
     const interval = setInterval(() => {
@@ -35,7 +36,7 @@ export default function Dashboard() {
         setSearchQuery(stored);
       }
     }, 100);
-    
+
     return () => {
       window.removeEventListener('dashboardSearchChange', handleSearchChange);
       clearInterval(interval);
@@ -48,12 +49,12 @@ export default function Dashboard() {
   let availableTickets = tickets;
   if (user?.role === 'technician') {
     // Técnicos veem chamados atribuídos a eles OU chamados de melhoria
-    availableTickets = tickets.filter(ticket => 
+    availableTickets = tickets.filter(ticket =>
       ticket.assignedTo?.id === user.id || ticket.category === 'melhoria'
     );
   } else if (user?.role === 'user') {
     // Usuários veem chamados que eles criaram OU chamados de melhoria
-    availableTickets = tickets.filter(ticket => 
+    availableTickets = tickets.filter(ticket =>
       ticket.createdBy.id === user.id || ticket.category === 'melhoria'
     );
   }
@@ -103,20 +104,33 @@ export default function Dashboard() {
   useEffect(() => {
     const loadTechnicians = async () => {
       try {
-        await database.init();
-        const allUsers = await database.getUsers();
-        
+        // Usar API se disponível, senão usar database local
+        const apiUrl = import.meta.env.VITE_API_URL;
+        let allUsers: UserType[];
+        if (apiUrl) {
+          try {
+            allUsers = await api.getUsers();
+          } catch (error) {
+            console.error('Erro ao buscar usuários da API, usando database local:', error);
+            await database.init();
+            allUsers = await database.getUsers();
+          }
+        } else {
+          await database.init();
+          allUsers = await database.getUsers();
+        }
+
         // Filtrar apenas técnicos que NÃO são mockados
         const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-        const customTechnicians = allUsers.filter((u: any) => 
+        const customTechnicians = allUsers.filter((u: any) =>
           u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
         );
-        
+
         // Ordenar técnicos alfabeticamente
-        const sortedTechnicians = [...customTechnicians].sort((a: any, b: any) => 
+        const sortedTechnicians = [...customTechnicians].sort((a: any, b: any) =>
           a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
         );
-        
+
         setTechnicians(sortedTechnicians);
       } catch (error) {
         console.error('Erro ao carregar técnicos:', error);
@@ -143,11 +157,11 @@ export default function Dashboard() {
     technicians.forEach((tech) => {
       // Buscar todos os tickets atribuídos a este técnico (sem filtro de role)
       const techTickets = tickets.filter(t => t.assignedTo?.id === tech.id);
-      
+
       const resolvidos = techTickets.filter(t => t.status === 'resolvido');
       const emAndamento = techTickets.filter(t => t.status === 'em_andamento');
       const abertos = techTickets.filter(t => t.status === 'aberto');
-      
+
       // Calcular tempo médio de resolução (em dias)
       let tempoMedio = 0;
       if (resolvidos.length > 0) {
@@ -293,7 +307,7 @@ export default function Dashboard() {
                 {sortedTechnicians.map((tech) => {
                   const perf = technicianPerformance[tech.id];
                   if (!perf) return null;
-                  
+
                   return (
                     <tr key={tech.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                       <td className="py-3 px-4">
@@ -325,7 +339,7 @@ export default function Dashboard() {
                       </td>
                       <td className="text-center py-3 px-4">
                         <span className="text-gray-700 dark:text-gray-300">
-                          {perf.tempoMedioResolucao > 0 
+                          {perf.tempoMedioResolucao > 0
                             ? `${perf.tempoMedioResolucao.toFixed(1)} dias`
                             : '-'
                           }

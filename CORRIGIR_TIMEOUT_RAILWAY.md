@@ -6,7 +6,21 @@
 KnexTimeoutError: Knex: Timeout acquiring a connection. The pool is probably full.
 ```
 
-## ✅ Correções Aplicadas
+## ⚠️ SOLUÇÃO PRINCIPAL: Usar Connection Pooler do Supabase
+
+**O problema mais comum é usar a conexão direta (porta 5432) em vez do Connection Pooler (porta 6543).**
+
+👉 **Veja `USAR_SUPABASE_POOLER.md` para instruções detalhadas!**
+
+### Resumo Rápido:
+1. No Supabase Dashboard: **Settings** → **Database** → **Connection Pooling**
+2. Copie a connection string do **Pooler** (porta **6543**)
+3. No Railway: Atualize `DATABASE_URL` com a connection string do Pooler
+4. Pronto! 🎉
+
+---
+
+## ✅ Correções Aplicadas no Código
 
 ### 1. Aumento de Timeouts
 - `acquireTimeoutMillis`: 120s → **180s (3 minutos)**

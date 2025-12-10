@@ -25,9 +25,30 @@ export const initializeDatabase = async (): Promise<void> => {
       );
     }
 
+    console.log('🔍 Verificando configuração do banco de dados...');
+    const dbUrl = process.env.DATABASE_URL || '';
+    console.log(`   DATABASE_URL presente: ${dbUrl ? 'Sim' : 'Não'}`);
+    if (dbUrl) {
+      // Mostrar apenas hostname para segurança
+      try {
+        const url = new URL(dbUrl);
+        console.log(`   Host: ${url.hostname}`);
+        console.log(`   Port: ${url.port || '5432'}`);
+        console.log(`   Database: ${url.pathname.slice(1)}`);
+      } catch (e) {
+        console.log('   (Não foi possível parsear URL)');
+      }
+    }
+
     // Suporta connection string (para Supabase, Neon, etc) ou configuração individual
-    const isSupabase = process.env.DATABASE_URL?.includes('supabase') ||
-                       process.env.DATABASE_URL?.includes('supabase.co');
+    const isSupabase = dbUrl.includes('supabase') ||
+                       dbUrl.includes('supabase.co') ||
+                       dbUrl.includes('pooler.supabase.com');
+    const isPooler = dbUrl.includes('pooler.supabase.com') || dbUrl.includes(':6543');
+    if (isPooler) {
+      console.log('   ✅ Detectado Connection Pooler do Supabase (recomendado)');
+    }
+    console.log(`   É Supabase: ${isSupabase ? 'Sim' : 'Não'}`);
 
     let connectionConfig: string | object;
 
@@ -74,71 +95,96 @@ export const initializeDatabase = async (): Promise<void> => {
     }
 
     // Para Supabase, usar configuração otimizada com pool menor e timeouts maiores
+    // IMPORTANTE: Para Supabase, usar pool mínimo 0 e máximo 1 para evitar timeouts
     const poolConfig = {
       min: isSupabase ? 0 : 2,
       max: isSupabase ? 1 : 10, // Supabase funciona melhor com menos conexões
-      acquireTimeoutMillis: 180000, // 3 minutos
-      createTimeoutMillis: 90000, // 1.5 minutos
-      idleTimeoutMillis: 30000,
-      reapIntervalMillis: 1000,
-      createRetryIntervalMillis: 2000, // 2 segundos entre tentativas
+      acquireTimeoutMillis: 300000, // 5 minutos (aumentado)
+      createTimeoutMillis: 120000, // 2 minutos (aumentado)
+      idleTimeoutMillis: 10000, // 10 segundos (reduzido para liberar conexões mais rápido)
+      reapIntervalMillis: 2000, // Verificar conexões inativas a cada 2s
+      createRetryIntervalMillis: 3000, // 3 segundos entre tentativas de criar conexão
       propagateCreateError: false, // Não propagar erro de criação
-      destroyTimeoutMillis: 5000,
+      destroyTimeoutMillis: 10000, // 10 segundos para destruir conexões
     };
 
+    console.log('🔧 Configurando pool de conexões...');
+    console.log(`   Pool min: ${poolConfig.min}, max: ${poolConfig.max}`);
+    console.log(`   Timeout de aquisição: ${poolConfig.acquireTimeoutMillis/1000}s`);
+
+    // Criar conexão Knex
     db = knex({
       client: 'pg',
       connection: connectionConfig,
       pool: poolConfig,
-      acquireConnectionTimeout: 180000, // 3 minutos
+      acquireConnectionTimeout: 300000, // 5 minutos
       debug: false,
     });
 
     // Test connection with retry logic and exponential backoff
-    let retries = 5; // Aumentado para 5 tentativas
+    let retries = 10; // Aumentado para 10 tentativas
     let connected = false;
     let attempt = 0;
+
+    console.log('🔄 Iniciando tentativas de conexão...');
 
     while (retries > 0 && !connected) {
       attempt++;
       try {
-        console.log(`🔄 Tentando conectar ao banco de dados... (tentativa ${attempt})`);
-        // Usar timeout explícito na query
-        await Promise.race([
-          db.raw('SELECT 1'),
-          new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Connection timeout')), 30000)
-          )
-        ]);
-        console.log('✅ Database connected successfully');
+        console.log(`🔄 Tentativa ${attempt}/${retries + attempt - 1} - Conectando ao banco de dados...`);
+
+        // Tentar conectar com timeout de 60 segundos
+        const connectionPromise = db.raw('SELECT 1 as test');
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Connection timeout após 60s')), 60000)
+        );
+
+        await Promise.race([connectionPromise, timeoutPromise]);
+
+        console.log('✅ Database connected successfully!');
         connected = true;
       } catch (error: any) {
         retries--;
+        const errorMsg = error.message || String(error);
+        console.log(`❌ Erro na tentativa ${attempt}: ${errorMsg}`);
+
         if (retries > 0) {
-          const waitTime = Math.min(5000 * attempt, 20000); // Backoff exponencial, max 20s
-          console.log(`⏳ Tentando conectar novamente em ${waitTime/1000}s... (${retries} tentativas restantes)`);
-          console.log(`   Erro: ${error.message}`);
+          const waitTime = Math.min(3000 * attempt, 30000); // Backoff: 3s, 6s, 9s... max 30s
+          console.log(`⏳ Aguardando ${waitTime/1000}s antes da próxima tentativa... (${retries} tentativas restantes)`);
 
           // Tentar destruir conexões órfãs antes de tentar novamente
           try {
             if (db) {
-              await db.destroy().catch(() => {});
+              console.log('🧹 Limpando conexões existentes...');
+              await db.destroy().catch((e) => {
+                console.log(`   (Erro ao destruir: ${e.message})`);
+              });
             }
+
+            // Aguardar um pouco antes de recriar
+            await new Promise(resolve => setTimeout(resolve, 2000));
+
             // Recriar a conexão
+            console.log('🔧 Recriando conexão...');
             db = knex({
               client: 'pg',
               connection: connectionConfig,
               pool: poolConfig,
-              acquireConnectionTimeout: 180000,
+              acquireConnectionTimeout: 300000,
               debug: false,
             });
-          } catch (destroyError) {
-            console.log('⚠️ Erro ao limpar conexões, continuando...');
+          } catch (destroyError: any) {
+            console.log(`⚠️ Erro ao limpar/recriar conexões: ${destroyError.message}`);
           }
 
           await new Promise(resolve => setTimeout(resolve, waitTime));
         } else {
-          console.error('❌ Todas as tentativas de conexão falharam');
+          console.error('❌ Todas as tentativas de conexão falharam!');
+          console.error('💡 Dicas:');
+          console.error('   1. Verifique se DATABASE_URL está correto no Railway');
+          console.error('   2. Para Supabase, use a Connection String do Pooler (porta 6543)');
+          console.error('   3. Verifique se o banco de dados está acessível');
+          console.error('   4. Verifique os logs do Supabase para mais detalhes');
           throw error;
         }
       }

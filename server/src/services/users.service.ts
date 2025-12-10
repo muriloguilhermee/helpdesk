@@ -7,6 +7,7 @@ export interface CreateUserData {
   password: string;
   role: 'admin' | 'technician' | 'user';
   avatar?: string;
+  company?: string;
 }
 
 export interface UpdateUserData {
@@ -15,12 +16,13 @@ export interface UpdateUserData {
   password?: string;
   role?: 'admin' | 'technician' | 'user';
   avatar?: string;
+  company?: string;
 }
 
 export const getAllUsers = async () => {
   const db = getDatabase();
   return db('users')
-    .select('id', 'email', 'name', 'role', 'avatar', 'created_at', 'updated_at')
+    .select('id', 'email', 'name', 'role', 'avatar', 'company', 'created_at', 'updated_at')
     .orderBy('created_at', 'desc');
 };
 
@@ -28,7 +30,7 @@ export const getUserById = async (id: string) => {
   const db = getDatabase();
   const user = await db('users')
     .where({ id })
-    .select('id', 'email', 'name', 'role', 'avatar', 'created_at', 'updated_at')
+    .select('id', 'email', 'name', 'role', 'avatar', 'company', 'created_at', 'updated_at')
     .first();
 
   if (!user) {
@@ -67,8 +69,9 @@ export const createUser = async (data: CreateUserData) => {
         password: hashedPassword,
         role: data.role,
         avatar: data.avatar || null,
+        company: data.company || null,
       })
-      .returning(['id', 'email', 'name', 'role', 'avatar', 'created_at', 'updated_at']);
+      .returning(['id', 'email', 'name', 'role', 'avatar', 'company', 'created_at', 'updated_at']);
 
     console.log('📦 Resultado do insert:', insertResult);
 
@@ -122,6 +125,7 @@ export const updateUser = async (id: string, data: UpdateUserData) => {
   if (data.email) updateData.email = data.email;
   if (data.role) updateData.role = data.role;
   if (data.avatar !== undefined) updateData.avatar = data.avatar;
+  if (data.company !== undefined) updateData.company = data.company;
 
   // Only update password if provided
   if (data.password) {
@@ -131,7 +135,7 @@ export const updateUser = async (id: string, data: UpdateUserData) => {
   const [user] = await db('users')
     .where({ id })
     .update(updateData)
-    .returning(['id', 'email', 'name', 'role', 'avatar', 'created_at', 'updated_at']);
+    .returning(['id', 'email', 'name', 'role', 'avatar', 'company', 'created_at', 'updated_at']);
 
   return user;
 };

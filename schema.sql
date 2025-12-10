@@ -79,6 +79,42 @@ CREATE TABLE IF NOT EXISTS ticket_files (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Tabela de Tickets Financeiros
+CREATE TABLE IF NOT EXISTS financial_tickets (
+  id VARCHAR(50) PRIMARY KEY,
+  title VARCHAR(500) NOT NULL,
+  description TEXT,
+  amount DECIMAL(10, 2) NOT NULL,
+  due_date DATE NOT NULL,
+  payment_date DATE,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending'
+    CHECK (status IN ('pending', 'paid', 'overdue', 'cancelled')),
+  client_id UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  invoice_file_name VARCHAR(255),
+  invoice_file_size BIGINT,
+  invoice_file_type VARCHAR(100),
+  invoice_file_data TEXT,
+  receipt_file_name VARCHAR(255),
+  receipt_file_size BIGINT,
+  receipt_file_type VARCHAR(100),
+  receipt_file_data TEXT,
+  notes TEXT,
+  -- Campos para integração com ERP
+  erp_id VARCHAR(255),
+  erp_type VARCHAR(50),
+  invoice_number VARCHAR(255),
+  barcode VARCHAR(255),
+  our_number VARCHAR(255),
+  payment_erp_id VARCHAR(255),
+  payment_method VARCHAR(100),
+  transaction_id VARCHAR(255),
+  erp_metadata JSONB,
+  payment_metadata JSONB,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Índices para performance
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_role ON users(role);
@@ -99,6 +135,11 @@ CREATE INDEX IF NOT EXISTS idx_interactions_author_id ON interactions(author_id)
 CREATE INDEX IF NOT EXISTS idx_interactions_created_at ON interactions(created_at);
 CREATE INDEX IF NOT EXISTS idx_ticket_files_ticket_id ON ticket_files(ticket_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_files_interaction_id ON ticket_files(interaction_id);
+CREATE INDEX IF NOT EXISTS idx_financial_tickets_client_id ON financial_tickets(client_id);
+CREATE INDEX IF NOT EXISTS idx_financial_tickets_created_by ON financial_tickets(created_by);
+CREATE INDEX IF NOT EXISTS idx_financial_tickets_status ON financial_tickets(status);
+CREATE INDEX IF NOT EXISTS idx_financial_tickets_due_date ON financial_tickets(due_date);
+CREATE INDEX IF NOT EXISTS idx_financial_tickets_erp_id ON financial_tickets(erp_id);
 
 -- Função para atualizar updated_at automaticamente
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -123,6 +164,11 @@ CREATE TRIGGER update_tickets_updated_at
 DROP TRIGGER IF EXISTS update_queues_updated_at ON queues;
 CREATE TRIGGER update_queues_updated_at
   BEFORE UPDATE ON queues
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_financial_tickets_updated_at ON financial_tickets;
+CREATE TRIGGER update_financial_tickets_updated_at
+  BEFORE UPDATE ON financial_tickets
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================

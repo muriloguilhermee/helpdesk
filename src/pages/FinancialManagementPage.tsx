@@ -6,8 +6,7 @@ import { FinancialTicket, PaymentStatus, TicketFile } from '../types';
 import { formatDate } from '../utils/formatDate';
 import { formatCurrency } from '../utils/formatCurrency';
 import { formatFileSize } from '../utils/formatFileSize';
-import { mockUsers } from '../data/mockData';
-import { database } from '../services/database';
+import { api } from '../services/api';
 
 export default function FinancialManagementPage() {
   const { user, hasPermission } = useAuth();
@@ -19,7 +18,7 @@ export default function FinancialManagementPage() {
   const invoiceInputRef = useRef<HTMLInputElement>(null);
   const receiptInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -35,21 +34,21 @@ export default function FinancialManagementPage() {
   // Estado para armazenar clientes
   const [allClients, setAllClients] = useState<any[]>([]);
 
-  // Buscar todos os usuários do banco de dados
+  // Buscar todos os clientes da API (banco de dados)
   useEffect(() => {
     const loadClients = async () => {
       try {
-        await database.init();
-        const allUsers = await database.getUsers();
-        
-        // Filtrar apenas clientes (usuários normais) que foram criados pelo usuário (não mock users)
-        const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-        const customUsers = allUsers.filter((u: any) => !mockUserEmails.has(u.email.toLowerCase()));
-        const clients = customUsers.filter((u: any) => u.role === 'user');
-        
+        console.log('📡 Carregando clientes da API...');
+        // SEMPRE usar API - buscar usuários do banco de dados
+        const apiUsers = await api.getUsers();
+
+        // Filtrar apenas clientes (usuários normais)
+        const clients = apiUsers.filter((u: any) => u.role === 'user');
+
+        console.log('✅ Clientes carregados da API:', clients.length);
         setAllClients(clients);
-      } catch (error) {
-        console.error('Erro ao carregar clientes:', error);
+      } catch (error: any) {
+        console.error('❌ Erro ao carregar clientes da API:', error);
         setAllClients([]);
       }
     };
@@ -64,17 +63,17 @@ export default function FinancialManagementPage() {
         try {
           await database.init();
           const allUsers = await database.getUsers();
-          
+
           const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
           const customUsers = allUsers.filter((u: any) => !mockUserEmails.has(u.email.toLowerCase()));
           const clients = customUsers.filter((u: any) => u.role === 'user');
-          
+
           setAllClients(clients);
         } catch (error) {
           console.error('Erro ao recarregar clientes:', error);
         }
       };
-      
+
       loadClients();
     }
   }, [showCreateModal, showEditModal]);
@@ -93,17 +92,17 @@ export default function FinancialManagementPage() {
 
   // Ordenar empresas e clientes dentro de cada empresa
   const sortedCompanies = useMemo(() => {
-    const companies = Object.keys(clientsByCompany).sort((a, b) => 
+    const companies = Object.keys(clientsByCompany).sort((a, b) =>
       a.localeCompare(b, 'pt-BR', { sensitivity: 'base' })
     );
-    
+
     // Ordenar clientes dentro de cada empresa
     companies.forEach(company => {
-      clientsByCompany[company].sort((a: any, b: any) => 
+      clientsByCompany[company].sort((a: any, b: any) =>
         a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
       );
     });
-    
+
     return companies;
   }, [clientsByCompany]);
 
@@ -129,7 +128,7 @@ export default function FinancialManagementPage() {
         type: file.type,
         data: reader.result as string,
       };
-      
+
       if (type === 'invoice') {
         setInvoiceFile(ticketFile);
       } else {
@@ -205,7 +204,7 @@ export default function FinancialManagementPage() {
       };
 
       await addFinancialTicket(newTicket);
-      
+
       // Limpar formulário
       setFormData({
         title: '',
@@ -219,9 +218,11 @@ export default function FinancialManagementPage() {
       setInvoiceFile(null);
       setReceiptFile(null);
       setShowCreateModal(false);
-    } catch (error) {
+
+      alert('Ticket financeiro criado com sucesso!');
+    } catch (error: any) {
       console.error('Erro ao criar ticket financeiro:', error);
-      alert('Erro ao criar ticket financeiro. Por favor, tente novamente.');
+      alert(error.message || 'Erro ao criar ticket financeiro. Verifique se o backend está rodando.');
     }
   };
 
@@ -241,33 +242,45 @@ export default function FinancialManagementPage() {
     setShowEditModal(true);
   };
 
-  const handleUpdateTicket = () => {
+  const handleUpdateTicket = async () => {
     if (!editingTicket || !user) return;
 
     const client = allClients.find((c: any) => c.id === formData.clientId);
     if (!client) return;
 
-    updateFinancialTicket(editingTicket.id, {
-      title: formData.title,
-      description: formData.description || undefined,
-      amount: parseFloat(formData.amount),
-      dueDate: new Date(formData.dueDate),
-      status: formData.status,
-      client: client,
-      invoiceFile: invoiceFile || undefined,
-      receiptFile: receiptFile || undefined,
-      notes: formData.notes || undefined,
-      paymentDate: formData.status === 'paid' ? (editingTicket.paymentDate || new Date()) : undefined,
-    });
+    try {
+      await updateFinancialTicket(editingTicket.id, {
+        title: formData.title,
+        description: formData.description || undefined,
+        amount: parseFloat(formData.amount),
+        dueDate: new Date(formData.dueDate),
+        status: formData.status,
+        client: client,
+        invoiceFile: invoiceFile || undefined,
+        receiptFile: receiptFile || undefined,
+        notes: formData.notes || undefined,
+        paymentDate: formData.status === 'paid' ? (editingTicket.paymentDate || new Date()) : undefined,
+      });
 
-    setShowEditModal(false);
-    setEditingTicket(null);
+      setShowEditModal(false);
+      setEditingTicket(null);
+      alert('Ticket financeiro atualizado com sucesso!');
+    } catch (error: any) {
+      console.error('Erro ao atualizar ticket financeiro:', error);
+      alert(error.message || 'Erro ao atualizar ticket financeiro. Verifique se o backend está rodando.');
+    }
   };
 
-  const handleDeleteTicket = () => {
+  const handleDeleteTicket = async () => {
     if (deleteConfirmId) {
-      deleteFinancialTicket(deleteConfirmId);
-      setDeleteConfirmId(null);
+      try {
+        await deleteFinancialTicket(deleteConfirmId);
+        setDeleteConfirmId(null);
+        alert('Ticket financeiro excluído com sucesso!');
+      } catch (error: any) {
+        console.error('Erro ao excluir ticket financeiro:', error);
+        alert(error.message || 'Erro ao excluir ticket financeiro. Verifique se o backend está rodando.');
+      }
     }
   };
 
@@ -381,7 +394,7 @@ export default function FinancialManagementPage() {
                         {getStatusLabel(ticket.status)}
                       </span>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                       <div>
                         <p className="text-xs text-gray-500 dark:text-gray-400">Valor</p>
@@ -434,7 +447,7 @@ export default function FinancialManagementPage() {
                       </div>
                     )}
                   </div>
-                  
+
                   {hasPermission('edit:financial') && (
                     <div className="flex items-center gap-2">
                       <button

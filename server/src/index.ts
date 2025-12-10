@@ -9,6 +9,7 @@ import authRoutes from './routes/auth.routes.js';
 import usersRoutes from './routes/users.routes.js';
 import ticketsRoutes from './routes/tickets.routes.js';
 import filesRoutes from './routes/files.routes.js';
+import financialRoutes from './routes/financial.routes.js';
 import { initializeDatabase } from './database/connection.js';
 
 dotenv.config();
@@ -44,6 +45,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/tickets', ticketsRoutes);
 app.use('/api/files', filesRoutes);
+app.use('/api/financial', financialRoutes);
 
 // Error Handling
 app.use(notFoundHandler);

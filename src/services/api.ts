@@ -96,6 +96,7 @@ class ApiService {
     password?: string;
     role?: 'admin' | 'technician' | 'user';
     avatar?: string | null;
+    company?: string | null;
   }) {
     return this.request<any>(`/users/${id}`, {
       method: 'PUT',
@@ -183,6 +184,105 @@ class ApiService {
     return this.request<any>(`/tickets/${ticketId}/comments`, {
       method: 'POST',
       body: JSON.stringify({ content }),
+    });
+  }
+
+  // Financial Tickets
+  async getFinancialTickets() {
+    return this.request<any[]>('/financial');
+  }
+
+  async getFinancialTicketById(id: string) {
+    return this.request<any>(`/financial/${id}`);
+  }
+
+  async createFinancialTicket(data: {
+    title: string;
+    description?: string;
+    amount: number;
+    dueDate: string | Date;
+    paymentDate?: string | Date;
+    status: 'pending' | 'paid' | 'overdue' | 'cancelled';
+    clientId: string;
+    invoiceFile?: {
+      name: string;
+      size: number;
+      type: string;
+      data: string;
+    };
+    receiptFile?: {
+      name: string;
+      size: number;
+      type: string;
+      data: string;
+    };
+    notes?: string;
+    erpId?: string;
+    erpType?: string;
+    invoiceNumber?: string;
+    barcode?: string;
+    ourNumber?: string;
+    paymentErpId?: string;
+    paymentMethod?: string;
+    transactionId?: string;
+    erpMetadata?: Record<string, any>;
+    paymentMetadata?: Record<string, any>;
+  }) {
+    return this.request<any>('/financial', {
+      method: 'POST',
+      body: JSON.stringify({
+        ...data,
+        dueDate: data.dueDate instanceof Date ? data.dueDate.toISOString() : data.dueDate,
+        paymentDate: data.paymentDate ? (data.paymentDate instanceof Date ? data.paymentDate.toISOString() : data.paymentDate) : undefined,
+      }),
+    });
+  }
+
+  async updateFinancialTicket(id: string, data: {
+    title?: string;
+    description?: string;
+    amount?: number;
+    dueDate?: string | Date;
+    paymentDate?: string | Date | null;
+    status?: 'pending' | 'paid' | 'overdue' | 'cancelled';
+    clientId?: string;
+    invoiceFile?: {
+      name: string;
+      size: number;
+      type: string;
+      data: string;
+    } | null;
+    receiptFile?: {
+      name: string;
+      size: number;
+      type: string;
+      data: string;
+    } | null;
+    notes?: string;
+    erpId?: string;
+    erpType?: string;
+    invoiceNumber?: string;
+    barcode?: string;
+    ourNumber?: string;
+    paymentErpId?: string;
+    paymentMethod?: string;
+    transactionId?: string;
+    erpMetadata?: Record<string, any>;
+    paymentMetadata?: Record<string, any>;
+  }) {
+    return this.request<any>(`/financial/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...data,
+        dueDate: data.dueDate ? (data.dueDate instanceof Date ? data.dueDate.toISOString() : data.dueDate) : undefined,
+        paymentDate: data.paymentDate !== undefined ? (data.paymentDate === null ? null : (data.paymentDate instanceof Date ? data.paymentDate.toISOString() : data.paymentDate)) : undefined,
+      }),
+    });
+  }
+
+  async deleteFinancialTicket(id: string) {
+    return this.request<void>(`/financial/${id}`, {
+      method: 'DELETE',
     });
   }
 }

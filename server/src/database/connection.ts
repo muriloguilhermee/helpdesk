@@ -82,10 +82,20 @@ const runMigrations = async (): Promise<void> => {
         table.string('name').notNullable();
         table.string('password').notNullable();
         table.enum('role', ['admin', 'technician', 'user']).notNullable();
-        table.text('avatar').nullable();
+        table.text('avatar').nullable(); // Armazena base64 da imagem
+        table.string('company').nullable();
         table.timestamps(true, true);
       });
       console.log('✅ Created users table');
+    } else {
+      // Verificar se company existe, se não, adicionar
+      const hasCompany = await db!.schema.hasColumn('users', 'company');
+      if (!hasCompany) {
+        await db!.schema.alterTable('users', (table) => {
+          table.string('company').nullable();
+        });
+        console.log('✅ Added company column to users table');
+      }
     }
 
     const hasTicketsTable = await db!.schema.hasTable('tickets');
@@ -171,6 +181,43 @@ const runMigrations = async (): Promise<void> => {
       console.log('✅ Created comments table (CASCADE on ticket, SET NULL on author)');
     }
 
+    const hasFinancialTicketsTable = await db!.schema.hasTable('financial_tickets');
+    if (!hasFinancialTicketsTable) {
+      await db!.schema.createTable('financial_tickets', (table) => {
+        table.string('id').primary();
+        table.string('title').notNullable();
+        table.text('description').nullable();
+        table.decimal('amount', 10, 2).notNullable();
+        table.date('due_date').notNullable();
+        table.date('payment_date').nullable();
+        table.string('status').notNullable().defaultTo('pending');
+        table.uuid('client_id').references('id').inTable('users').onDelete('SET NULL').nullable();
+        table.uuid('created_by').references('id').inTable('users').onDelete('SET NULL').nullable();
+        table.string('invoice_file_name').nullable();
+        table.bigInteger('invoice_file_size').nullable();
+        table.string('invoice_file_type').nullable();
+        table.text('invoice_file_data').nullable();
+        table.string('receipt_file_name').nullable();
+        table.bigInteger('receipt_file_size').nullable();
+        table.string('receipt_file_type').nullable();
+        table.text('receipt_file_data').nullable();
+        table.text('notes').nullable();
+        // Campos para integração com ERP
+        table.string('erp_id').nullable();
+        table.string('erp_type').nullable();
+        table.string('invoice_number').nullable();
+        table.string('barcode').nullable();
+        table.string('our_number').nullable();
+        table.string('payment_erp_id').nullable();
+        table.string('payment_method').nullable();
+        table.string('transaction_id').nullable();
+        table.text('erp_metadata').nullable(); // JSON armazenado como texto
+        table.text('payment_metadata').nullable(); // JSON armazenado como texto
+        table.timestamps(true, true);
+      });
+      console.log('✅ Created financial_tickets table');
+    }
+
     // Create indexes for performance
     await db!.schema.raw(`
       CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
@@ -178,6 +225,11 @@ const runMigrations = async (): Promise<void> => {
       CREATE INDEX IF NOT EXISTS idx_tickets_assigned_to ON tickets(assigned_to);
       CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at);
       CREATE INDEX IF NOT EXISTS idx_comments_ticket_id ON comments(ticket_id);
+      CREATE INDEX IF NOT EXISTS idx_financial_tickets_client_id ON financial_tickets(client_id);
+      CREATE INDEX IF NOT EXISTS idx_financial_tickets_created_by ON financial_tickets(created_by);
+      CREATE INDEX IF NOT EXISTS idx_financial_tickets_status ON financial_tickets(status);
+      CREATE INDEX IF NOT EXISTS idx_financial_tickets_due_date ON financial_tickets(due_date);
+      CREATE INDEX IF NOT EXISTS idx_financial_tickets_erp_id ON financial_tickets(erp_id);
     `);
 
     console.log('✅ Database migrations completed');

@@ -15,6 +15,7 @@ const createUserSchema = z.object({
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   role: z.enum(['admin', 'technician', 'user']),
   avatar: z.string().optional(),
+  company: z.string().optional(),
 });
 
 const updateUserSchema = z.object({
@@ -23,6 +24,7 @@ const updateUserSchema = z.object({
   password: z.string().min(6).optional(),
   role: z.enum(['admin', 'technician', 'user']).optional(),
   avatar: z.string().nullable().optional(),
+  company: z.string().nullable().optional(),
 });
 
 export const getAllUsersController = async (req: AuthRequest, res: Response): Promise<void> => {

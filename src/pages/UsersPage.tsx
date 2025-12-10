@@ -214,6 +214,7 @@ export default function UsersPage() {
           password: newUser.password,
           role: newUser.role,
           avatar: newUserPhoto || undefined,
+          company: newUser.company || undefined,
         });
 
         createdUser = {
@@ -373,29 +374,42 @@ export default function UsersPage() {
 
     // Atualizar usuário (normalizar email para lowercase)
     const emailNormalized = editUser.email.toLowerCase().trim();
-    const updatedUser = {
-      ...editingUser,
-      name: editUser.name,
-      email: emailNormalized,
-      role: editUser.role,
-      avatar: editUserPhoto || undefined,
-      company: editUser.company || undefined
-    };
 
-    // IMPORTANTE: Salvar no banco de dados
+    // SEMPRE usar API - atualizar no banco de dados
     try {
-      await database.init();
-      await database.saveUser(updatedUser);
-    } catch (error) {
-      console.error('Erro ao atualizar usuário no banco de dados:', error);
-      setError('Erro ao atualizar usuário. Tente novamente.');
+      const apiUrl = import.meta.env.VITE_API_URL;
+      if (apiUrl) {
+        const apiUser = await api.updateUser(editingUser.id, {
+          name: editUser.name,
+          email: emailNormalized,
+          password: editUser.password || undefined,
+          role: editUser.role,
+          avatar: editUserPhoto || null,
+          company: editUser.company || null,
+        });
+
+        // Recarregar lista de usuários do banco
+        await reloadUsers();
+
+        // Se o usuário editado for o usuário atual logado, atualizar o AuthContext
+        if (editingUser.id === currentUser?.id) {
+          updateUser({
+            id: apiUser.id,
+            name: apiUser.name,
+            email: apiUser.email,
+            role: apiUser.role,
+            avatar: apiUser.avatar,
+            company: apiUser.company,
+          });
+        }
+      } else {
+        throw new Error('API não configurada');
+      }
+    } catch (apiError: any) {
+      console.error('Erro ao atualizar usuário via API:', apiError);
+      setError(apiError.message || 'Erro ao atualizar usuário. Verifique se o backend está rodando.');
       return;
     }
-
-    const updatedUsers = users.map(u =>
-      u.id === editingUser.id ? updatedUser : u
-    );
-    setUsers(updatedUsers);
 
     // Atualizar usersWithPasswords sempre (não só quando senha muda)
     const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');

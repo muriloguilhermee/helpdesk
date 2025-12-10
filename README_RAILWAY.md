@@ -7,7 +7,7 @@
 - **`.nvmrc`** - Node 20 (detectado automaticamente)
 - **`server/.nvmrc`** - Node 20 para servidor
 
-## 🔧 Configuração no Railway
+## 🔧 Configuração no Railway 
 
 ### Backend
 

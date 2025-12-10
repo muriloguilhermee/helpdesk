@@ -113,7 +113,7 @@ O Supabase oferece um **Connection Pooler** que gerencia melhor as conexões:
    postgresql://postgres.[project-ref]:[password]@aws-0-[region].pooler.supabase.com:6543/postgres?pgbouncer=true
    ```
 
-#### Opção D: Aumentar Timeouts Ainda Mais
+#### Opção D: Aumentar Timeouts Ainda Mais 
 
 Se o problema persistir, você pode aumentar os timeouts no código:
 

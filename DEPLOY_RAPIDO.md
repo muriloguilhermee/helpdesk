@@ -41,24 +41,51 @@
 
 7. Aguarde o Railway reiniciar automaticamente
 8. Verifique os logs - deve aparecer: `✅ Database connected successfully`
-9. Anote a URL gerada (ex: `https://helpdesk-production.up.railway.app`)
+9. **📌 IMPORTANTE:** Anote a URL do backend:
+   - A URL aparece na página principal do serviço
+   - Ou em **Settings** → **Domains**
+   - Exemplo: `https://helpdesk-backend-production.up.railway.app`
+   - **Copie esta URL completa!** Você vai precisar dela para o frontend
 
 **📖 Veja CONFIGURAR_RAILWAY.md para instruções detalhadas**
 
 ### Frontend
 
-1. No mesmo projeto Railway, clique em **"New"** → **"Static Site"**
-2. Configure:
+**⚠️ Se não aparecer "Static Site", use uma das opções abaixo:**
+
+#### Opção A: Empty Project (Recomendado)
+
+1. No projeto Railway, clique em **"New"** → **"Empty Project"** (ou **"GitHub Repo"**)
+2. Selecione seu repositório
+3. Railway detectará automaticamente
+4. Vá em **"Settings"** → **"Build & Deploy"** e configure:
    - **Root Directory**: `/` (raiz)
    - **Build Command**: `npm install && npm run build`
-   - **Output Directory**: `dist`
-3. Em **"Variables"**, adicione:
+   - **Start Command**: `npm start`
+   - **Output Directory**: `dist` (não usado, mas pode deixar)
+5. Em **"Variables"**, adicione:
    ```
    VITE_API_URL=https://sua-url-backend.railway.app
    ```
-   (Use a URL do backend que você anotou)
+6. Anote a URL do frontend
 
-4. Anote a URL do frontend
+#### Opção B: Usar Vercel (Mais Fácil) ⭐
+
+1. Acesse https://vercel.com
+2. Faça login com GitHub
+3. **"Add New"** → **"Project"**
+4. Importe seu repositório
+5. Configure:
+   - **Framework Preset**: Vite
+   - **Build Command**: `npm run build`
+   - **Output Directory**: `dist`
+6. Adicione variável:
+   ```
+   VITE_API_URL=https://sua-url-backend.railway.app
+   ```
+7. Clique em **"Deploy"**
+
+**📖 Veja RAILWAY_FRONTEND.md para mais opções**
 
 ### Finalizar
 

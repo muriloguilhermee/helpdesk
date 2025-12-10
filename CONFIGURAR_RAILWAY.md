@@ -1,5 +1,18 @@
 # ⚡ Configuração Rápida - Railway
 
+## 🔗 Como Encontrar a URL do Backend
+
+A URL do backend aparece na página do serviço no Railway:
+1. Clique no serviço do **Backend**
+2. A URL aparece logo abaixo do nome (ex: `https://helpdesk-backend-production.up.railway.app`)
+3. Ou vá em **Settings** → **Domains**
+4. **Copie esta URL completa!** Você precisará para configurar o frontend
+
+**Teste se está funcionando:** Abra `https://sua-url-backend.railway.app/health` no navegador
+- Deve retornar: `{"status":"ok"}`
+
+---
+
 ## ❌ Erro Atual
 ```
 Database configuration is required. Please set DATABASE_URL or DB_HOST in .env file.

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Save, Paperclip, X, File, CheckCircle } from 'lucide-react';
+import { ArrowLeft, Save, Paperclip, X, File, CheckCircle, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
@@ -14,6 +14,7 @@ export default function NewTicket() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
+  const [isCreatingTicket, setIsCreatingTicket] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     system: '',
@@ -29,7 +30,7 @@ export default function NewTicket() {
         await database.init();
         const queues = await database.getQueues();
         const queueNames = queues.map((q: Queue) => q.name);
-        
+
         // Criar Suporte N1 se não existir
         if (!queueNames.includes('Suporte N1')) {
           const suporteN1: Queue = {
@@ -41,7 +42,7 @@ export default function NewTicket() {
           };
           await database.saveQueue(suporteN1);
         }
-        
+
         // Criar Suporte N2 se não existir
         if (!queueNames.includes('Suporte N2')) {
           const suporteN2: Queue = {
@@ -115,6 +116,9 @@ export default function NewTicket() {
       return;
     }
 
+    setIsCreatingTicket(true);
+    setSuccessMessage('');
+
     try {
       // Gerar ID no formato 00001, 00002, etc.
       const existingIds = tickets.map(t => {
@@ -148,20 +152,20 @@ export default function NewTicket() {
       };
 
       // Adicionar o ticket
-      addTicket(newTicket);
-      
-      // Aguardar um pouco para garantir que o salvamento foi concluído
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      await addTicket(newTicket);
+
+      setIsCreatingTicket(false);
+
       // Mostrar mensagem de sucesso
       setSuccessMessage('Chamado criado com sucesso!');
-      
-      // Redirecionar para a lista de chamados após 1 segundo
+
+      // Redirecionar para a lista de chamados após 2 segundos
       setTimeout(() => {
         navigate('/tickets');
-      }, 1000);
+      }, 2000);
     } catch (error) {
       console.error('Erro ao criar chamado:', error);
+      setIsCreatingTicket(false);
       alert('Erro ao criar chamado. Por favor, tente novamente.');
     }
   };
@@ -189,7 +193,15 @@ export default function NewTicket() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="card dark:bg-gray-800 dark:border-gray-700 max-w-3xl mx-auto">
+      <form onSubmit={handleSubmit} className="card dark:bg-gray-800 dark:border-gray-700 max-w-3xl mx-auto relative">
+        {isCreatingTicket && (
+          <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 className="w-8 h-8 text-primary-600 dark:text-primary-400 animate-spin" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Criando chamado...</span>
+            </div>
+          </div>
+        )}
         <div className="space-y-6">
           <div>
             <label htmlFor="title" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -362,9 +374,18 @@ export default function NewTicket() {
             >
               Cancelar
             </button>
-            <button type="submit" className="btn-primary flex items-center gap-2">
-              <Save className="w-5 h-5" />
-              Criar Chamado
+            <button type="submit" disabled={isCreatingTicket} className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+              {isCreatingTicket ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Criando...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  Criar Chamado
+                </>
+              )}
             </button>
           </div>
         </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus, Search, Edit, Trash2, UserPlus, X, Save, AlertTriangle, Camera, User, CheckCircle } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, UserPlus, X, Save, AlertTriangle, Camera, User, CheckCircle, Loader2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { mockUsers } from '../data/mockData';
 import { User as UserType } from '../types';
@@ -26,6 +26,9 @@ export default function UsersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState<UserType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
+  const [isUpdatingUser, setIsUpdatingUser] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Carregar usuários APENAS do banco de dados (API)
   useEffect(() => {
@@ -86,7 +89,6 @@ export default function UsersPage() {
     company: '',
   });
   const [error, setError] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
 
   // Recarregar usuários após exclusão bem-sucedida
   const reloadUsers = async () => {
@@ -162,26 +164,33 @@ export default function UsersPage() {
 
   const handleCreateUser = async () => {
     setError('');
+    setSuccessMessage('');
+    setIsCreatingUser(true);
 
     // Validações
     if (!newUser.name.trim()) {
       setError('Nome é obrigatório');
+      setIsCreatingUser(false);
       return;
     }
     if (!newUser.email.trim()) {
       setError('Email é obrigatório');
+      setIsCreatingUser(false);
       return;
     }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newUser.email)) {
       setError('Email inválido');
+      setIsCreatingUser(false);
       return;
     }
     if (!newUser.password || newUser.password.length < 6) {
       setError('Senha deve ter no mínimo 6 caracteres');
+      setIsCreatingUser(false);
       return;
     }
     if (newUser.password !== newUser.confirmPassword) {
       setError('As senhas não coincidem');
+      setIsCreatingUser(false);
       return;
     }
     // Verificar duplicatas no banco de dados
@@ -191,6 +200,7 @@ export default function UsersPage() {
 
       if (allUsersFromDB.some(u => u.email.toLowerCase() === newUser.email.toLowerCase())) {
         setError('Este email já está em uso');
+        setIsCreatingUser(false);
         return;
       }
     } catch (error) {
@@ -231,22 +241,26 @@ export default function UsersPage() {
         // Verificar se é erro de autenticação
         if (apiError.message?.includes('401') || apiError.message?.includes('Unauthorized') || apiError.message?.includes('Token')) {
           setError('Você precisa estar logado! Faça logout e login novamente para obter um token válido.');
+          setIsCreatingUser(false);
           return;
         }
 
         // Se estiver usando Supabase e a API falhar, mostrar erro claro
         if (hasSupabase) {
           setError(apiError.message || 'Backend não está rodando! Inicie o servidor com: cd server && npm run dev');
+          setIsCreatingUser(false);
           return;
         }
 
         // Se não estiver usando Supabase, tentar método local
         setError(apiError.message || 'Erro ao criar usuário. Tente novamente.');
+        setIsCreatingUser(false);
         return;
       }
     } else if (hasSupabase) {
       // Se estiver usando Supabase mas não tem API configurada
       setError('Backend não configurado! Configure VITE_API_URL no arquivo .env');
+      setIsCreatingUser(false);
       return;
     } else {
       // Método local (IndexedDB) - não salva senha no banco
@@ -265,6 +279,7 @@ export default function UsersPage() {
       } catch (error) {
         console.error('Erro ao salvar usuário no banco de dados:', error);
         setError('Erro ao salvar usuário. Tente novamente.');
+        setIsCreatingUser(false);
         return;
       }
 
@@ -290,8 +305,8 @@ export default function UsersPage() {
       localStorage.setItem('usersWithPasswords', JSON.stringify(usersWithPasswords));
     }
 
-    const updatedUsers = [...users, createdUser];
-    setUsers(updatedUsers);
+    // Recarregar lista de usuários do banco
+    await reloadUsers();
 
     // Limpar formulário e fechar modal
     setNewUser({
@@ -307,6 +322,7 @@ export default function UsersPage() {
       createPhotoInputRef.current.value = '';
     }
     setShowCreateModal(false);
+    setIsCreatingUser(false);
     setError('');
     setSuccessMessage('Usuário cadastrado com sucesso!');
 
@@ -357,6 +373,7 @@ export default function UsersPage() {
 
         if (allUsersFromDB.some(u => u.email.toLowerCase() === editUser.email.toLowerCase() && u.id !== editingUser.id)) {
           setError('Este email já está em uso');
+          setIsUpdatingUser(false);
           return;
         }
       } catch (error) {
@@ -365,10 +382,12 @@ export default function UsersPage() {
     }
     if (editUser.password && editUser.password.length < 6) {
       setError('Senha deve ter no mínimo 6 caracteres');
+      setIsUpdatingUser(false);
       return;
     }
     if (editUser.password && editUser.password !== editUser.confirmPassword) {
       setError('As senhas não coincidem');
+      setIsUpdatingUser(false);
       return;
     }
 
@@ -402,44 +421,17 @@ export default function UsersPage() {
             company: apiUser.company,
           });
         }
+
+        setIsUpdatingUser(false);
+        setSuccessMessage('Usuário atualizado com sucesso!');
       } else {
         throw new Error('API não configurada');
       }
     } catch (apiError: any) {
       console.error('Erro ao atualizar usuário via API:', apiError);
       setError(apiError.message || 'Erro ao atualizar usuário. Verifique se o backend está rodando.');
+      setIsUpdatingUser(false);
       return;
-    }
-
-    // Atualizar usersWithPasswords sempre (não só quando senha muda)
-    const usersWithPasswords = JSON.parse(localStorage.getItem('usersWithPasswords') || '[]');
-
-    // Buscar por ID primeiro
-    let userIndex = usersWithPasswords.findIndex((u: any) => u.id === editingUser.id);
-
-    // Se não encontrar por ID, buscar por email (case-insensitive)
-    if (userIndex < 0) {
-      userIndex = usersWithPasswords.findIndex(
-        (u: any) => u.email && u.email.toLowerCase().trim() === emailNormalized
-      );
-    }
-
-    const userWithPassword = {
-      ...updatedUser,
-      password: editUser.password || (userIndex >= 0 ? usersWithPasswords[userIndex].password : ''),
-    };
-
-    if (userIndex >= 0) {
-      usersWithPasswords[userIndex] = userWithPassword;
-    } else {
-      usersWithPasswords.push(userWithPassword);
-    }
-    localStorage.setItem('usersWithPasswords', JSON.stringify(usersWithPasswords));
-
-    // Se o usuário editado for o usuário atual logado, atualizar o AuthContext
-    if (editingUser.id === currentUser?.id) {
-      const { password: _, ...userWithoutPassword } = userWithPassword;
-      updateUser(userWithoutPassword);
     }
 
     // Limpar e fechar modal
@@ -611,7 +603,15 @@ export default function UsersPage() {
       {/* Modal de Criar Usuário */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-6 relative">
+            {isCreatingUser && (
+              <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-8 h-8 text-primary-600 dark:text-primary-400 animate-spin" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Criando usuário...</span>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Criar Novo Usuário</h2>
               <button
@@ -799,10 +799,20 @@ export default function UsersPage() {
               </button>
               <button
                 onClick={handleCreateUser}
-                className="btn-primary flex items-center gap-2"
+                disabled={isCreatingUser}
+                className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="w-5 h-5" />
-                Criar Usuário
+                {isCreatingUser ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Criando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    Criar Usuário
+                  </>
+                )}
               </button>
             </div>
           </div>
@@ -812,7 +822,15 @@ export default function UsersPage() {
       {/* Modal de Editar Usuário */}
       {showEditModal && editingUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-y-auto">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-6 my-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-6 my-4 relative">
+            {isUpdatingUser && (
+              <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg flex items-center justify-center z-10">
+                <div className="flex flex-col items-center gap-3">
+                  <Loader2 className="w-8 h-8 text-primary-600 dark:text-primary-400 animate-spin" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Atualizando usuário...</span>
+                </div>
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Editar Usuário</h2>
               <button
@@ -998,10 +1016,20 @@ export default function UsersPage() {
               </button>
               <button
                 onClick={handleUpdateUser}
-                className="btn-primary flex items-center gap-2"
+                disabled={isUpdatingUser}
+                className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="w-5 h-5" />
-                Salvar Alterações
+                {isUpdatingUser ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-5 h-5" />
+                    Salvar Alterações
+                  </>
+                )}
               </button>
             </div>
           </div>

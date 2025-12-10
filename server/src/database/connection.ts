@@ -16,9 +16,12 @@ export const initializeDatabase = async (): Promise<void> => {
   try {
     // Verifica se há configuração de banco de dados
     if (!process.env.DATABASE_URL && !process.env.DB_HOST) {
+      console.error('❌ Variáveis de ambiente disponíveis:', Object.keys(process.env).filter(k => k.includes('DATABASE') || k.includes('DB')));
       throw new Error(
-        'Database configuration is required. Please set DATABASE_URL or DB_HOST in .env file.\n' +
-        'Example: DATABASE_URL=postgresql://user:password@host:port/database'
+        'Database configuration is required. Please set DATABASE_URL or DB_HOST in Railway Variables.\n' +
+        'Go to Railway Dashboard → Your Service → Variables → + New Variable\n' +
+        'Add: DATABASE_URL=postgresql://user:password@host:port/database\n' +
+        'See CONFIGURAR_RAILWAY.md for detailed instructions.'
       );
     }
 

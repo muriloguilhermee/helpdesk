@@ -9,14 +9,41 @@
 3. Clique em **"New Project"** → **"Deploy from GitHub repo"**
 4. Selecione seu repositório do GitHub
 5. Railway detectará automaticamente a pasta `server`
-6. Vá em **"Variables"** e adicione:
+6. **⚠️ IMPORTANTE:** Vá em **"Variables"** → **"+ New Variable"** e adicione **UMA POR UMA**:
+
+   **DATABASE_URL** (OBRIGATÓRIA):
    ```
-   DATABASE_URL=postgresql://postgres:[SUA_SENHA]@db.[PROJETO].supabase.co:5432/postgres
-   JWT_SECRET=uma_chave_secreta_forte_aqui_mude_isto
-   NODE_ENV=production
-   PORT=3001
+   Nome: DATABASE_URL
+   Valor: postgresql://postgres:[SUA_SENHA]@db.[PROJETO].supabase.co:5432/postgres
    ```
-7. Anote a URL gerada (ex: `https://helpdesk-production.up.railway.app`)
+   - Obtenha no Supabase: Settings → Database → Connection String (URI)
+   - Substitua `[YOUR-PASSWORD]` pela senha real
+   - Se a senha tem caracteres especiais (@, #, $), codifique: @ → %40
+
+   **JWT_SECRET** (OBRIGATÓRIA):
+   ```
+   Nome: JWT_SECRET
+   Valor: [GERE_UMA_CHAVE_FORTE]
+   ```
+   - Gere com: `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"`
+
+   **NODE_ENV**:
+   ```
+   Nome: NODE_ENV
+   Valor: production
+   ```
+
+   **PORT** (Opcional):
+   ```
+   Nome: PORT
+   Valor: 3001
+   ```
+
+7. Aguarde o Railway reiniciar automaticamente
+8. Verifique os logs - deve aparecer: `✅ Database connected successfully`
+9. Anote a URL gerada (ex: `https://helpdesk-production.up.railway.app`)
+
+**📖 Veja CONFIGURAR_RAILWAY.md para instruções detalhadas**
 
 ### Frontend
 

@@ -22,9 +22,9 @@ declare global {
     exit(code?: number): never;
   };
 
-  var setTimeout: (callback: () => void, ms: number) => any;
+  var setTimeout: (callback: (...args: any[]) => void, ms: number, ...args: any[]) => any;
   var clearTimeout: (timeoutId: any) => void;
-  var setInterval: (callback: () => void, ms: number) => any;
+  var setInterval: (callback: (...args: any[]) => void, ms: number, ...args: any[]) => any;
   var clearInterval: (intervalId: any) => void;
 
   interface URL {
@@ -36,6 +36,8 @@ declare global {
     pathname: string;
     search: string;
     hash: string;
+    username: string;
+    password: string;
   }
 
   var URL: {
@@ -47,10 +49,10 @@ declare global {
 // Declarações de módulos para Express
 declare module 'express' {
   export interface Request {
-    body?: any;
-    params?: any;
-    query?: any;
-    headers?: any;
+    body: any;
+    params: any;
+    query: any;
+    headers: any;
     path?: string;
     method?: string;
     [key: string]: any;
@@ -101,6 +103,23 @@ declare module 'path' {
   export function resolve(...paths: string[]): string;
   export const sep: string;
   export const delimiter: string;
+}
+
+// Namespace Express para multer
+declare namespace Express {
+  namespace Multer {
+    interface File {
+      fieldname: string;
+      originalname: string;
+      encoding: string;
+      mimetype: string;
+      size: number;
+      destination: string;
+      filename: string;
+      path: string;
+      buffer: Buffer;
+    }
+  }
 }
 
 export {};

@@ -21,7 +21,7 @@ export interface CreateTicketData {
 export interface UpdateTicketData {
   title?: string;
   description?: string;
-  status?: 'aberto' | 'em_andamento' | 'em_atendimento' | 'pendente' | 'resolvido' | 'fechado' | 'encerrado';
+  status?: 'aberto' | 'em_andamento' | 'em_atendimento' | 'pendente' | 'resolvido' | 'fechado' | 'encerrado' | 'em_fase_de_testes' | 'homologacao' | 'aguardando_cliente';
   priority?: 'baixa' | 'media' | 'alta' | 'critica';
   category?: 'tecnico' | 'suporte' | 'financeiro' | 'outros';
   serviceType?: string;

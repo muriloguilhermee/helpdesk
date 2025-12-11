@@ -275,7 +275,9 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           : (typeof updates.queue === 'string' ? updates.queue : null);
       }
 
+      console.log('📤 Enviando dados para API:', updateData);
       const updatedTicket = await api.updateTicket(id, updateData);
+      console.log('📥 Resposta da API:', updatedTicket);
 
       // Transform API response to Ticket format
       const transformedTicket = {
@@ -295,6 +297,12 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         createdAt: new Date(updatedTicket.created_at),
         updatedAt: new Date(updatedTicket.updated_at),
       };
+
+      console.log('🔄 Ticket transformado:', {
+        id: transformedTicket.id,
+        status: transformedTicket.status,
+        assignedTo: transformedTicket.assignedTo?.name || 'Não atribuído'
+      });
 
       // Atualizar lista local com dados do banco
       // Se assignedTo não foi explicitamente atualizado, preservar o valor atual se existir

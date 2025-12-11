@@ -211,7 +211,7 @@ export default function TicketDetails() {
     return allInteractions.filter(i => i.type === interactionFilter);
   }, [allInteractions, interactionFilter]);
 
-  const handleUpdateStatus = () => {
+  const handleUpdateStatus = async () => {
     if (ticket && selectedStatus) {
       // Se o chamado está fechado/resolvido e o usuário está tentando reabrir, verificar se é admin
       if (isClosed && selectedStatus !== 'fechado' && selectedStatus !== 'resolvido') {
@@ -220,26 +220,39 @@ export default function TicketDetails() {
           return;
         }
       }
-      // Criar interação do sistema para mudança de status
-      if (ticket.status !== selectedStatus && user) {
-        const statusInteraction: Interaction = {
-          id: `status-${Date.now()}`,
-          type: 'status_change',
-          content: `Status alterado de "${getStatusLabel(ticket.status)}" para "${getStatusLabel(selectedStatus)}"`,
-          author: user,
-          createdAt: new Date(),
-          metadata: {
-            oldStatus: ticket.status,
-            newStatus: selectedStatus,
-          },
-        };
-        addInteraction(ticket.id, statusInteraction);
+
+      try {
+        console.log('🔄 Atualizando status do ticket:', ticket.id, 'de', ticket.status, 'para', selectedStatus);
+
+        // Criar interação do sistema para mudança de status ANTES de atualizar
+        if (ticket.status !== selectedStatus && user) {
+          const statusInteraction: Interaction = {
+            id: `status-${Date.now()}`,
+            type: 'status_change',
+            content: `Status alterado de "${getStatusLabel(ticket.status)}" para "${getStatusLabel(selectedStatus)}"`,
+            author: user,
+            createdAt: new Date(),
+            metadata: {
+              oldStatus: ticket.status,
+              newStatus: selectedStatus,
+            },
+          };
+          addInteraction(ticket.id, statusInteraction);
+        }
+
+        // Atualizar status no backend
+        await updateTicket(ticket.id, { status: selectedStatus });
+
+        setShowStatusModal(false);
+        setSuccessMessage('Status atualizado com sucesso!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+
+        console.log('✅ Status atualizado com sucesso');
+      } catch (error: any) {
+        console.error('❌ Erro ao atualizar status:', error);
+        setSuccessMessage('');
+        alert(`Erro ao atualizar status: ${error.message || 'Erro desconhecido'}`);
       }
-      // Manter o status como "resolvido" se selecionado (não mudar para "fechado")
-      updateTicket(ticket.id, { status: selectedStatus });
-      setShowStatusModal(false);
-      setSuccessMessage('Status atualizado com sucesso!');
-      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 

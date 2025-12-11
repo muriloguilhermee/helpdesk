@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { CheckCircle, Clock, AlertCircle, Tag, Calendar, User, Building2, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,7 +15,10 @@ export default function PendingTickets() {
 
   // Filtrar apenas chamados com status "aberto" (não importa se estão atribuídos ou não)
   // Quando um técnico aceitar, o status muda para "em_atendimento" e não aparece mais aqui
-  const pendingTickets = tickets.filter((ticket) => {
+  // Usar useMemo para garantir que o filtro seja recalculado quando tickets mudar
+  const pendingTickets = useMemo(() => {
+    console.log('🔄 Recalculando pendingTickets, total de tickets:', tickets.length);
+    return tickets.filter((ticket) => {
     // Mostrar TODOS os tickets com status "aberto", independente de atribuição
     // Normalizar comparação para funcionar com qualquer capitalização
     const statusNormalized = String(ticket.status || '').toLowerCase().trim();
@@ -30,9 +33,30 @@ export default function PendingTickets() {
         assignedToId: ticket.assignedTo?.id || null,
         title: ticket.title
       });
+    } else {
+      // Log para debug: por que o ticket não está sendo incluído?
+      console.log('❌ Ticket NÃO é "aberto":', {
+        id: ticket.id,
+        status: ticket.status,
+        statusNormalized,
+        tipo_status: typeof ticket.status,
+        é_string: typeof ticket.status === 'string',
+        title: ticket.title
+      });
     }
     return isOpen;
-  });
+    });
+  }, [tickets]);
+
+  // Log imediato sempre que pendingTickets mudar
+  useEffect(() => {
+    console.log('🔄 PendingTickets atualizado:', {
+      total_tickets: tickets.length,
+      pending_count: pendingTickets.length,
+      pending_ids: pendingTickets.map(t => t.id),
+      user_role: user?.role
+    });
+  }, [pendingTickets, tickets.length, user?.role]);
 
   // Debug: Log dos tickets para verificar o que está sendo carregado
   useEffect(() => {

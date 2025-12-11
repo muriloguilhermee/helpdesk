@@ -21,6 +21,7 @@ const permissions: Record<string, string[]> = {
   admin: [
     'view:dashboard',
     'view:tickets',
+    'view:pending:tickets', // Admins também podem ver novos chamados
     'create:ticket',
     'edit:ticket',
     'delete:ticket',

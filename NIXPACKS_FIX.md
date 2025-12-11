@@ -56,3 +56,4 @@ Se o `nixpacks.toml` ainda der problema, você pode:
 
 **Use apenas `.nvmrc`** - É mais simples e o Railway detecta automaticamente!
 
+

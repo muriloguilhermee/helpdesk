@@ -228,3 +228,4 @@ Value: https://seu-projeto.vercel.app
 - `USAR_SUPABASE_POOLER.md` - Como usar Connection Pooler
 - `VERIFICAR_CONEXAO_BACKEND.md` - Checklist de verificação
 
+

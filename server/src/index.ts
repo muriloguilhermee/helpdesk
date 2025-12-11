@@ -59,6 +59,11 @@ app.options('*', (req, res) => {
 app.use((req, res, next) => {
   const origin = req.headers.origin;
   
+  // Log TODAS as requisições para debug
+  if (req.method === 'OPTIONS' || req.path.includes('/api/')) {
+    console.log(`📥 ${req.method} ${req.path} - Origin: ${origin || 'N/A'}`);
+  }
+  
   // Sempre adicionar headers CORS se houver origin
   if (origin) {
     const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
@@ -72,6 +77,12 @@ app.use((req, res, next) => {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
       res.setHeader('Access-Control-Max-Age', '86400');
+      
+      if (req.method === 'OPTIONS') {
+        console.log(`✅ CORS middleware respondeu OPTIONS para: ${origin}`);
+      }
+    } else {
+      console.error(`❌ CORS middleware bloqueou: ${normalizedOrigin}`);
     }
   }
   
@@ -142,6 +153,35 @@ app.get('/health', (req, res) => {
     timestamp: new Date().toISOString(),
     database: 'connected'
   });
+});
+
+// Endpoint de teste CORS
+app.get('/test-cors', (req, res) => {
+  const origin = req.headers.origin;
+  res.json({
+    status: 'ok',
+    origin: origin,
+    corsHeaders: {
+      'Access-Control-Allow-Origin': res.getHeader('Access-Control-Allow-Origin'),
+      'Access-Control-Allow-Credentials': res.getHeader('Access-Control-Allow-Credentials'),
+    },
+    message: 'CORS test endpoint'
+  });
+});
+
+app.options('/test-cors', (req, res) => {
+  const origin = req.headers.origin;
+  console.log(`🔍 TEST-CORS OPTIONS recebido - Origin: ${origin || 'N/A'}`);
+  
+  if (origin) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    res.setHeader('Access-Control-Max-Age', '86400');
+    console.log(`✅ TEST-CORS OPTIONS respondido para: ${origin}`);
+  }
+  res.status(204).end();
 });
 
 // API Routes

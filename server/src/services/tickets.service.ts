@@ -320,6 +320,7 @@ export const createTicket = async (data: CreateTicketData) => {
     console.log('✅ Ticket criado com sucesso:', {
       id: ticket.id,
       status: ticket.status,
+      status_verificado: ticket.status === 'aberto' ? '✅ CORRETO' : '❌ ERRADO - DEVERIA SER "aberto"',
       assigned_to: ticket.assigned_to,
       created_by: ticket.created_by,
       title: ticket.title
@@ -344,8 +345,19 @@ export const createTicket = async (data: CreateTicketData) => {
     console.log('✅ Ticket completo retornado:', {
       id: fullTicket.id,
       status: fullTicket.status,
+      status_verificado: fullTicket.status === 'aberto' ? '✅ CORRETO' : `❌ ERRADO - Status atual: "${fullTicket.status}"`,
       assigned_to_user: fullTicket.assigned_to_user ? fullTicket.assigned_to_user.name : 'Não atribuído'
     });
+
+    // Verificar se o status está correto
+    if (fullTicket.status !== 'aberto') {
+      console.error('⚠️ ATENÇÃO: Ticket criado mas status não é "aberto"!', {
+        id: fullTicket.id,
+        status_esperado: 'aberto',
+        status_atual: fullTicket.status
+      });
+    }
+
     return fullTicket;
   } catch (error: any) {
     console.error('❌ Erro ao criar ticket:', error);

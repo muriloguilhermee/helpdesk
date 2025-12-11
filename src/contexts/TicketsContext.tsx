@@ -372,9 +372,19 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       console.log('🔄 Transformando resposta da API:', {
         id: createdTicket.id,
         status: createdTicket.status,
+        status_verificado: createdTicket.status === 'aberto' ? '✅ CORRETO' : `❌ ERRADO - Status: "${createdTicket.status}"`,
         assigned_to_user: createdTicket.assigned_to_user,
         created_by_user: createdTicket.created_by_user
       });
+      
+      // Verificar se o status está correto
+      if (createdTicket.status !== 'aberto') {
+        console.error('⚠️ ATENÇÃO: Ticket criado mas status não é "aberto"!', {
+          id: createdTicket.id,
+          status_esperado: 'aberto',
+          status_atual: createdTicket.status
+        });
+      }
 
       const transformedTicket = {
         id: createdTicket.id,

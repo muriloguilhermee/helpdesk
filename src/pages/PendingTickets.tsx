@@ -38,17 +38,26 @@ export default function PendingTickets() {
   useEffect(() => {
     console.log('📋 Total de tickets carregados:', tickets.length);
     console.log('📋 Tickets com status "aberto":', pendingTickets.length);
+
+    // Log detalhado de cada ticket e sua comparação
+    tickets.forEach(ticket => {
+      const statusNormalized = String(ticket.status || '').toLowerCase().trim();
+      const isOpen = statusNormalized === 'aberto';
+      console.log(`📋 Ticket ${ticket.id}:`, {
+        status_original: ticket.status,
+        status_normalizado: statusNormalized,
+        é_aberto: isOpen ? '✅ SIM' : '❌ NÃO',
+        assignedTo: ticket.assignedTo?.name || 'Não atribuído',
+        title: ticket.title
+      });
+    });
+
     console.log('📋 Tickets "aberto" detalhados:', pendingTickets.map(t => ({
       id: t.id,
       status: t.status,
       assignedTo: t.assignedTo?.name || 'Não atribuído',
       assignedToId: t.assignedTo?.id || null,
       title: t.title
-    })));
-    console.log('📋 Todos os tickets (status):', tickets.map(t => ({
-      id: t.id,
-      status: t.status,
-      assignedTo: t.assignedTo?.name || 'Não atribuído'
     })));
   }, [tickets, pendingTickets]);
 

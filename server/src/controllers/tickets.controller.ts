@@ -58,7 +58,9 @@ export const getAllTicketsController = async (req: AuthRequest, res: Response): 
     if (req.user?.role === 'user') {
       filters.createdBy = req.user.id;
     } else if (req.user?.role === 'technician') {
-      filters.assignedTo = req.user.id;
+      // Técnicos devem ver TODOS os tickets (atribuídos a eles OU não atribuídos)
+      // Não aplicar filtro de assignedTo aqui - deixar o frontend filtrar
+      // Isso permite que técnicos vejam tickets novos (não atribuídos) e seus próprios tickets
     }
 
     const tickets = await getAllTickets(filters);

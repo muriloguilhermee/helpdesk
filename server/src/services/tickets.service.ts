@@ -38,6 +38,7 @@ export interface TicketFilters {
   assignedTo?: string;
   createdBy?: string;
   search?: string;
+  unassignedOnly?: boolean; // Para buscar apenas tickets não atribuídos
 }
 
 export const getAllTickets = async (filters?: TicketFilters) => {
@@ -101,6 +102,9 @@ export const getAllTickets = async (filters?: TicketFilters) => {
     }
     if (filters.createdBy) {
       query = query.where('tickets.created_by', filters.createdBy);
+    }
+    if (filters.unassignedOnly) {
+      query = query.whereNull('tickets.assigned_to');
     }
     if (filters.search) {
       query = query.where((builder) => {

@@ -21,7 +21,20 @@ export default function PendingTickets() {
     const isNotAssigned = !ticket.assignedTo || (typeof ticket.assignedTo === 'object' && !ticket.assignedTo.id);
 
     // Mostrar apenas chamados pendentes que NÃO estão atribuídos
-    return isPending && isNotAssigned;
+    const shouldShow = isPending && isNotAssigned;
+    
+    // Debug log
+    if (process.env.NODE_ENV === 'development') {
+      console.log('Ticket:', ticket.id, {
+        status: ticket.status,
+        assignedTo: ticket.assignedTo,
+        isPending,
+        isNotAssigned,
+        shouldShow
+      });
+    }
+    
+    return shouldShow;
   });
 
   const filteredTickets = pendingTickets;

@@ -49,7 +49,7 @@ export const createUserController = async (req: AuthRequest, res: Response): Pro
   try {
     console.log('📥 Recebida requisição para criar usuário:', req.body);
     const validated = createUserSchema.parse(req.body);
-    const user = await createUser(validated);
+    const user = await createUser(validated as { name: string; email: string; password: string; role: 'admin' | 'technician' | 'user'; avatar?: string; company?: string });
     console.log('✅ Usuário criado, retornando resposta:', user.id);
     res.status(201).json(user);
   } catch (error) {

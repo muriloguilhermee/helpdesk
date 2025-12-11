@@ -18,7 +18,7 @@ const registerSchema = z.object({
 export const loginController = async (req: Request, res: Response): Promise<void> => {
   try {
     const validated = loginSchema.parse(req.body);
-    const result = await login(validated);
+    const result = await login(validated as { email: string; password: string });
     res.json(result);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -32,7 +32,7 @@ export const loginController = async (req: Request, res: Response): Promise<void
 export const registerController = async (req: Request, res: Response): Promise<void> => {
   try {
     const validated = registerSchema.parse(req.body);
-    const result = await register(validated);
+    const result = await register(validated as { name: string; email: string; password: string; role: 'admin' | 'technician' | 'user'; avatar?: string });
     res.status(201).json(result);
   } catch (error) {
     if (error instanceof z.ZodError) {

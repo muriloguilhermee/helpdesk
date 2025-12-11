@@ -95,8 +95,16 @@ export const createTicketController = async (req: AuthRequest, res: Response): P
     const validated = createTicketSchema.parse(req.body);
     const ticket = await createTicket({
       ...validated,
+      title: validated.title,
+      description: validated.description,
+      priority: validated.priority,
+      category: validated.category,
       createdBy: req.user.id,
       clientId: validated.clientId || req.user.id,
+      serviceType: validated.serviceType,
+      totalValue: validated.totalValue,
+      queueId: validated.queueId,
+      files: validated.files,
     });
     console.log('✅ Ticket criado, retornando resposta:', ticket.id);
     res.status(201).json(ticket);

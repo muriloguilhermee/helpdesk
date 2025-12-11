@@ -5,7 +5,7 @@ services:
     env: node
     plan: free
     rootDir: server
-    buildCommand: unset NODE_ENV && npm ci && npm run build
+    buildCommand: npm install --production=false && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV

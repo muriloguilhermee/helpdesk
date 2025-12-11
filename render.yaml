@@ -4,8 +4,9 @@ services:
     name: helpdesk-backend
     env: node
     plan: free
-    buildCommand: cd server && npm install && npm run build
-    startCommand: cd server && npm start
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production
@@ -15,8 +16,6 @@ services:
         sync: false
       - key: CORS_ORIGIN
         sync: false
-      - key: PORT
-        value: 3001
 
   # Frontend
   - type: web

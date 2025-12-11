@@ -61,78 +61,80 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     };
   }, [token]);
 
-  // Carregar tickets APENAS do banco de dados (API)
-  useEffect(() => {
-    const loadTickets = async () => {
-      // Verificar se há token antes de carregar
-      const currentToken = localStorage.getItem('token');
-      if (!currentToken) {
-        console.log('⏳ Aguardando autenticação para carregar tickets...');
+  // Função para carregar tickets (reutilizável)
+  const loadTickets = async () => {
+    // Verificar se há token antes de carregar
+    const currentToken = localStorage.getItem('token');
+    if (!currentToken) {
+      console.log('⏳ Aguardando autenticação para carregar tickets...');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      console.log('📡 Carregando tickets da API...');
+      // SEMPRE usar API - sem fallback para dados locais
+      const apiTickets = await api.getTickets();
+
+      // Transform API response to Ticket format
+      const transformedTickets = apiTickets.map((t: any) => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        status: t.status,
+        priority: t.priority,
+        category: t.category,
+        serviceType: t.service_type,
+        totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
+        createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
+        assignedTo: t.assigned_to_user,
+        client: t.client_user,
+        files: t.files || [],
+        comments: t.comments || [],
+        createdAt: new Date(t.created_at),
+        updatedAt: new Date(t.updated_at),
+      }));
+
+      console.log('✅ Tickets carregados da API:', transformedTickets.length);
+      console.log('📊 Estatísticas dos tickets:', {
+        total: transformedTickets.length,
+        abertos: transformedTickets.filter(t => t.status === 'aberto').length,
+        em_atendimento: transformedTickets.filter(t => t.status === 'em_atendimento').length,
+        atribuidos: transformedTickets.filter(t => t.assignedTo).length,
+        nao_atribuidos: transformedTickets.filter(t => !t.assignedTo).length,
+        detalhes: transformedTickets.map(t => ({
+          id: t.id,
+          status: t.status,
+          assignedTo: t.assignedTo?.name || 'Não atribuído',
+          title: t.title
+        }))
+      });
+      previousTicketsCountRef.current = transformedTickets.length;
+      setTickets(transformedTickets);
+      setIsLoading(false);
+    } catch (apiError: any) {
+      console.error('❌ Erro ao carregar tickets da API:', apiError);
+      // Se for rate limit (429), não tentar novamente e mostrar mensagem
+      if (apiError.status === 429) {
+        console.warn('⚠️ Rate limit atingido. Aguardando antes de tentar novamente...');
+        // Salvar timestamp do erro para pausar polling
+        localStorage.setItem('lastRateLimitError', Date.now().toString());
         setIsLoading(false);
+        // Não atualizar tickets, manter os que já estão carregados
         return;
       }
-
-      try {
-        console.log('📡 Carregando tickets da API...');
-        // SEMPRE usar API - sem fallback para dados locais
-        const apiTickets = await api.getTickets();
-
-        // Transform API response to Ticket format
-        const transformedTickets = apiTickets.map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          description: t.description,
-          status: t.status,
-          priority: t.priority,
-          category: t.category,
-          serviceType: t.service_type,
-          totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
-          createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
-          assignedTo: t.assigned_to_user,
-          client: t.client_user,
-          files: t.files || [],
-          comments: t.comments || [],
-          createdAt: new Date(t.created_at),
-          updatedAt: new Date(t.updated_at),
-        }));
-
-        console.log('✅ Tickets carregados da API:', transformedTickets.length);
-        console.log('📊 Estatísticas dos tickets:', {
-          total: transformedTickets.length,
-          abertos: transformedTickets.filter(t => t.status === 'aberto').length,
-          em_atendimento: transformedTickets.filter(t => t.status === 'em_atendimento').length,
-          atribuidos: transformedTickets.filter(t => t.assignedTo).length,
-          nao_atribuidos: transformedTickets.filter(t => !t.assignedTo).length,
-          detalhes: transformedTickets.map(t => ({
-            id: t.id,
-            status: t.status,
-            assignedTo: t.assignedTo?.name || 'Não atribuído',
-            title: t.title
-          }))
-        });
-        previousTicketsCountRef.current = transformedTickets.length;
-        setTickets(transformedTickets);
-        setIsLoading(false);
-      } catch (apiError: any) {
-        console.error('❌ Erro ao carregar tickets da API:', apiError);
-        // Se for rate limit (429), não tentar novamente e mostrar mensagem
-        if (apiError.status === 429) {
-          console.warn('⚠️ Rate limit atingido. Aguardando antes de tentar novamente...');
-          // Salvar timestamp do erro para pausar polling
-          localStorage.setItem('lastRateLimitError', Date.now().toString());
-          setIsLoading(false);
-          // Não atualizar tickets, manter os que já estão carregados
-          return;
-        }
-        // Se a API falhar, mostrar lista vazia ao invés de dados locais
-        setTickets([]);
-        setIsLoading(false);
-        // Não mostrar alerta a cada erro para não incomodar o usuário
-        if (apiError.status !== 401) {
-          console.warn('Erro ao conectar com o servidor. Tentando novamente...');
-        }
+      // Se a API falhar, mostrar lista vazia ao invés de dados locais
+      setTickets([]);
+      setIsLoading(false);
+      // Não mostrar alerta a cada erro para não incomodar o usuário
+      if (apiError.status !== 401) {
+        console.warn('Erro ao conectar com o servidor. Tentando novamente...');
       }
-    };
+    }
+  };
+
+  // Carregar tickets APENAS do banco de dados (API)
+  useEffect(() => {
 
     loadTickets();
 
@@ -367,6 +369,13 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       });
 
       // Transform API response to Ticket format
+      console.log('🔄 Transformando resposta da API:', {
+        id: createdTicket.id,
+        status: createdTicket.status,
+        assigned_to_user: createdTicket.assigned_to_user,
+        created_by_user: createdTicket.created_by_user
+      });
+
       const transformedTicket = {
         id: createdTicket.id,
         title: createdTicket.title,
@@ -385,9 +394,33 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         updatedAt: new Date(createdTicket.updated_at),
       };
 
+      console.log('🔄 Ticket transformado após criação:', {
+        id: transformedTicket.id,
+        status: transformedTicket.status,
+        assignedTo: transformedTicket.assignedTo?.name || 'Não atribuído',
+        createdBy: transformedTicket.createdBy?.name || 'Desconhecido'
+      });
+
       // Adicionar ticket criado à lista (dados do banco)
-      setTickets((prev) => [...prev, transformedTicket]);
-      previousTicketsCountRef.current = tickets.length + 1;
+      setTickets((prev) => {
+        const updated = [...prev, transformedTicket];
+        previousTicketsCountRef.current = updated.length;
+        console.log('✅ Ticket adicionado à lista local:', {
+          id: transformedTicket.id,
+          status: transformedTicket.status,
+          assignedTo: transformedTicket.assignedTo?.name || 'Não atribuído',
+          totalTickets: updated.length
+        });
+        return updated;
+      });
+
+      // Forçar reload imediato para garantir que todos vejam o novo ticket
+      // Aguardar um pouco para garantir que o backend salvou completamente
+      console.log('🔄 Forçando reload de tickets após criação...');
+      setTimeout(() => {
+        loadTickets();
+      }, 1500); // Aguardar 1.5 segundos para garantir que o backend salvou
+
       console.log('✅ Ticket criado com sucesso');
     } catch (apiError: any) {
       console.error('❌ Erro ao criar ticket:', apiError);

@@ -19,7 +19,7 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: (error: Error |
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Tipo de arquivo não permitido'));
+    cb(new Error('Tipo de arquivo não permitido'), false);
   }
 };
 

@@ -199,15 +199,70 @@ app.use(errorHandler);
 // Servidor só inicia se banco conectar com sucesso
 initializeDatabase()
   .then(() => {
-    app.listen(PORT, '0.0.0.0', () => {
+    const server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
       console.log(`✅ Server ready to accept connections`);
+      console.log(`🔗 Server listening on: http://0.0.0.0:${PORT}`);
+    });
+
+    // Tratamento de erros do servidor
+    server.on('error', (error: any) => {
+      console.error('❌ Server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`❌ Port ${PORT} is already in use`);
+        process.exit(1);
+      } else {
+        console.error('❌ Unexpected server error:', error);
+        process.exit(1);
+      }
+    });
+
+    // Tratamento de requisições não tratadas
+    server.on('request', (req: any, res) => {
+      // Log para debug
+      const path = req.url || req.path || 'unknown';
+      if (req.method === 'OPTIONS' || path.includes('/api/')) {
+        console.log(`📥 ${req.method} ${path} recebido`);
+      }
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', () => {
+      console.log('🛑 SIGTERM received, shutting down gracefully');
+      server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', () => {
+      console.log('🛑 SIGINT received, shutting down gracefully');
+      server.close(() => {
+        console.log('✅ Server closed');
+        process.exit(0);
+      });
+    });
+
+    // Tratamento de erros não capturados
+    process.on('uncaughtException', (error) => {
+      console.error('❌ Uncaught Exception:', error);
+      server.close(() => {
+        process.exit(1);
+      });
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+      server.close(() => {
+        process.exit(1);
+      });
     });
   })
   .catch((error) => {
     console.error('❌ Failed to start server:', error);
+    console.error('Stack:', error.stack);
     process.exit(1);
   });
 

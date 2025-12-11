@@ -107,21 +107,36 @@ declare module 'path' {
   export function resolve(...paths: string[]): string;
   export const sep: string;
   export const delimiter: string;
+  const path: {
+    join: typeof join;
+    resolve: typeof resolve;
+    sep: string;
+    delimiter: string;
+  };
+  export default path;
 }
 
-// Namespace Express para multer
-declare namespace Express {
-  namespace Multer {
-    interface File {
-      fieldname: string;
-      originalname: string;
-      encoding: string;
-      mimetype: string;
-      size: number;
-      destination: string;
-      filename: string;
-      path: string;
-      buffer: Buffer;
+// Namespace Express para multer - deve estar no escopo global
+declare global {
+  namespace Express {
+    namespace Multer {
+      interface File {
+        fieldname: string;
+        originalname: string;
+        encoding: string;
+        mimetype: string;
+        size: number;
+        destination: string;
+        filename: string;
+        path: string;
+        buffer: Buffer;
+      }
+    }
+  }
+  
+  namespace multer {
+    interface FileFilterCallback {
+      (error: Error | null, acceptFile: boolean): void;
     }
   }
 }
@@ -131,18 +146,18 @@ declare module 'multer' {
   export interface FileFilterCallback {
     (error: Error | null, acceptFile: boolean): void;
   }
-  
+
   export interface StorageEngine {
     _handleFile(req: any, file: any, callback: (error?: any, info?: any) => void): void;
     _removeFile(req: any, file: any, callback: (error: Error | null) => void): void;
   }
-  
+
   export interface Multer {
     (options?: any): any;
     memoryStorage(): StorageEngine;
     diskStorage(options: any): StorageEngine;
   }
-  
+
   const multer: Multer;
   export default multer;
 }

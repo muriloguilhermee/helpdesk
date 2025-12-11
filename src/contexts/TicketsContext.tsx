@@ -297,10 +297,25 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       };
 
       // Atualizar lista local com dados do banco
+      // Se assignedTo não foi explicitamente atualizado, preservar o valor atual se existir
       setTickets((prev) =>
-        prev.map((ticket) =>
-          ticket.id === id ? transformedTicket : ticket
-        )
+        prev.map((ticket) => {
+          if (ticket.id === id) {
+            // Se assignedTo não foi enviado na atualização (ex: apenas status foi atualizado),
+            // preservar o valor atual se existir (evita perder atribuição ao mudar apenas status)
+            if (!('assignedTo' in updates)) {
+              // Se o ticket atual tinha assignedTo, preservar
+              if (ticket.assignedTo) {
+                console.log('🔒 Preservando atribuição ao atualizar status:', ticket.assignedTo.name);
+                transformedTicket.assignedTo = ticket.assignedTo;
+              }
+              // Se não tinha assignedTo antes, usar o valor da API (pode ser null)
+            }
+            // Se assignedTo foi explicitamente enviado na atualização, usar o valor da API
+            return transformedTicket;
+          }
+          return ticket;
+        })
       );
 
       console.log('✅ Ticket atualizado com sucesso');

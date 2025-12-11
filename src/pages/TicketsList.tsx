@@ -78,7 +78,7 @@ export default function TicketsList() {
 
   // Filtrar tickets baseado no role do usuário
   // Usuários veem seus próprios chamados E chamados de melhoria
-  // Técnicos veem TODOS os chamados (atribuídos e não atribuídos) para poderem aceitar novos
+  // Técnicos veem apenas tickets ATRIBUÍDOS a eles (Meus Chamados)
   // Admins veem todos os chamados
   let availableTickets = tickets;
   if (user?.role === 'user') {
@@ -86,8 +86,13 @@ export default function TicketsList() {
     availableTickets = tickets.filter(ticket =>
       ticket.createdBy.id === user.id || ticket.category === 'melhoria'
     );
+  } else if (user?.role === 'technician') {
+    // Técnicos veem apenas tickets atribuídos a eles em "Meus Chamados"
+    availableTickets = tickets.filter(ticket =>
+      ticket.assignedTo?.id === user.id
+    );
   }
-  // Técnicos e Admins veem todos os chamados (availableTickets = tickets)
+  // Admins veem todos os chamados (availableTickets = tickets)
 
   const filteredTickets = availableTickets
     .filter((ticket) => {

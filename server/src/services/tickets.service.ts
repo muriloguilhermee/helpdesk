@@ -244,29 +244,69 @@ export const createTicket = async (data: CreateTicketData) => {
 
     console.log('📝 Criando ticket:', { title: data.title, category: data.category, priority: data.priority });
 
-    // Generate ticket ID
-    const ticketCount = await db('tickets').count('* as count').first();
-    const count = ticketCount?.count;
-    const nextId = String((parseInt(count as string) || 0) + 1).padStart(5, '0');
+    // Generate ticket ID - buscar o maior ID numérico existente e incrementar
+    // Isso evita conflitos mesmo se houver tickets deletados ou requisições simultâneas
+    const allTickets = await db('tickets').select('id');
+
+    // Filtrar apenas IDs numéricos e encontrar o maior
+    let maxIdNum = 0;
+    for (const ticket of allTickets) {
+      const idStr = String(ticket.id || '');
+      // Verificar se é um número válido
+      if (/^\d+$/.test(idStr)) {
+        const idNum = parseInt(idStr, 10);
+        if (idNum > maxIdNum) {
+          maxIdNum = idNum;
+        }
+      }
+    }
+
+    // Próximo ID será o maior + 1
+    const nextId = String(maxIdNum + 1).padStart(5, '0');
 
     console.log('🆔 Próximo ID do ticket:', nextId);
 
-    const insertResult = await db('tickets')
-      .insert({
-        id: nextId,
-        title: data.title,
-        description: data.description,
-        status: 'aberto',
-        priority: data.priority,
-        category: data.category,
-        service_type: data.serviceType || null,
-        total_value: data.totalValue || null,
-        created_by: data.createdBy,
-        client_id: data.clientId || data.createdBy,
-        assigned_to: null,
-        queue_id: data.queueId || null,
-      })
-      .returning('*');
+    // Tentar inserir com retry em caso de conflito
+    let insertResult;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    while (attempts < maxAttempts) {
+      try {
+        insertResult = await db('tickets')
+          .insert({
+            id: nextId,
+            title: data.title,
+            description: data.description,
+            status: 'aberto',
+            priority: data.priority,
+            category: data.category,
+            service_type: data.serviceType || null,
+            total_value: data.totalValue || null,
+            created_by: data.createdBy,
+            client_id: data.clientId || data.createdBy,
+            assigned_to: null,
+            queue_id: data.queueId || null,
+          })
+          .returning('*');
+        break; // Sucesso, sair do loop
+      } catch (insertError: any) {
+        // Se for erro de chave duplicada, tentar com próximo ID
+        if (insertError.code === '23505' || insertError.message?.includes('duplicate key')) {
+          attempts++;
+          const currentIdNum = parseInt(nextId, 10);
+          const previousId = nextId;
+          nextId = String(currentIdNum + 1).padStart(5, '0');
+          console.log(`⚠️ ID ${previousId} já existe, tentando próximo: ${nextId}`);
+          if (attempts >= maxAttempts) {
+            throw new Error('Não foi possível gerar um ID único para o ticket após várias tentativas');
+          }
+        } else {
+          // Outro tipo de erro, propagar
+          throw insertError;
+        }
+      }
+    }
 
     console.log('📦 Resultado do insert:', insertResult);
 

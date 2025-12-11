@@ -119,26 +119,42 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// Rate Limiting - EXCLUIR OPTIONS, rotas de autenticação e requisições autenticadas
-const limiter = rateLimit({
+// Rate Limiting - Criar dois limiters: um geral e um específico para rotas não-auth
+// Rate limiter geral (muito permissivo para evitar bloquear login)
+const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 500, // Aumentado para 500 para suportar polling e múltiplos usuários
+  max: 1000, // Muito alto para evitar bloqueios
   skip: (req) => {
     // Não aplicar rate limit em OPTIONS
     if (req.method === 'OPTIONS') return true;
-    // Não aplicar rate limit em rotas de autenticação (login, register)
-    if (req.path.includes('/api/auth/login') || req.path.includes('/api/auth/register')) {
+    
+    // Verificar path completo (req.url inclui query string, req.path não)
+    const path = (req.url || req.path || '').toLowerCase();
+    
+    // Não aplicar rate limit em rotas de autenticação
+    if (path.includes('/auth/login') || path.includes('/auth/register')) {
       return true;
     }
-    // Não aplicar rate limit em requisições autenticadas (têm token)
-    if (req.headers.authorization) return true;
+    
+    // Não aplicar rate limit em requisições autenticadas
+    if (req.headers.authorization) {
+      return true;
+    }
+    
     return false;
   },
   message: 'Muitas requisições. Tente novamente em alguns minutos.',
-  standardHeaders: true, // Retornar rate limit info nos headers
+  standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api/', limiter);
+
+// Aplicar rate limit APENAS em rotas específicas (não em /api/auth)
+app.use('/api/users', generalLimiter);
+app.use('/api/tickets', generalLimiter);
+app.use('/api/files', generalLimiter);
+app.use('/api/financial', generalLimiter);
+
+// NÃO aplicar rate limit em /api/auth - permitir login/register sem limite
 
 // Body Parsing
 app.use(express.json({ limit: '10mb' }));

@@ -260,9 +260,30 @@ export default function TicketDetails() {
 
   // Função para carregar técnicos do banco de dados
   const loadTechnicians = async () => {
+    // Verificar se há token antes de carregar
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.log('⏳ Aguardando autenticação para carregar técnicos...');
+      return;
+    }
+
     try {
-      await database.init();
-      const allUsers = await database.getUsers();
+      const apiUrl = import.meta.env.VITE_API_URL;
+      let allUsers: any[] = [];
+      
+      if (apiUrl) {
+        try {
+          // Usar API para buscar usuários
+          allUsers = await api.getUsers();
+        } catch (error) {
+          console.error('Erro ao buscar usuários da API, usando database local:', error);
+          await database.init();
+          allUsers = await database.getUsers();
+        }
+      } else {
+        await database.init();
+        allUsers = await database.getUsers();
+      }
       
       // Filtrar apenas técnicos que NÃO são mockados
       const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
@@ -282,10 +303,24 @@ export default function TicketDetails() {
     }
   };
 
-  // Carregar técnicos quando o componente é montado
+  // Carregar técnicos quando o componente é montado e quando o token muda
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+
+  // Listener para mudanças no token
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken !== token) {
+        setToken(currentToken);
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [token]);
+
   useEffect(() => {
     loadTechnicians();
-  }, []);
+  }, [token]);
 
   // Estado para armazenar filas
   const [queues, setQueues] = useState<Queue[]>([]);

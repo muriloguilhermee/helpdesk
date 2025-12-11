@@ -18,7 +18,7 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
 // ============================================
-// CORS - PRIMEIRO MIDDLEWARE (CRÍTICO!)
+// CORS - ABSOLUTAMENTE PRIMEIRO (CRÍTICO!)
 // ============================================
 const corsOrigins = process.env.CORS_ORIGIN 
   ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim().replace(/\/$/, ''))
@@ -26,14 +26,38 @@ const corsOrigins = process.env.CORS_ORIGIN
 
 console.log('🌐 CORS Origins configuradas:', corsOrigins);
 
+// Handler ABSOLUTO para OPTIONS - antes de qualquer middleware
+app.options('*', (req, res) => {
+  const origin = req.headers.origin;
+  console.log(`🔍 OPTIONS ABSOLUTO recebido - Origin: ${origin || 'N/A'}`);
+  console.log(`   Path: ${req.path}`);
+  console.log(`   Headers:`, req.headers);
+  
+  if (origin) {
+    const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
+    const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
+    const isAllowed = normalizedAllowed.includes(normalizedOrigin);
+    
+    if (isAllowed || process.env.NODE_ENV !== 'production') {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+      res.setHeader('Access-Control-Max-Age', '86400');
+      console.log(`✅ OPTIONS ABSOLUTO respondido para: ${origin}`);
+      return res.status(204).end();
+    } else {
+      console.error(`❌ OPTIONS ABSOLUTO bloqueado: ${normalizedOrigin}`);
+    }
+  }
+  
+  // Sempre responder, mesmo sem origin
+  res.status(204).end();
+});
+
 // Middleware CORS manual - PRIMEIRO, antes de qualquer coisa
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  
-  // Log para debug
-  if (req.method === 'OPTIONS') {
-    console.log(`🔍 OPTIONS preflight recebido - Origin: ${origin || 'N/A'}`);
-  }
   
   // Sempre adicionar headers CORS se houver origin
   if (origin) {
@@ -48,16 +72,6 @@ app.use((req, res, next) => {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
       res.setHeader('Access-Control-Max-Age', '86400');
-      
-      if (req.method === 'OPTIONS') {
-        console.log(`✅ OPTIONS preflight respondido para: ${origin}`);
-        return res.status(204).end();
-      }
-    } else {
-      console.error(`❌ CORS bloqueado: ${normalizedOrigin} não está permitida`);
-      if (req.method === 'OPTIONS') {
-        return res.status(403).end();
-      }
     }
   }
   

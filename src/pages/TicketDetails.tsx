@@ -11,6 +11,7 @@ import { UserAvatar } from '../utils/userAvatar';
 import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType, Queue, TicketFile } from '../types';
 import { mockUsers } from '../data/mockData';
 import { database } from '../services/database';
+import { api } from '../services/api';
 
 export default function TicketDetails() {
   const { hasPermission, user } = useAuth();
@@ -67,7 +68,8 @@ export default function TicketDetails() {
 
   // Verificar se o usuário tem permissão para ver este chamado
   // Usuários podem ver seus próprios chamados OU chamados de melhoria
-  // Técnicos podem ver chamados atribuídos a eles OU chamados de melhoria
+  // Técnicos podem ver TODOS os chamados (para poder aceitar novos)
+  // Admins podem ver todos os chamados
   if (user?.role === 'user') {
     const isOwnTicket = ticket.createdBy.id === user.id;
     const isMelhoria = ticket.category === 'melhoria';
@@ -82,21 +84,7 @@ export default function TicketDetails() {
       );
     }
   }
-  
-  if (user?.role === 'technician') {
-    const isAssignedToMe = ticket.assignedTo?.id === user.id;
-    const isMelhoria = ticket.category === 'melhoria';
-    if (!isAssignedToMe && !isMelhoria) {
-      return (
-        <div className="text-center py-12">
-          <p className="text-gray-500 dark:text-gray-400">Você não tem permissão para ver este chamado</p>
-          <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
-            Voltar para lista
-          </button>
-        </div>
-      );
-    }
-  }
+  // Técnicos e Admins podem ver todos os chamados (sem restrição)
 
   const handleAddComment = () => {
     if (comment.trim() && user && ticket) {

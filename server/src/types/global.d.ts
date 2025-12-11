@@ -52,7 +52,11 @@ declare module 'express' {
     body: any;
     params: any;
     query: any;
-    headers: any;
+    headers: {
+      [key: string]: string | string[] | undefined;
+      authorization?: string;
+      [key: string]: any;
+    };
     path?: string;
     method?: string;
     [key: string]: any;

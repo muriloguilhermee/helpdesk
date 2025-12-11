@@ -17,40 +17,52 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
-// CORS Configuration - DEVE vir ANTES de tudo, especialmente antes do Helmet
+// CORS Configuration - DEVE vir ANTES de tudo
 const corsOrigins = process.env.CORS_ORIGIN 
-  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim().replace(/\/$/, '')) // Remove barra no final
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim().replace(/\/$/, ''))
   : ['http://localhost:5173'];
 
 console.log('🌐 CORS Origins configuradas:', corsOrigins);
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Permitir requisições sem origin (health check, mobile apps, Postman, etc)
-    if (!origin) {
-      return callback(null, true);
-    }
-    
-    // Normalizar origin (remover barra no final e converter para lowercase)
+// CORS simplificado e robusto
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  
+  if (origin) {
     const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
     const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
+    const isAllowed = normalizedAllowed.includes(normalizedOrigin);
     
-    // Verificar se a origin está na lista permitida
-    const isAllowed = normalizedAllowed.some(allowed => allowed === normalizedOrigin);
+    if (isAllowed || process.env.NODE_ENV !== 'production') {
+      res.header('Access-Control-Allow-Origin', origin);
+      res.header('Access-Control-Allow-Credentials', 'true');
+      res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
+      res.header('Access-Control-Max-Age', '86400');
+    }
+  }
+  
+  // Responder imediatamente a OPTIONS
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(204);
+  }
+  
+  next();
+});
+
+// CORS middleware adicional (backup)
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
     
-    if (isAllowed) {
+    const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
+    const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
+    const isAllowed = normalizedAllowed.includes(normalizedOrigin);
+    
+    if (isAllowed || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
-      // Em produção, se não estiver na lista, bloquear
-      if (process.env.NODE_ENV === 'production') {
-        console.error(`❌ CORS bloqueado: ${normalizedOrigin}`);
-        console.error(`   Origin recebida: ${origin}`);
-        console.error(`   Origins permitidas: ${normalizedAllowed.join(', ')}`);
-        callback(new Error(`Not allowed by CORS: ${normalizedOrigin}`));
-      } else {
-        // Em desenvolvimento, permitir tudo
-        callback(null, true);
-      }
+      callback(new Error(`Not allowed by CORS: ${normalizedOrigin}`));
     }
   },
   credentials: true,
@@ -59,10 +71,10 @@ app.use(cors({
   exposedHeaders: ['Content-Type'],
   preflightContinue: false,
   optionsSuccessStatus: 204,
-  maxAge: 86400, // 24 horas
+  maxAge: 86400,
 }));
 
-// Security Middlewares - DEPOIS do CORS para não interferir
+// Security Middlewares - DEPOIS do CORS
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   crossOriginEmbedderPolicy: false,
@@ -87,23 +99,6 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Handler manual para OPTIONS (preflight) - ANTES das rotas para garantir que funciona
-app.options('*', (req, res) => {
-  const origin = req.headers.origin;
-  const normalizedOrigin = origin ? origin.replace(/\/$/, '').toLowerCase() : '';
-  const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
-  const isAllowed = !origin || normalizedAllowed.includes(normalizedOrigin);
-  
-  if (isAllowed && origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Max-Age', '86400'); // 24 horas
-    console.log(`✅ OPTIONS preflight permitido para: ${origin}`);
-  }
-  res.sendStatus(204);
-});
 
 // Health Check
 app.get('/health', (req, res) => {

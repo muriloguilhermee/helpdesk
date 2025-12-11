@@ -16,19 +16,39 @@ export default function PendingTickets() {
   // Filtrar apenas chamados com status "aberto" (não importa se estão atribuídos ou não)
   // Quando um técnico aceitar, o status muda para "em_atendimento" e não aparece mais aqui
   const pendingTickets = tickets.filter((ticket) => {
-    // Mostrar apenas tickets com status "aberto"
-    return ticket.status === 'aberto';
+    // Mostrar TODOS os tickets com status "aberto", independente de atribuição
+    // Normalizar comparação para funcionar com qualquer capitalização
+    const statusNormalized = String(ticket.status || '').toLowerCase().trim();
+    const isOpen = statusNormalized === 'aberto';
+
+    if (isOpen) {
+      console.log('✅ Ticket "aberto" encontrado:', {
+        id: ticket.id,
+        status: ticket.status,
+        statusNormalized,
+        assignedTo: ticket.assignedTo?.name || 'Não atribuído',
+        assignedToId: ticket.assignedTo?.id || null,
+        title: ticket.title
+      });
+    }
+    return isOpen;
   });
 
   // Debug: Log dos tickets para verificar o que está sendo carregado
   useEffect(() => {
     console.log('📋 Total de tickets carregados:', tickets.length);
     console.log('📋 Tickets com status "aberto":', pendingTickets.length);
-    console.log('📋 Tickets detalhados:', tickets.map(t => ({
+    console.log('📋 Tickets "aberto" detalhados:', pendingTickets.map(t => ({
       id: t.id,
       status: t.status,
-      assignedTo: t.assignedTo,
+      assignedTo: t.assignedTo?.name || 'Não atribuído',
+      assignedToId: t.assignedTo?.id || null,
       title: t.title
+    })));
+    console.log('📋 Todos os tickets (status):', tickets.map(t => ({
+      id: t.id,
+      status: t.status,
+      assignedTo: t.assignedTo?.name || 'Não atribuído'
     })));
   }, [tickets, pendingTickets]);
 

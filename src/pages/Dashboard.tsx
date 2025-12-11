@@ -100,12 +100,25 @@ export default function Dashboard() {
     taxaResolucao: number;
     tempoMedioResolucao: number; // em dias
   }>>({});
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+
+  // Listener para mudanças no token
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken !== token) {
+        setToken(currentToken);
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [token]);
 
   useEffect(() => {
     const loadTechnicians = async () => {
       // Verificar se há token antes de carregar
-      const token = localStorage.getItem('token');
-      if (!token) {
+      const currentToken = localStorage.getItem('token');
+      if (!currentToken) {
         console.log('⏳ Aguardando autenticação para carregar técnicos...');
         return;
       }
@@ -146,7 +159,7 @@ export default function Dashboard() {
     };
 
     loadTechnicians();
-  }, []);
+  }, [token]);
 
   // Calcular performance dos técnicos
   useEffect(() => {

@@ -33,13 +33,26 @@ export default function FinancialManagementPage() {
 
   // Estado para armazenar clientes
   const [allClients, setAllClients] = useState<any[]>([]);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+
+  // Listener para mudanças no token
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken !== token) {
+        setToken(currentToken);
+      }
+    }, 500);
+
+    return () => clearInterval(interval);
+  }, [token]);
 
   // Buscar todos os clientes da API (banco de dados)
   useEffect(() => {
     const loadClients = async () => {
       // Verificar se há token antes de carregar
-      const token = localStorage.getItem('token');
-      if (!token) {
+      const currentToken = localStorage.getItem('token');
+      if (!currentToken) {
         console.log('⏳ Aguardando autenticação para carregar clientes...');
         return;
       }
@@ -61,15 +74,15 @@ export default function FinancialManagementPage() {
     };
 
     loadClients();
-  }, []);
+  }, [token]);
 
   // Recarregar clientes quando o modal de criar for aberto (para pegar novos usuários)
   useEffect(() => {
     if (showCreateModal || showEditModal) {
       const loadClients = async () => {
         // Verificar se há token antes de carregar
-        const token = localStorage.getItem('token');
-        if (!token) {
+        const currentToken = localStorage.getItem('token');
+        if (!currentToken) {
           return;
         }
 

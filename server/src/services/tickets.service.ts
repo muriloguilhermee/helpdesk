@@ -48,11 +48,18 @@ export const getAllTickets = async (filters?: TicketFilters) => {
 
   // Primeiro, verificar quantos tickets existem no banco (sem JOINs)
   const totalTicketsRaw = await db('tickets').count('* as total').first();
-  console.log('📊 Total de tickets no banco (raw):', totalTicketsRaw);
+  const totalCount = totalTicketsRaw ? (typeof totalTicketsRaw === 'object' && 'total' in totalTicketsRaw ? parseInt(totalTicketsRaw.total as string) : 0) : 0;
+  console.log('📊 Total de tickets no banco (raw):', totalCount);
 
   // Listar todos os IDs de tickets
-  const allTicketIds = await db('tickets').select('id', 'status', 'created_by', 'assigned_to');
+  const allTicketIds = await db('tickets').select('id', 'status', 'created_by', 'assigned_to', 'client_id');
   console.log('📋 Todos os tickets no banco:', allTicketIds);
+
+  // Se não há tickets, retornar vazio imediatamente
+  if (allTicketIds.length === 0) {
+    console.log('⚠️ Nenhum ticket encontrado no banco');
+    return [];
+  }
 
   // Query modificada para garantir que tickets sejam retornados mesmo sem usuários
   // Usar LEFT JOIN padrão mas com fallbacks no SELECT para quando usuários não existem
@@ -150,6 +157,7 @@ export const getAllTickets = async (filters?: TicketFilters) => {
   }
 
   try {
+    // Executar query e capturar resultado
     const result = await query.orderBy('tickets.updated_at', 'desc');
 
     console.log('✅ Query executada, resultado:', {
@@ -164,39 +172,190 @@ export const getAllTickets = async (filters?: TicketFilters) => {
       }))
     });
 
-    // Se a query retornou vazio mas há tickets no banco, pode ser problema nos JOINs
+    // Se a query retornou vazio mas há tickets no banco, usar fallback
     if (result.length === 0 && allTicketIds.length > 0) {
       console.error('⚠️ ATENÇÃO: Query retornou 0 tickets mas há tickets no banco!');
       console.error('📋 Tickets no banco:', allTicketIds);
-      console.error('🔍 Verificando se os usuários existem...');
+      console.log('🔄 Tentando buscar tickets sem JOINs complexos...');
 
-      // Verificar se os usuários referenciados existem
-      const userIds = new Set<string>();
-      allTicketIds.forEach((t: any) => {
-        if (t.created_by) userIds.add(t.created_by);
-        if (t.assigned_to) userIds.add(t.assigned_to);
-      });
+      // Fallback: buscar tickets sem JOINs e construir objetos manualmente
+      const ticketsWithoutJoins = await db('tickets')
+        .select('*')
+        .orderBy('updated_at', 'desc');
 
-      const existingUsers = await db('users')
-        .whereIn('id', Array.from(userIds))
-        .select('id', 'email', 'name');
+      console.log('📦 Tickets sem JOINs:', ticketsWithoutJoins.length);
 
-      console.log('👥 Usuários encontrados:', existingUsers);
-      console.log('👥 IDs de usuários nos tickets:', Array.from(userIds));
-
-      if (existingUsers.length < userIds.size) {
-        const missingUsers = Array.from(userIds).filter(id =>
-          !existingUsers.some(u => u.id === id)
-        );
-        console.error('❌ Usuários faltando na tabela users:', missingUsers);
+      // Aplicar filtros manualmente se necessário
+      let filteredTickets = ticketsWithoutJoins;
+      if (filters) {
+        if (filters.status) {
+          filteredTickets = filteredTickets.filter((t: any) => t.status === filters.status);
+        }
+        if (filters.priority) {
+          filteredTickets = filteredTickets.filter((t: any) => t.priority === filters.priority);
+        }
+        if (filters.category) {
+          filteredTickets = filteredTickets.filter((t: any) => t.category === filters.category);
+        }
+        if (filters.assignedTo) {
+          filteredTickets = filteredTickets.filter((t: any) => t.assigned_to === filters.assignedTo);
+        }
+        if (filters.createdBy) {
+          filteredTickets = filteredTickets.filter((t: any) => t.created_by === filters.createdBy);
+        }
+        if (filters.unassignedOnly) {
+          filteredTickets = filteredTickets.filter((t: any) => !t.assigned_to);
+        }
       }
+
+      // Construir resposta com objetos de usuário padrão
+      const ticketsWithFallback = await Promise.all(filteredTickets.map(async (ticket: any) => {
+        // Tentar buscar usuários individualmente
+        let createdByUser = null;
+        let assignedToUser = null;
+        let clientUser = null;
+
+        if (ticket.created_by) {
+          try {
+            const creator = await db('users').where('id', ticket.created_by).first();
+            if (creator) {
+              createdByUser = {
+                id: creator.id,
+                name: creator.name || '',
+                email: creator.email || '',
+                role: creator.role || 'user',
+                avatar: creator.avatar
+              };
+            } else {
+              createdByUser = {
+                id: ticket.created_by,
+                name: 'Usuário não encontrado',
+                email: '',
+                role: 'user',
+                avatar: null
+              };
+            }
+          } catch (e) {
+            console.error('Erro ao buscar criador:', e);
+            createdByUser = {
+              id: ticket.created_by,
+              name: 'Usuário não encontrado',
+              email: '',
+              role: 'user',
+              avatar: null
+            };
+          }
+        }
+
+        if (ticket.assigned_to) {
+          try {
+            const assignee = await db('users').where('id', ticket.assigned_to).first();
+            if (assignee) {
+              assignedToUser = {
+                id: assignee.id,
+                name: assignee.name || '',
+                email: assignee.email || '',
+                role: assignee.role || 'technician',
+                avatar: assignee.avatar
+              };
+            }
+          } catch (e) {
+            console.error('Erro ao buscar atribuído:', e);
+          }
+        }
+
+        if (ticket.client_id) {
+          try {
+            const client = await db('users').where('id', ticket.client_id).first();
+            if (client) {
+              clientUser = {
+                id: client.id,
+                name: client.name || '',
+                email: client.email || '',
+                role: client.role || 'user',
+                avatar: client.avatar
+              };
+            } else {
+              clientUser = {
+                id: ticket.client_id,
+                name: 'Cliente não encontrado',
+                email: '',
+                role: 'user',
+                avatar: null
+              };
+            }
+          } catch (e) {
+            console.error('Erro ao buscar cliente:', e);
+            clientUser = {
+              id: ticket.client_id,
+              name: 'Cliente não encontrado',
+              email: '',
+              role: 'user',
+              avatar: null
+            };
+          }
+        }
+
+        return {
+          ...ticket,
+          created_by_user: createdByUser,
+          assigned_to_user: assignedToUser,
+          client_user: clientUser,
+          files: [],
+          comments: []
+        };
+      }));
+
+      console.log('✅ Retornando tickets com fallback:', ticketsWithFallback.length);
+      return ticketsWithFallback;
     }
 
     return result;
   } catch (error: any) {
     console.error('❌ Erro ao executar query getAllTickets:', error);
     console.error('Stack:', error.stack);
-    throw error;
+    console.error('Mensagem:', error.message);
+
+    // Em caso de erro, tentar retornar tickets sem JOINs
+    try {
+      console.log('🔄 Tentando fallback: buscar tickets sem JOINs...');
+      const ticketsSimple = await db('tickets')
+        .select('*')
+        .orderBy('updated_at', 'desc');
+
+      console.log('📦 Tickets encontrados (fallback):', ticketsSimple.length);
+
+      // Aplicar filtros básicos
+      let filtered = ticketsSimple;
+      if (filters?.status) {
+        filtered = filtered.filter((t: any) => t.status === filters.status);
+      }
+
+      // Retornar com objetos de usuário padrão
+      return filtered.map((ticket: any) => ({
+        ...ticket,
+        created_by_user: ticket.created_by ? {
+          id: ticket.created_by,
+          name: 'Usuário não encontrado',
+          email: '',
+          role: 'user',
+          avatar: null
+        } : null,
+        assigned_to_user: null,
+        client_user: ticket.client_id ? {
+          id: ticket.client_id,
+          name: 'Cliente não encontrado',
+          email: '',
+          role: 'user',
+          avatar: null
+        } : null,
+        files: [],
+        comments: []
+      }));
+    } catch (fallbackError) {
+      console.error('❌ Erro no fallback também:', fallbackError);
+      throw error; // Lançar o erro original
+    }
   }
 };
 

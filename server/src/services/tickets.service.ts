@@ -46,19 +46,212 @@ export const getAllTickets = async (filters?: TicketFilters) => {
 
   console.log('🔍 getAllTickets chamado com filtros:', filters);
 
-  // Primeiro, verificar quantos tickets existem no banco (sem JOINs)
-  const totalTicketsRaw = await db('tickets').count('* as total').first();
-  const totalCount = totalTicketsRaw ? (typeof totalTicketsRaw === 'object' && 'total' in totalTicketsRaw ? parseInt(totalTicketsRaw.total as string) : 0) : 0;
-  console.log('📊 Total de tickets no banco (raw):', totalCount);
+  try {
+    // PRIMEIRO: Buscar tickets simples SEM JOINs para garantir que sempre retornamos algo
+    let ticketsQuery = db('tickets').select('*');
 
-  // Listar todos os IDs de tickets
-  const allTicketIds = await db('tickets').select('id', 'status', 'created_by', 'assigned_to', 'client_id');
-  console.log('📋 Todos os tickets no banco:', allTicketIds);
+    // Aplicar filtros básicos primeiro
+    if (filters) {
+      if (filters.status) {
+        ticketsQuery = ticketsQuery.where('status', filters.status);
+      }
+      if (filters.priority) {
+        ticketsQuery = ticketsQuery.where('priority', filters.priority);
+      }
+      if (filters.category) {
+        ticketsQuery = ticketsQuery.where('category', filters.category);
+      }
+      if (filters.assignedTo) {
+        ticketsQuery = ticketsQuery.where('assigned_to', filters.assignedTo);
+      }
+      if (filters.createdBy) {
+        ticketsQuery = ticketsQuery.where('created_by', filters.createdBy);
+      }
+      if (filters.unassignedOnly) {
+        ticketsQuery = ticketsQuery.whereNull('assigned_to');
+      }
+      if (filters.search) {
+        ticketsQuery = ticketsQuery.where((builder) => {
+          builder
+            .where('title', 'ilike', `%${filters.search}%`)
+            .orWhere('description', 'ilike', `%${filters.search}%`);
+        });
+      }
+    }
 
-  // Se não há tickets, retornar vazio imediatamente
-  if (allTicketIds.length === 0) {
-    console.log('⚠️ Nenhum ticket encontrado no banco');
-    return [];
+    const ticketsSimple = await ticketsQuery.orderBy('updated_at', 'desc');
+
+    console.log('📦 Tickets encontrados (query simples):', ticketsSimple.length);
+    console.log('📋 IDs dos tickets:', ticketsSimple.map((t: any) => t.id));
+
+    if (ticketsSimple.length === 0) {
+      console.log('⚠️ Nenhum ticket encontrado com os filtros aplicados');
+      return [];
+    }
+
+    // SEGUNDO: Buscar usuários individualmente e construir resposta
+    const ticketsWithUsers = await Promise.all(ticketsSimple.map(async (ticket: any) => {
+      let createdByUser = null;
+      let assignedToUser = null;
+      let clientUser = null;
+
+      // Buscar criador
+      if (ticket.created_by) {
+        try {
+          const creator = await db('users').where('id', ticket.created_by).first();
+          if (creator) {
+            createdByUser = {
+              id: creator.id,
+              name: creator.name || '',
+              email: creator.email || '',
+              role: creator.role || 'user',
+              avatar: creator.avatar
+            };
+          } else {
+            createdByUser = {
+              id: ticket.created_by,
+              name: 'Usuário não encontrado',
+              email: '',
+              role: 'user',
+              avatar: null
+            };
+          }
+        } catch (e) {
+          console.error(`Erro ao buscar criador ${ticket.created_by}:`, e);
+          createdByUser = {
+            id: ticket.created_by,
+            name: 'Usuário não encontrado',
+            email: '',
+            role: 'user',
+            avatar: null
+          };
+        }
+      }
+
+      // Buscar atribuído
+      if (ticket.assigned_to) {
+        try {
+          const assignee = await db('users').where('id', ticket.assigned_to).first();
+          if (assignee) {
+            assignedToUser = {
+              id: assignee.id,
+              name: assignee.name || '',
+              email: assignee.email || '',
+              role: assignee.role || 'technician',
+              avatar: assignee.avatar
+            };
+          }
+        } catch (e) {
+          console.error(`Erro ao buscar atribuído ${ticket.assigned_to}:`, e);
+        }
+      }
+
+      // Buscar cliente
+      if (ticket.client_id) {
+        try {
+          const client = await db('users').where('id', ticket.client_id).first();
+          if (client) {
+            clientUser = {
+              id: client.id,
+              name: client.name || '',
+              email: client.email || '',
+              role: client.role || 'user',
+              avatar: client.avatar
+            };
+          } else {
+            clientUser = {
+              id: ticket.client_id,
+              name: 'Cliente não encontrado',
+              email: '',
+              role: 'user',
+              avatar: null
+            };
+          }
+        } catch (e) {
+          console.error(`Erro ao buscar cliente ${ticket.client_id}:`, e);
+          clientUser = {
+            id: ticket.client_id,
+            name: 'Cliente não encontrado',
+            email: '',
+            role: 'user',
+            avatar: null
+          };
+        }
+      }
+
+      // Buscar arquivos
+      let files: any[] = [];
+      try {
+        files = await db('ticket_files')
+          .where('ticket_id', ticket.id)
+          .select('id', 'name', 'size', 'type', 'data_url', 'created_at');
+      } catch (e) {
+        console.error(`Erro ao buscar arquivos do ticket ${ticket.id}:`, e);
+      }
+
+      // Buscar comentários
+      let comments: any[] = [];
+      try {
+        const commentsRaw = await db('comments')
+          .leftJoin('users', 'comments.author_id', 'users.id')
+          .where('comments.ticket_id', ticket.id)
+          .select(
+            'comments.*',
+            db.raw(`
+              CASE
+                WHEN users.id IS NOT NULL THEN
+                  json_build_object(
+                    'id', users.id,
+                    'name', users.name,
+                    'email', users.email,
+                    'role', users.role,
+                    'avatar', users.avatar
+                  )
+                ELSE NULL
+              END as author
+            `)
+          )
+          .orderBy('comments.created_at', 'asc');
+
+        comments = commentsRaw.map((c: any) => ({
+          id: c.id,
+          content: c.content,
+          author: c.author,
+          createdAt: c.created_at,
+        }));
+      } catch (e) {
+        console.error(`Erro ao buscar comentários do ticket ${ticket.id}:`, e);
+      }
+
+      return {
+        ...ticket,
+        created_by_user: createdByUser,
+        assigned_to_user: assignedToUser,
+        client_user: clientUser,
+        files: files.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          size: parseInt(f.size) || 0,
+          type: f.type,
+          data: f.data_url,
+        })),
+        comments: comments,
+      };
+    }));
+
+    console.log('✅ Tickets processados com sucesso:', ticketsWithUsers.length);
+    console.log('📊 Estatísticas:', {
+      total: ticketsWithUsers.length,
+      abertos: ticketsWithUsers.filter((t: any) => t.status === 'aberto').length,
+      com_usuarios: ticketsWithUsers.filter((t: any) => t.created_by_user).length,
+      sem_usuarios: ticketsWithUsers.filter((t: any) => !t.created_by_user).length,
+    });
+
+    return ticketsWithUsers;
+  } catch (error: any) {
+    console.error('❌ Erro ao buscar tickets:', error);
+    console.error('Stack:', error.stack);
+    throw error;
   }
 
   // Query modificada para garantir que tickets sejam retornados mesmo sem usuários

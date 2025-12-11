@@ -46,7 +46,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
 
     // Verificar mudanças no localStorage
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Verificar periodicamente (para mudanças na mesma aba)
     const interval = setInterval(() => {
       const currentToken = localStorage.getItem('token');
@@ -105,12 +105,26 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         // Se a API falhar, mostrar lista vazia ao invés de dados locais
         setTickets([]);
         setIsLoading(false);
-        alert('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
+        // Não mostrar alerta a cada erro para não incomodar o usuário
+        if (apiError.status !== 401) {
+          console.warn('Erro ao conectar com o servidor. Tentando novamente...');
+        }
       }
     };
 
     loadTickets();
-  }, [token]);
+
+    // Adicionar polling automático para recarregar tickets a cada 10 segundos
+    // Isso garante que novos tickets apareçam mesmo sem refresh manual
+    const interval = setInterval(() => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken && !isLoading) {
+        loadTickets();
+      }
+    }, 10000); // 10 segundos
+
+    return () => clearInterval(interval);
+  }, [token, isLoading]);
 
 
   // Detectar quando um novo chamado é criado e notificar técnicos

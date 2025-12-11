@@ -17,7 +17,8 @@ export default function PendingTickets() {
   // Chamados atribuídos aparecem em "Meus Chamados", não em "Novos Chamados"
   const pendingTickets = tickets.filter((ticket) => {
     const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
-    const isNotAssigned = !ticket.assignedTo;
+    // Verificar se não está atribuído (assignedTo pode ser null, undefined ou objeto vazio)
+    const isNotAssigned = !ticket.assignedTo || (typeof ticket.assignedTo === 'object' && !ticket.assignedTo.id);
 
     // Mostrar apenas chamados pendentes que NÃO estão atribuídos
     return isPending && isNotAssigned;
@@ -144,7 +145,7 @@ export default function PendingTickets() {
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="flex flex-wrap items-center gap-2 mt-2">
                             {ticket.system && (
                               <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium">
@@ -166,7 +167,7 @@ export default function PendingTickets() {
                               {ticket.category}
                             </div>
                           </div>
-                          
+
                           {ticket.serviceType && (
                             <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                               <span className="font-medium">Serviço:</span> {ticket.serviceType}
@@ -178,7 +179,7 @@ export default function PendingTickets() {
                         <div className="flex flex-col gap-1">
                           <div className="text-xs text-gray-500 dark:text-gray-400">Valor</div>
                           <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {ticket.category === 'integracao' 
+                            {ticket.category === 'integracao'
                               ? (ticket.integrationValue ? formatCurrency(ticket.integrationValue) : '-')
                               : (ticket.totalValue ? formatCurrency(ticket.totalValue) : '-')
                             }

@@ -13,22 +13,17 @@ export default function PendingTickets() {
   const { tickets, updateTicket } = useTickets();
   const navigate = useNavigate();
 
-  // Filtrar apenas chamados pendentes ou abertos que NÃO estão atribuídos
-  // Chamados atribuídos aparecem em "Meus Chamados", não em "Novos Chamados"
+  // Filtrar apenas chamados com status "aberto" (não importa se estão atribuídos ou não)
+  // Quando um técnico aceitar, o status muda para "em_atendimento" e não aparece mais aqui
   const pendingTickets = tickets.filter((ticket) => {
-    const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
-    // Verificar se não está atribuído (assignedTo pode ser null, undefined ou objeto vazio)
-    const isNotAssigned = !ticket.assignedTo ||
-                          (typeof ticket.assignedTo === 'object' && (!ticket.assignedTo.id || ticket.assignedTo.id === null));
-
-    // Mostrar apenas chamados pendentes que NÃO estão atribuídos
-    return isPending && isNotAssigned;
+    // Mostrar apenas tickets com status "aberto"
+    return ticket.status === 'aberto';
   });
 
   // Debug: Log dos tickets para verificar o que está sendo carregado
   useEffect(() => {
     console.log('📋 Total de tickets carregados:', tickets.length);
-    console.log('📋 Tickets pendentes (não atribuídos):', pendingTickets.length);
+    console.log('📋 Tickets com status "aberto":', pendingTickets.length);
     console.log('📋 Tickets detalhados:', tickets.map(t => ({
       id: t.id,
       status: t.status,
@@ -59,7 +54,7 @@ export default function PendingTickets() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Novos Chamados</h1>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Chamados novos ou atribuídos a você</p>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Chamados com status "Aberto" aguardando aceitação</p>
         </div>
       </div>
 
@@ -113,7 +108,9 @@ export default function PendingTickets() {
                 filteredTickets.map((ticket) => {
                   const StatusIcon = getStatusIcon(ticket.status);
                   const client = ticket.client || ticket.createdBy;
-                  const isNotAssigned = !ticket.assignedTo;
+                  // Verificar se não está atribuído (assignedTo pode ser null, undefined ou objeto vazio)
+                  const isNotAssigned = !ticket.assignedTo ||
+                          (typeof ticket.assignedTo === 'object' && (!ticket.assignedTo.id || ticket.assignedTo.id === null));
 
                   return (
                     <tr

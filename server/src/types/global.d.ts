@@ -51,6 +51,8 @@ declare module 'express' {
     params?: any;
     query?: any;
     headers?: any;
+    path?: string;
+    method?: string;
     [key: string]: any;
   }
 
@@ -60,13 +62,33 @@ declare module 'express' {
     send(body: any): Response;
     setHeader(name: string, value: string): void;
     getHeader(name: string): string | undefined;
+    end(chunk?: any): Response;
     [key: string]: any;
   }
 
   export type NextFunction = (err?: any) => void;
 
+  export interface Router {
+    get(path: any, ...handlers: any[]): Router;
+    post(path: any, ...handlers: any[]): Router;
+    put(path: any, ...handlers: any[]): Router;
+    delete(path: any, ...handlers: any[]): Router;
+    patch(path: any, ...handlers: any[]): Router;
+    use(...handlers: any[]): Router;
+    [key: string]: any;
+  }
+
   export interface Express {
     (): any;
+    Router(): Router;
+    use(...handlers: any[]): Express;
+    get(path: any, ...handlers: any[]): Express;
+    post(path: any, ...handlers: any[]): Express;
+    put(path: any, ...handlers: any[]): Express;
+    delete(path: any, ...handlers: any[]): Express;
+    patch(path: any, ...handlers: any[]): Express;
+    options(path: any, ...handlers: any[]): Express;
+    listen(port: number, hostname?: string, callback?: () => void): any;
     [key: string]: any;
   }
 

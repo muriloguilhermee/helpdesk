@@ -44,6 +44,16 @@ export interface TicketFilters {
 export const getAllTickets = async (filters?: TicketFilters) => {
   const db = getDatabase();
 
+  console.log('🔍 getAllTickets chamado com filtros:', filters);
+
+  // Primeiro, verificar quantos tickets existem no banco (sem JOINs)
+  const totalTicketsRaw = await db('tickets').count('* as total').first();
+  console.log('📊 Total de tickets no banco (raw):', totalTicketsRaw);
+
+  // Listar todos os IDs de tickets
+  const allTicketIds = await db('tickets').select('id', 'status', 'created_by', 'assigned_to');
+  console.log('📋 Todos os tickets no banco:', allTicketIds);
+
   let query = db('tickets')
     .leftJoin('users as creator', 'tickets.created_by', 'creator.id')
     .leftJoin('users as assignee', 'tickets.assigned_to', 'assignee.id')
@@ -115,7 +125,14 @@ export const getAllTickets = async (filters?: TicketFilters) => {
     }
   }
 
-  return query.orderBy('tickets.updated_at', 'desc');
+  const result = await query.orderBy('tickets.updated_at', 'desc');
+
+  console.log('✅ Query executada, resultado:', {
+    total: result.length,
+    ids: result.map((t: any) => ({ id: t.id, status: t.status }))
+  });
+
+  return result;
 };
 
 export const getTicketById = async (id: string) => {
@@ -262,7 +279,7 @@ export const createTicket = async (data: CreateTicketData) => {
     }
 
     // Próximo ID será o maior + 1
-    const nextId = String(maxIdNum + 1).padStart(5, '0');
+    let nextId = String(maxIdNum + 1).padStart(5, '0');
 
     console.log('🆔 Próximo ID do ticket:', nextId);
 
@@ -273,6 +290,7 @@ export const createTicket = async (data: CreateTicketData) => {
 
     while (attempts < maxAttempts) {
       try {
+        console.log(`🔄 Tentativa ${attempts + 1} de inserir ticket com ID: ${nextId}`);
         insertResult = await db('tickets')
           .insert({
             id: nextId,
@@ -289,8 +307,14 @@ export const createTicket = async (data: CreateTicketData) => {
             queue_id: data.queueId || null,
           })
           .returning('*');
+        console.log(`✅ Ticket inserido com sucesso! ID: ${nextId}`);
         break; // Sucesso, sair do loop
       } catch (insertError: any) {
+        console.error(`❌ Erro ao inserir ticket (tentativa ${attempts + 1}):`, {
+          code: insertError.code,
+          message: insertError.message,
+          detail: insertError.detail
+        });
         // Se for erro de chave duplicada, tentar com próximo ID
         if (insertError.code === '23505' || insertError.message?.includes('duplicate key')) {
           attempts++;

@@ -77,40 +77,115 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       const apiTickets = await api.getTickets();
 
       // Transform API response to Ticket format
-      const transformedTickets = apiTickets.map((t: any) => ({
-        id: t.id,
-        title: t.title,
-        description: t.description,
-        status: t.status,
-        priority: t.priority,
-        category: t.category,
-        serviceType: t.service_type,
-        totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
-        createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
-        assignedTo: t.assigned_to_user,
-        client: t.client_user,
-        files: t.files || [],
-        comments: t.comments || [],
-        createdAt: new Date(t.created_at),
-        updatedAt: new Date(t.updated_at),
-      }));
+      const transformedTickets = apiTickets.map((t: any) => {
+        // Log detalhado de cada ticket recebido da API
+        console.log('🔄 Transformando ticket da API:', {
+          id: t.id,
+          status_original: t.status,
+          status_tipo: typeof t.status,
+          assigned_to_user: t.assigned_to_user,
+          assigned_to_id: t.assigned_to,
+          title: t.title
+        });
+
+        const transformed = {
+          id: t.id,
+          title: t.title,
+          description: t.description,
+          status: t.status, // Preservar status exatamente como vem da API
+          priority: t.priority,
+          category: t.category,
+          serviceType: t.service_type,
+          totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
+          createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
+          assignedTo: t.assigned_to_user, // Pode ser null, undefined ou objeto
+          client: t.client_user,
+          files: t.files || [],
+          comments: t.comments || [],
+          createdAt: new Date(t.created_at),
+          updatedAt: new Date(t.updated_at),
+        };
+
+        // Log do ticket transformado
+        console.log('✅ Ticket transformado:', {
+          id: transformed.id,
+          status: transformed.status,
+          status_normalizado: String(transformed.status || '').toLowerCase().trim(),
+          é_aberto: String(transformed.status || '').toLowerCase().trim() === 'aberto',
+          assignedTo: transformed.assignedTo ? transformed.assignedTo.name : 'Não atribuído',
+          assignedToId: transformed.assignedTo?.id || null,
+          title: transformed.title
+        });
+
+        return transformed;
+      });
 
       console.log('✅ Tickets carregados da API:', transformedTickets.length);
+
+      // Filtrar tickets "aberto" para debug
+      const ticketsAberto = transformedTickets.filter(t => {
+        const statusNormalized = String(t.status || '').toLowerCase().trim();
+        return statusNormalized === 'aberto';
+      });
+
       console.log('📊 Estatísticas dos tickets:', {
         total: transformedTickets.length,
-        abertos: transformedTickets.filter(t => t.status === 'aberto').length,
+        abertos: ticketsAberto.length,
         em_atendimento: transformedTickets.filter(t => t.status === 'em_atendimento').length,
         atribuidos: transformedTickets.filter(t => t.assignedTo).length,
         nao_atribuidos: transformedTickets.filter(t => !t.assignedTo).length,
         detalhes: transformedTickets.map(t => ({
           id: t.id,
           status: t.status,
+          status_normalizado: String(t.status || '').toLowerCase().trim(),
+          é_aberto: String(t.status || '').toLowerCase().trim() === 'aberto',
           assignedTo: t.assignedTo?.name || 'Não atribuído',
+          assignedToId: t.assignedTo?.id || null,
+          title: t.title
+        })),
+        tickets_aberto_detalhados: ticketsAberto.map(t => ({
+          id: t.id,
+          status: t.status,
+          assignedTo: t.assignedTo?.name || 'Não atribuído',
+          assignedToId: t.assignedTo?.id || null,
           title: t.title
         }))
       });
-      previousTicketsCountRef.current = transformedTickets.length;
-      setTickets(transformedTickets);
+
+      // Verificar se há tickets locais que não estão na resposta da API
+      // (pode acontecer se um ticket foi criado recentemente e a API ainda não o retornou)
+      setTickets((prevTickets) => {
+        const apiTicketIds = new Set(transformedTickets.map(t => t.id));
+        const missingTickets = prevTickets.filter(t => !apiTicketIds.has(t.id));
+
+        if (missingTickets.length > 0) {
+          console.log('⚠️ Tickets locais não encontrados na API (podem ser recém-criados):', missingTickets.map(t => ({
+            id: t.id,
+            status: t.status,
+            title: t.title,
+            criado_em: t.createdAt
+          })));
+
+          // Se o ticket foi criado há menos de 5 segundos, mantê-lo na lista
+          const now = Date.now();
+          const recentTickets = missingTickets.filter(t => {
+            const age = now - t.createdAt.getTime();
+            const isRecent = age < 5000; // 5 segundos
+            console.log(`📋 Ticket ${t.id}: idade ${age}ms, ${isRecent ? 'MANTENDO' : 'REMOVENDO'}`);
+            return isRecent;
+          });
+
+          if (recentTickets.length > 0) {
+            console.log('✅ Mantendo tickets recém-criados na lista:', recentTickets.map(t => t.id));
+            const merged = [...transformedTickets, ...recentTickets];
+            previousTicketsCountRef.current = merged.length;
+            return merged;
+          }
+        }
+
+        previousTicketsCountRef.current = transformedTickets.length;
+        return transformedTickets;
+      });
       setIsLoading(false);
     } catch (apiError: any) {
       console.error('❌ Erro ao carregar tickets da API:', apiError);
@@ -376,7 +451,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         assigned_to_user: createdTicket.assigned_to_user,
         created_by_user: createdTicket.created_by_user
       });
-      
+
       // Verificar se o status está correto
       if (createdTicket.status !== 'aberto') {
         console.error('⚠️ ATENÇÃO: Ticket criado mas status não é "aberto"!', {
@@ -407,7 +482,10 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       console.log('🔄 Ticket transformado após criação:', {
         id: transformedTicket.id,
         status: transformedTicket.status,
-        assignedTo: transformedTicket.assignedTo?.name || 'Não atribuído',
+        status_normalizado: String(transformedTicket.status || '').toLowerCase().trim(),
+        é_aberto: String(transformedTicket.status || '').toLowerCase().trim() === 'aberto',
+        assignedTo: transformedTicket.assignedTo ? transformedTicket.assignedTo.name : 'Não atribuído',
+        assignedToId: transformedTicket.assignedTo?.id || null,
         createdBy: transformedTicket.createdBy?.name || 'Desconhecido'
       });
 
@@ -427,8 +505,19 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       // Forçar reload imediato para garantir que todos vejam o novo ticket
       // Aguardar um pouco para garantir que o backend salvou completamente
       console.log('🔄 Forçando reload de tickets após criação...');
+      console.log('📋 Estado ANTES do reload:', {
+        ticket_criado_id: transformedTicket.id,
+        ticket_criado_status: transformedTicket.status,
+        ticket_criado_assignedTo: transformedTicket.assignedTo?.name || 'Não atribuído',
+        total_tickets_antes: tickets.length + 1
+      });
       setTimeout(() => {
-        loadTickets();
+        console.log('🔄 Executando loadTickets após criação do ticket...');
+        loadTickets().then(() => {
+          console.log('✅ loadTickets concluído após criação');
+        }).catch((error) => {
+          console.error('❌ Erro no loadTickets após criação:', error);
+        });
       }, 1500); // Aguardar 1.5 segundos para garantir que o backend salvou
 
       console.log('✅ Ticket criado com sucesso');

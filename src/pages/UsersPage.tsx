@@ -33,6 +33,14 @@ export default function UsersPage() {
   // Carregar usuários APENAS do banco de dados (API)
   useEffect(() => {
     const loadUsers = async () => {
+      // Verificar se há token antes de carregar
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('⏳ Aguardando autenticação para carregar usuários...');
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         console.log('📡 Carregando usuários da API...');

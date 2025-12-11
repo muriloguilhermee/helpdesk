@@ -103,6 +103,13 @@ export default function Dashboard() {
 
   useEffect(() => {
     const loadTechnicians = async () => {
+      // Verificar se há token antes de carregar
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('⏳ Aguardando autenticação para carregar técnicos...');
+        return;
+      }
+
       try {
         // Usar API se disponível, senão usar database local
         const apiUrl = import.meta.env.VITE_API_URL;

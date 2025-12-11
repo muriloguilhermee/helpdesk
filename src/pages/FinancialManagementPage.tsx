@@ -37,6 +37,13 @@ export default function FinancialManagementPage() {
   // Buscar todos os clientes da API (banco de dados)
   useEffect(() => {
     const loadClients = async () => {
+      // Verificar se há token antes de carregar
+      const token = localStorage.getItem('token');
+      if (!token) {
+        console.log('⏳ Aguardando autenticação para carregar clientes...');
+        return;
+      }
+
       try {
         console.log('📡 Carregando clientes da API...');
         // SEMPRE usar API - buscar usuários do banco de dados
@@ -60,6 +67,12 @@ export default function FinancialManagementPage() {
   useEffect(() => {
     if (showCreateModal || showEditModal) {
       const loadClients = async () => {
+        // Verificar se há token antes de carregar
+        const token = localStorage.getItem('token');
+        if (!token) {
+          return;
+        }
+
         try {
           const allUsers = await api.getUsers();
           const clients = allUsers.filter((u: any) => u.role === 'user');

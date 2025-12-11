@@ -198,6 +198,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     console.log('🔐 [AUTH] Função login chamada', { email, hasPassword: !!password });
+
+    // Verificar se há rate limit recente
+    const lastRateLimitError = localStorage.getItem('lastRateLimitError');
+    if (lastRateLimitError) {
+      const errorTime = parseInt(lastRateLimitError);
+      const timeSinceError = Date.now() - errorTime;
+      // Se foi há menos de 2 minutos, não tentar login
+      if (timeSinceError < 120000) {
+        const waitSeconds = Math.ceil((120000 - timeSinceError) / 1000);
+        throw new Error(`Muitas tentativas de login. Aguarde ${waitSeconds} segundos antes de tentar novamente.`);
+      } else {
+        // Limpar erro antigo
+        localStorage.removeItem('lastRateLimitError');
+      }
+    }
+
     const apiUrl = import.meta.env.VITE_API_URL;
     const hasSupabase = !!import.meta.env.VITE_SUPABASE_URL;
 
@@ -246,9 +262,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           stack: apiError.stack
         });
 
-        // Se for erro 429 (rate limit), não tentar fallback - mostrar mensagem clara
+        // Se for erro 429 (rate limit), salvar timestamp e não tentar fallback
         if ((apiError as any).status === 429) {
-          throw new Error('Muitas tentativas de login. Por favor, aguarde alguns minutos antes de tentar novamente.');
+          localStorage.setItem('lastRateLimitError', Date.now().toString());
+          throw new Error('Muitas tentativas de login. Por favor, aguarde 2 minutos antes de tentar novamente.');
         }
 
         // Se Supabase está configurado, não permitir fallback local

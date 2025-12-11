@@ -102,6 +102,15 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       } catch (apiError: any) {
         console.error('❌ Erro ao carregar tickets da API:', apiError);
+        // Se for rate limit (429), não tentar novamente e mostrar mensagem
+        if (apiError.status === 429) {
+          console.warn('⚠️ Rate limit atingido. Aguardando antes de tentar novamente...');
+          // Salvar timestamp do erro para pausar polling
+          localStorage.setItem('lastRateLimitError', Date.now().toString());
+          setIsLoading(false);
+          // Não atualizar tickets, manter os que já estão carregados
+          return;
+        }
         // Se a API falhar, mostrar lista vazia ao invés de dados locais
         setTickets([]);
         setIsLoading(false);
@@ -118,7 +127,22 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     // Intervalo maior para evitar rate limiting (429)
     const interval = setInterval(() => {
       const currentToken = localStorage.getItem('token');
+      // Não fazer polling se não houver token ou se estiver carregando
       if (currentToken && !isLoading) {
+        // Verificar se há erro de rate limit recente (últimos 2 minutos)
+        const lastError = localStorage.getItem('lastRateLimitError');
+        if (lastError) {
+          const errorTime = parseInt(lastError);
+          const timeSinceError = Date.now() - errorTime;
+          // Se foi há menos de 2 minutos, não fazer polling
+          if (timeSinceError < 120000) {
+            console.log('⏸️ Polling pausado devido a rate limit recente');
+            return;
+          } else {
+            // Limpar erro antigo
+            localStorage.removeItem('lastRateLimitError');
+          }
+        }
         loadTickets();
       }
     }, 30000); // 30 segundos (reduzido de 10 para evitar rate limiting)

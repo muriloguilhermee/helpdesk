@@ -1,4 +1,12 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+// Garantir que a URL sempre termine com /api
+const getApiUrl = () => {
+  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+  // Remover /api se já existir e adicionar novamente para garantir
+  const cleanUrl = baseUrl.replace(/\/api\/?$/, '');
+  return `${cleanUrl}/api`;
+};
+
+const API_URL = getApiUrl();
 
 class ApiService {
   private getToken(): string | null {

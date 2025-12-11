@@ -133,7 +133,7 @@ declare global {
       }
     }
   }
-  
+
   namespace multer {
     interface FileFilterCallback {
       (error: Error | null, acceptFile: boolean): void;

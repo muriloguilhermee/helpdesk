@@ -28,7 +28,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
 
     // Verificar mudanças no localStorage
     window.addEventListener('storage', handleStorageChange);
-    
+
     // Verificar periodicamente (para mudanças na mesma aba)
     const interval = setInterval(() => {
       const currentToken = localStorage.getItem('token');

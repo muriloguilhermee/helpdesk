@@ -44,10 +44,10 @@ class ApiService {
       if (response.status === 429 && retries > 0) {
         const retryAfter = response.headers.get('Retry-After');
         const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 2000; // Aguardar 2 segundos por padrão
-        
+
         console.log(`⏳ Rate limit atingido. Aguardando ${waitTime}ms antes de tentar novamente...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
-        
+
         // Tentar novamente com um retry a menos
         return this.request<T>(endpoint, options, retries - 1);
       }
@@ -67,14 +67,14 @@ class ApiService {
       return response.json();
     } catch (error: any) {
       clearTimeout(timeoutId);
-      
+
       // Se for erro de rate limit e ainda tiver retries, tentar novamente
       if (error.status === 429 && retries > 0) {
         console.log(`⏳ Rate limit atingido. Aguardando 2s antes de tentar novamente...`);
         await new Promise(resolve => setTimeout(resolve, 2000));
         return this.request<T>(endpoint, options, retries - 1);
       }
-      
+
       if (error.name === 'AbortError') {
         throw new Error('Timeout: O servidor demorou muito para responder. Tente novamente.');
       }

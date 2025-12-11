@@ -18,7 +18,7 @@ export default function PendingTickets() {
   const pendingTickets = tickets.filter((ticket) => {
     const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
     // Verificar se não está atribuído (assignedTo pode ser null, undefined ou objeto vazio)
-    const isNotAssigned = !ticket.assignedTo || 
+    const isNotAssigned = !ticket.assignedTo ||
                           (typeof ticket.assignedTo === 'object' && (!ticket.assignedTo.id || ticket.assignedTo.id === null));
 
     // Mostrar apenas chamados pendentes que NÃO estão atribuídos

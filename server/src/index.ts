@@ -127,20 +127,20 @@ const generalLimiter = rateLimit({
   skip: (req) => {
     // Não aplicar rate limit em OPTIONS
     if (req.method === 'OPTIONS') return true;
-    
+
     // Verificar path completo (req.url inclui query string, req.path não)
     const path = (req.url || req.path || '').toLowerCase();
-    
+
     // Não aplicar rate limit em rotas de autenticação
     if (path.includes('/auth/login') || path.includes('/auth/register')) {
       return true;
     }
-    
+
     // Não aplicar rate limit em requisições autenticadas
     if (req.headers.authorization) {
       return true;
     }
-    
+
     return false;
   },
   message: 'Muitas requisições. Tente novamente em alguns minutos.',

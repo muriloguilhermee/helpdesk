@@ -317,7 +317,13 @@ export const createTicket = async (data: CreateTicketData) => {
       throw new Error('Falha ao criar ticket: nenhum registro retornado');
     }
 
-    console.log('✅ Ticket criado com sucesso:', ticket.id);
+    console.log('✅ Ticket criado com sucesso:', {
+      id: ticket.id,
+      status: ticket.status,
+      assigned_to: ticket.assigned_to,
+      created_by: ticket.created_by,
+      title: ticket.title
+    });
 
     // Save files if provided
     if (data.files && data.files.length > 0) {
@@ -335,7 +341,11 @@ export const createTicket = async (data: CreateTicketData) => {
     }
 
     const fullTicket = await getTicketById(ticket.id);
-    console.log('✅ Ticket completo retornado');
+    console.log('✅ Ticket completo retornado:', {
+      id: fullTicket.id,
+      status: fullTicket.status,
+      assigned_to_user: fullTicket.assigned_to_user ? fullTicket.assigned_to_user.name : 'Não atribuído'
+    });
     return fullTicket;
   } catch (error: any) {
     console.error('❌ Erro ao criar ticket:', error);

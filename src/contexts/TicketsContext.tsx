@@ -97,6 +97,19 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         }));
 
         console.log('✅ Tickets carregados da API:', transformedTickets.length);
+        console.log('📊 Estatísticas dos tickets:', {
+          total: transformedTickets.length,
+          abertos: transformedTickets.filter(t => t.status === 'aberto').length,
+          em_atendimento: transformedTickets.filter(t => t.status === 'em_atendimento').length,
+          atribuidos: transformedTickets.filter(t => t.assignedTo).length,
+          nao_atribuidos: transformedTickets.filter(t => !t.assignedTo).length,
+          detalhes: transformedTickets.map(t => ({
+            id: t.id,
+            status: t.status,
+            assignedTo: t.assignedTo?.name || 'Não atribuído',
+            title: t.title
+          }))
+        });
         previousTicketsCountRef.current = transformedTickets.length;
         setTickets(transformedTickets);
         setIsLoading(false);

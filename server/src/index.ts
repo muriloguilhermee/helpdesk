@@ -24,6 +24,18 @@ const corsOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim().replace(/\/$/, ''))
   : ['http://localhost:5173'];
 
+// Adicionar origens comuns do Vercel se não estiverem na lista
+const vercelOrigins = [
+  'https://helpdesk-psi-seven.vercel.app',
+  'https://helpdesk-psi-seven.vercel.app/',
+  'https://*.vercel.app'
+];
+
+// Se estiver em produção e não tiver CORS_ORIGIN configurado, permitir Vercel
+if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
+  corsOrigins.push(...vercelOrigins);
+}
+
 console.log('🌐 CORS Origins configuradas:', corsOrigins);
 
 // Handler ABSOLUTO para OPTIONS - antes de qualquer middleware
@@ -38,7 +50,9 @@ app.options('*', (req, res) => {
     const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
     const isAllowed = normalizedAllowed.includes(normalizedOrigin);
 
-    if (isAllowed || process.env.NODE_ENV !== 'production') {
+    // Permitir se estiver na lista OU se não for produção OU se for Vercel
+    const isVercel = normalizedOrigin.includes('vercel.app');
+    if (isAllowed || process.env.NODE_ENV !== 'production' || isVercel) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
@@ -70,8 +84,9 @@ app.use((req, res, next) => {
     const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
     const isAllowed = normalizedAllowed.includes(normalizedOrigin);
 
-    // Permitir se estiver na lista OU se não for produção
-    if (isAllowed || process.env.NODE_ENV !== 'production') {
+    // Permitir se estiver na lista OU se não for produção OU se for Vercel
+    const isVercel = normalizedOrigin.includes('vercel.app');
+    if (isAllowed || process.env.NODE_ENV !== 'production' || isVercel) {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
@@ -97,8 +112,10 @@ app.use(cors({
     const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
     const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
     const isAllowed = normalizedAllowed.includes(normalizedOrigin);
+    const isVercel = normalizedOrigin.includes('vercel.app');
 
-    if (isAllowed || process.env.NODE_ENV !== 'production') {
+    // Permitir se estiver na lista OU se não for produção OU se for Vercel
+    if (isAllowed || process.env.NODE_ENV !== 'production' || isVercel) {
       callback(null, true);
     } else {
       callback(new Error(`Not allowed by CORS: ${normalizedOrigin}`));

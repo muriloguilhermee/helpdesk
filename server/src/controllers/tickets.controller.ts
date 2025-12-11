@@ -46,6 +46,12 @@ const commentSchema = z.object({
 
 export const getAllTicketsController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('📥 Requisição para buscar tickets:', {
+      user: req.user?.email,
+      role: req.user?.role,
+      query: req.query
+    });
+
     const filters: any = {};
     if (req.query.status) filters.status = req.query.status;
     if (req.query.priority) filters.priority = req.query.priority;
@@ -57,15 +63,31 @@ export const getAllTicketsController = async (req: AuthRequest, res: Response): 
     // If user is not admin, filter by their own tickets
     if (req.user?.role === 'user') {
       filters.createdBy = req.user.id;
+      console.log('👤 Filtro aplicado: apenas tickets do usuário');
     } else if (req.user?.role === 'technician') {
       // Técnicos devem ver TODOS os tickets (atribuídos a eles OU não atribuídos)
       // Não aplicar filtro de assignedTo aqui - deixar o frontend filtrar
       // Isso permite que técnicos vejam tickets novos (não atribuídos) e seus próprios tickets
+      console.log('🔧 Técnico: retornando TODOS os tickets (sem filtro)');
+    } else if (req.user?.role === 'admin') {
+      console.log('👑 Admin: retornando TODOS os tickets');
     }
 
     const tickets = await getAllTickets(filters);
+
+    // Log detalhado dos tickets retornados
+    console.log(`✅ Retornando ${tickets.length} tickets para ${req.user?.role}:`, {
+      total: tickets.length,
+      abertos: tickets.filter((t: any) => t.status === 'aberto').length,
+      em_atendimento: tickets.filter((t: any) => t.status === 'em_atendimento').length,
+      atribuidos: tickets.filter((t: any) => t.assigned_to_user).length,
+      nao_atribuidos: tickets.filter((t: any) => !t.assigned_to_user).length,
+      ids: tickets.map((t: any) => ({ id: t.id, status: t.status, assigned: !!t.assigned_to_user }))
+    });
+
     res.json(tickets);
   } catch (error) {
+    console.error('❌ Erro ao buscar tickets:', error);
     res.status(500).json({ error: (error as Error).message });
   }
 };

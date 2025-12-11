@@ -29,9 +29,23 @@ const updateUserSchema = z.object({
 
 export const getAllUsersController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('📥 Requisição para buscar usuários:', {
+      user: req.user?.email,
+      role: req.user?.role
+    });
+
+    // Verificar se é admin antes de buscar
+    if (req.user?.role !== 'admin') {
+      console.log('❌ Acesso negado: apenas admins podem ver todos os usuários');
+      res.status(403).json({ error: 'Acesso negado' });
+      return;
+    }
+
     const users = await getAllUsers();
+    console.log(`✅ Retornando ${users.length} usuários`);
     res.json(users);
   } catch (error) {
+    console.error('❌ Erro ao buscar usuários:', error);
     res.status(500).json({ error: (error as Error).message });
   }
 };

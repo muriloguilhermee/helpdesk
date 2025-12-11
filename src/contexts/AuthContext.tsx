@@ -246,6 +246,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           stack: apiError.stack
         });
 
+        // Se for erro 429 (rate limit), não tentar fallback - mostrar mensagem clara
+        if ((apiError as any).status === 429) {
+          throw new Error('Muitas tentativas de login. Por favor, aguarde alguns minutos antes de tentar novamente.');
+        }
+
         // Se Supabase está configurado, não permitir fallback local
         if (hasSupabase) {
           const errorMsg = apiError.message || 'Erro ao fazer login. Verifique se o backend está rodando na porta 3001.';

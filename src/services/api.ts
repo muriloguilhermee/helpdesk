@@ -41,18 +41,32 @@ class ApiService {
       clearTimeout(timeoutId);
 
       // Se receber 429 (Too Many Requests), aguardar e tentar novamente
-      if (response.status === 429 && retries > 0) {
+      // Para login, usar menos retries e mais tempo de espera
+      const isLoginEndpoint = endpoint.includes('/auth/login');
+      const maxRetries = isLoginEndpoint ? 1 : retries; // Login só tenta 1 vez após erro
+      
+      if (response.status === 429 && maxRetries > 0) {
         const retryAfter = response.headers.get('Retry-After');
-        const waitTime = retryAfter ? parseInt(retryAfter) * 1000 : 2000; // Aguardar 2 segundos por padrão
+        // Para login, aguardar mais tempo (60 segundos) para evitar bloqueios
+        const waitTime = retryAfter 
+          ? parseInt(retryAfter) * 1000 
+          : (isLoginEndpoint ? 60000 : 5000); // 60s para login, 5s para outros
 
-        console.log(`⏳ Rate limit atingido. Aguardando ${waitTime}ms antes de tentar novamente...`);
+        console.log(`⏳ Rate limit atingido. Aguardando ${waitTime/1000}s antes de tentar novamente...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
 
         // Tentar novamente com um retry a menos
-        return this.request<T>(endpoint, options, retries - 1);
+        return this.request<T>(endpoint, options, maxRetries - 1);
       }
 
       if (!response.ok) {
+        // Para 429, lançar erro específico sem tentar novamente se já tentou
+        if (response.status === 429) {
+          const errorWithStatus = new Error('Muitas tentativas de login. Aguarde alguns minutos antes de tentar novamente.');
+          (errorWithStatus as any).status = 429;
+          throw errorWithStatus;
+        }
+        
         const error = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
         const errorMessage = error.error || `HTTP error! status: ${response.status}`;
         const errorWithStatus = new Error(errorMessage);
@@ -68,11 +82,13 @@ class ApiService {
     } catch (error: any) {
       clearTimeout(timeoutId);
 
-      // Se for erro de rate limit e ainda tiver retries, tentar novamente
-      if (error.status === 429 && retries > 0) {
-        console.log(`⏳ Rate limit atingido. Aguardando 2s antes de tentar novamente...`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        return this.request<T>(endpoint, options, retries - 1);
+      // Se for erro de rate limit, não tentar novamente (já tentou acima)
+      if (error.status === 429) {
+        // Se for login, dar mensagem mais clara
+        if (endpoint.includes('/auth/login')) {
+          throw new Error('Muitas tentativas de login. Por favor, aguarde alguns minutos antes de tentar novamente.');
+        }
+        throw error;
       }
 
       if (error.name === 'AbortError') {

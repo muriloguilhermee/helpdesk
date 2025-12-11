@@ -126,5 +126,26 @@ declare namespace Express {
   }
 }
 
+// Declaração adicional para multer
+declare module 'multer' {
+  export interface FileFilterCallback {
+    (error: Error | null, acceptFile: boolean): void;
+  }
+  
+  export interface StorageEngine {
+    _handleFile(req: any, file: any, callback: (error?: any, info?: any) => void): void;
+    _removeFile(req: any, file: any, callback: (error: Error | null) => void): void;
+  }
+  
+  export interface Multer {
+    (options?: any): any;
+    memoryStorage(): StorageEngine;
+    diskStorage(options: any): StorageEngine;
+  }
+  
+  const multer: Multer;
+  export default multer;
+}
+
 export {};
 

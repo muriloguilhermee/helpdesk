@@ -114,14 +114,14 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
 
     loadTickets();
 
-    // Adicionar polling automático para recarregar tickets a cada 10 segundos
-    // Isso garante que novos tickets apareçam mesmo sem refresh manual
+    // Adicionar polling automático para recarregar tickets a cada 30 segundos
+    // Intervalo maior para evitar rate limiting (429)
     const interval = setInterval(() => {
       const currentToken = localStorage.getItem('token');
       if (currentToken && !isLoading) {
         loadTickets();
       }
-    }, 10000); // 10 segundos
+    }, 30000); // 30 segundos (reduzido de 10 para evitar rate limiting)
 
     return () => clearInterval(interval);
   }, [token, isLoading]);

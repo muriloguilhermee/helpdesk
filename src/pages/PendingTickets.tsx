@@ -18,24 +18,24 @@ export default function PendingTickets() {
   const pendingTickets = tickets.filter((ticket) => {
     const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
     // Verificar se não está atribuído (assignedTo pode ser null, undefined ou objeto vazio)
-    const isNotAssigned = !ticket.assignedTo || (typeof ticket.assignedTo === 'object' && !ticket.assignedTo.id);
+    const isNotAssigned = !ticket.assignedTo || 
+                          (typeof ticket.assignedTo === 'object' && (!ticket.assignedTo.id || ticket.assignedTo.id === null));
 
     // Mostrar apenas chamados pendentes que NÃO estão atribuídos
-    const shouldShow = isPending && isNotAssigned;
-    
-    // Debug log
-    if (process.env.NODE_ENV === 'development') {
-      console.log('Ticket:', ticket.id, {
-        status: ticket.status,
-        assignedTo: ticket.assignedTo,
-        isPending,
-        isNotAssigned,
-        shouldShow
-      });
-    }
-    
-    return shouldShow;
+    return isPending && isNotAssigned;
   });
+
+  // Debug: Log dos tickets para verificar o que está sendo carregado
+  useEffect(() => {
+    console.log('📋 Total de tickets carregados:', tickets.length);
+    console.log('📋 Tickets pendentes (não atribuídos):', pendingTickets.length);
+    console.log('📋 Tickets detalhados:', tickets.map(t => ({
+      id: t.id,
+      status: t.status,
+      assignedTo: t.assignedTo,
+      title: t.title
+    })));
+  }, [tickets, pendingTickets]);
 
   const filteredTickets = pendingTickets;
 

@@ -119,11 +119,18 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// Rate Limiting - EXCLUIR OPTIONS
+// Rate Limiting - EXCLUIR OPTIONS e requisições autenticadas
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
-  skip: (req) => req.method === 'OPTIONS', // Não aplicar rate limit em OPTIONS
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 200, // Aumentado de 100 para 200 para suportar polling
+  skip: (req) => {
+    // Não aplicar rate limit em OPTIONS
+    if (req.method === 'OPTIONS') return true;
+    // Não aplicar rate limit em requisições autenticadas (têm token)
+    if (req.headers.authorization) return true;
+    return false;
+  },
+  message: 'Muitas requisições. Tente novamente em alguns minutos.',
 });
 app.use('/api/', limiter);
 

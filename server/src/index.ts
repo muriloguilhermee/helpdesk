@@ -20,7 +20,7 @@ const PORT = Number(process.env.PORT) || 3001;
 // ============================================
 // CORS - ABSOLUTAMENTE PRIMEIRO (CRÍTICO!)
 // ============================================
-const corsOrigins = process.env.CORS_ORIGIN 
+const corsOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim().replace(/\/$/, ''))
   : ['http://localhost:5173'];
 
@@ -32,12 +32,12 @@ app.options('*', (req, res) => {
   console.log(`🔍 OPTIONS ABSOLUTO recebido - Origin: ${origin || 'N/A'}`);
   console.log(`   Path: ${req.path}`);
   console.log(`   Headers:`, req.headers);
-  
+
   if (origin) {
     const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
     const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
     const isAllowed = normalizedAllowed.includes(normalizedOrigin);
-    
+
     if (isAllowed || process.env.NODE_ENV !== 'production') {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
@@ -50,7 +50,7 @@ app.options('*', (req, res) => {
       console.error(`❌ OPTIONS ABSOLUTO bloqueado: ${normalizedOrigin}`);
     }
   }
-  
+
   // Sempre responder, mesmo sem origin
   res.status(204).end();
 });
@@ -58,18 +58,18 @@ app.options('*', (req, res) => {
 // Middleware CORS manual - PRIMEIRO, antes de qualquer coisa
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  
+
   // Log TODAS as requisições para debug
   if (req.method === 'OPTIONS' || req.path.includes('/api/')) {
     console.log(`📥 ${req.method} ${req.path} - Origin: ${origin || 'N/A'}`);
   }
-  
+
   // Sempre adicionar headers CORS se houver origin
   if (origin) {
     const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
     const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
     const isAllowed = normalizedAllowed.includes(normalizedOrigin);
-    
+
     // Permitir se estiver na lista OU se não for produção
     if (isAllowed || process.env.NODE_ENV !== 'production') {
       res.setHeader('Access-Control-Allow-Origin', origin);
@@ -77,7 +77,7 @@ app.use((req, res, next) => {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
       res.setHeader('Access-Control-Max-Age', '86400');
-      
+
       if (req.method === 'OPTIONS') {
         console.log(`✅ CORS middleware respondeu OPTIONS para: ${origin}`);
       }
@@ -85,7 +85,7 @@ app.use((req, res, next) => {
       console.error(`❌ CORS middleware bloqueou: ${normalizedOrigin}`);
     }
   }
-  
+
   next();
 });
 
@@ -93,11 +93,11 @@ app.use((req, res, next) => {
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-    
+
     const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
     const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
     const isAllowed = normalizedAllowed.includes(normalizedOrigin);
-    
+
     if (isAllowed || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
@@ -119,18 +119,24 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// Rate Limiting - EXCLUIR OPTIONS e requisições autenticadas
+// Rate Limiting - EXCLUIR OPTIONS, rotas de autenticação e requisições autenticadas
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 200, // Aumentado de 100 para 200 para suportar polling
+  max: 500, // Aumentado para 500 para suportar polling e múltiplos usuários
   skip: (req) => {
     // Não aplicar rate limit em OPTIONS
     if (req.method === 'OPTIONS') return true;
+    // Não aplicar rate limit em rotas de autenticação (login, register)
+    if (req.path.includes('/api/auth/login') || req.path.includes('/api/auth/register')) {
+      return true;
+    }
     // Não aplicar rate limit em requisições autenticadas (têm token)
     if (req.headers.authorization) return true;
     return false;
   },
   message: 'Muitas requisições. Tente novamente em alguns minutos.',
+  standardHeaders: true, // Retornar rate limit info nos headers
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
@@ -155,8 +161,8 @@ app.options('/api/*', (req, res) => {
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
     database: 'connected'
   });
@@ -179,7 +185,7 @@ app.get('/test-cors', (req, res) => {
 app.options('/test-cors', (req, res) => {
   const origin = req.headers.origin;
   console.log(`🔍 TEST-CORS OPTIONS recebido - Origin: ${origin || 'N/A'}`);
-  
+
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');

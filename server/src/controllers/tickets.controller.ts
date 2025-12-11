@@ -94,7 +94,6 @@ export const createTicketController = async (req: AuthRequest, res: Response): P
     console.log('📥 Recebida requisição para criar ticket:', req.body);
     const validated = createTicketSchema.parse(req.body);
     const ticket = await createTicket({
-      ...validated,
       title: validated.title,
       description: validated.description,
       priority: validated.priority,
@@ -104,7 +103,12 @@ export const createTicketController = async (req: AuthRequest, res: Response): P
       serviceType: validated.serviceType,
       totalValue: validated.totalValue,
       queueId: validated.queueId,
-      files: validated.files,
+      files: validated.files ? validated.files.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        dataUrl: file.dataUrl,
+      })) : undefined,
     });
     console.log('✅ Ticket criado, retornando resposta:', ticket.id);
     res.status(201).json(ticket);

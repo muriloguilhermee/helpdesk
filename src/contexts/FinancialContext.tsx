@@ -15,10 +15,45 @@ const FinancialContext = createContext<FinancialContextType | undefined>(undefin
 export function FinancialProvider({ children }: { children: ReactNode }) {
   const [financialTickets, setFinancialTickets] = useState<FinancialTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+
+  // Listener para mudanças no token
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const newToken = localStorage.getItem('token');
+      if (newToken !== token) {
+        setToken(newToken);
+      }
+    };
+
+    // Verificar mudanças no localStorage
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Verificar periodicamente (para mudanças na mesma aba)
+    const interval = setInterval(() => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken !== token) {
+        setToken(currentToken);
+      }
+    }, 500);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [token]);
 
   // Carregar tickets financeiros APENAS do banco de dados (API)
   useEffect(() => {
     const loadFinancialTickets = async () => {
+      // Verificar se há token antes de carregar
+      const currentToken = localStorage.getItem('token');
+      if (!currentToken) {
+        console.log('⏳ Aguardando autenticação para carregar tickets financeiros...');
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         console.log('📡 Carregando tickets financeiros da API...');
@@ -66,7 +101,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
     };
 
     loadFinancialTickets();
-  }, []);
+  }, [token]);
 
   const addFinancialTicket = async (ticket: FinancialTicket) => {
     try {

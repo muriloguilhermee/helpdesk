@@ -33,10 +33,45 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+
+  // Listener para mudanças no token
+  useEffect(() => {
+    const handleStorageChange = () => {
+      const newToken = localStorage.getItem('token');
+      if (newToken !== token) {
+        setToken(newToken);
+      }
+    };
+
+    // Verificar mudanças no localStorage
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Verificar periodicamente (para mudanças na mesma aba)
+    const interval = setInterval(() => {
+      const currentToken = localStorage.getItem('token');
+      if (currentToken !== token) {
+        setToken(currentToken);
+      }
+    }, 500);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
+  }, [token]);
 
   // Carregar tickets APENAS do banco de dados (API)
   useEffect(() => {
     const loadTickets = async () => {
+      // Verificar se há token antes de carregar
+      const currentToken = localStorage.getItem('token');
+      if (!currentToken) {
+        console.log('⏳ Aguardando autenticação para carregar tickets...');
+        setIsLoading(false);
+        return;
+      }
+
       try {
         console.log('📡 Carregando tickets da API...');
         // SEMPRE usar API - sem fallback para dados locais
@@ -75,7 +110,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     };
 
     loadTickets();
-  }, []);
+  }, [token]);
 
 
   // Detectar quando um novo chamado é criado e notificar técnicos

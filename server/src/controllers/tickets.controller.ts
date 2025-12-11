@@ -46,11 +46,13 @@ const commentSchema = z.object({
 
 export const getAllTicketsController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('📥 Requisição para buscar tickets:', {
-      user: req.user?.email,
-      role: req.user?.role,
-      query: req.query
-    });
+    console.log('========================================');
+    console.log('📥 REQUISIÇÃO GET /api/tickets RECEBIDA');
+    console.log('========================================');
+    console.log('👤 Usuário:', req.user?.email);
+    console.log('🔑 Role:', req.user?.role);
+    console.log('🔍 Query params:', req.query);
+    console.log('🆔 User ID:', req.user?.id);
 
     const filters: any = {};
     if (req.query.status) filters.status = req.query.status;
@@ -73,17 +75,29 @@ export const getAllTicketsController = async (req: AuthRequest, res: Response): 
       console.log('👑 Admin: retornando TODOS os tickets');
     }
 
+    console.log('🔄 Chamando getAllTickets com filtros:', filters);
     const tickets = await getAllTickets(filters);
 
     // Log detalhado dos tickets retornados
-    console.log(`✅ Retornando ${tickets.length} tickets para ${req.user?.role}:`, {
+    console.log('========================================');
+    console.log(`✅ RESPOSTA: ${tickets.length} tickets retornados para ${req.user?.role}`);
+    console.log('========================================');
+    console.log('📊 Estatísticas:', {
       total: tickets.length,
       abertos: tickets.filter((t: any) => t.status === 'aberto').length,
       em_atendimento: tickets.filter((t: any) => t.status === 'em_atendimento').length,
       atribuidos: tickets.filter((t: any) => t.assigned_to_user).length,
       nao_atribuidos: tickets.filter((t: any) => !t.assigned_to_user).length,
-      ids: tickets.map((t: any) => ({ id: t.id, status: t.status, assigned: !!t.assigned_to_user }))
     });
+    console.log('📋 IDs dos tickets:', tickets.map((t: any) => t.id));
+    console.log('📋 Detalhes:', tickets.map((t: any) => ({
+      id: t.id,
+      status: t.status,
+      assigned: !!t.assigned_to_user,
+      created_by: t.created_by,
+      created_by_user: t.created_by_user ? 'existe' : 'null'
+    })));
+    console.log('========================================');
 
     res.json(tickets);
   } catch (error) {

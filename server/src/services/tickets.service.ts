@@ -44,9 +44,26 @@ export interface TicketFilters {
 export const getAllTickets = async (filters?: TicketFilters) => {
   const db = getDatabase();
 
-  console.log('🔍 getAllTickets chamado com filtros:', filters);
+  console.log('========================================');
+  console.log('🔍 getAllTickets INICIADO');
+  console.log('========================================');
+  console.log('📋 Filtros recebidos:', filters);
 
   try {
+    // TESTE: Verificar conexão e tickets no banco
+    console.log('🔌 Testando conexão com banco de dados...');
+    const testConnection = await db.raw('SELECT 1 as test');
+    console.log('✅ Conexão com banco OK');
+
+    // Contar tickets diretamente
+    const countResult = await db('tickets').count('* as total').first();
+    const totalCount = countResult ? (typeof countResult === 'object' && 'total' in countResult ? parseInt(String(countResult.total)) : 0) : 0;
+    console.log('📊 Total de tickets no banco:', totalCount);
+
+    // Listar todos os tickets (sem filtros)
+    const allTicketsRaw = await db('tickets').select('id', 'status', 'created_by', 'assigned_to', 'title');
+    console.log('📋 Todos os tickets (raw):', allTicketsRaw);
+
     // PRIMEIRO: Buscar tickets simples SEM JOINs para garantir que sempre retornamos algo
     let ticketsQuery = db('tickets').select('*');
 

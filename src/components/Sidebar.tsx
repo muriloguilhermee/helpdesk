@@ -46,16 +46,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { hasPermission, user } = useAuth();
   const { tickets } = useTickets();
 
-  // Contar novos chamados para técnicos
+  // Contar novos chamados para técnicos (apenas não atribuídos)
   const getNewTicketsCount = () => {
     if (user?.role !== 'technician') return 0;
 
     const newTickets = tickets.filter((ticket) => {
       const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
-      const isAssignedToMe = ticket.assignedTo?.id === user.id;
       const isNotAssigned = !ticket.assignedTo;
 
-      return isPending && (isAssignedToMe || isNotAssigned);
+      // Mostrar apenas chamados pendentes que NÃO estão atribuídos
+      return isPending && isNotAssigned;
     });
 
     return newTickets.length;

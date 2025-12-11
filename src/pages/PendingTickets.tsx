@@ -13,13 +13,14 @@ export default function PendingTickets() {
   const { tickets, updateTicket } = useTickets();
   const navigate = useNavigate();
 
-  // Filtrar apenas chamados pendentes ou abertos (não atribuídos ou atribuídos ao técnico atual)
+  // Filtrar apenas chamados pendentes ou abertos que NÃO estão atribuídos
+  // Chamados atribuídos aparecem em "Meus Chamados", não em "Novos Chamados"
   const pendingTickets = tickets.filter((ticket) => {
     const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
-    const isAssignedToMe = ticket.assignedTo?.id === user?.id;
     const isNotAssigned = !ticket.assignedTo;
 
-    return isPending && (isAssignedToMe || isNotAssigned);
+    // Mostrar apenas chamados pendentes que NÃO estão atribuídos
+    return isPending && isNotAssigned;
   });
 
   const filteredTickets = pendingTickets;
@@ -73,9 +74,9 @@ export default function PendingTickets() {
         <div className="card dark:bg-gray-800 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Atribuídos a Você</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Aguardando Aceitação</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                {pendingTickets.filter(t => t.assignedTo?.id === user?.id).length}
+                {pendingTickets.length}
               </p>
             </div>
             <CheckCircle className="w-8 h-8 text-green-600" />
@@ -98,7 +99,6 @@ export default function PendingTickets() {
                 filteredTickets.map((ticket) => {
                   const StatusIcon = getStatusIcon(ticket.status);
                   const client = ticket.client || ticket.createdBy;
-                  const isAssignedToMe = ticket.assignedTo?.id === user?.id;
                   const isNotAssigned = !ticket.assignedTo;
 
                   return (
@@ -227,23 +227,6 @@ export default function PendingTickets() {
                             >
                               Aceitar
                             </button>
-                          )}
-                          {isAssignedToMe && (
-                            <>
-                              <button
-                                onClick={() => navigate(`/tickets/${ticket.id}`)}
-                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
-                              >
-                                Ver Detalhes
-                              </button>
-                              <button
-                                onClick={() => handleCloseTicket(ticket.id)}
-                                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5 shadow-sm hover:shadow-md"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                                Fechar
-                              </button>
-                            </>
                           )}
                         </div>
                       </td>

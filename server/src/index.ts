@@ -18,37 +18,58 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
 // Security Middlewares
-app.use(helmet());
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+}));
 
 // CORS Configuration - suporta múltiplas origens separadas por vírgula
 const corsOrigins = process.env.CORS_ORIGIN 
-  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+  ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim().replace(/\/$/, '')) // Remove barra no final
   : ['http://localhost:5173'];
 
+// CORS Configuration - melhorado para garantir funcionamento
 app.use(cors({
   origin: (origin, callback) => {
     // Permitir requisições sem origin (health check, mobile apps, Postman, etc)
     if (!origin) {
+      console.log('✅ CORS: Requisição sem origin permitida');
       return callback(null, true);
     }
     
+    // Normalizar origin (remover barra no final e converter para lowercase)
+    const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
+    const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
+    
+    // Log para debug
+    console.log(`🔍 CORS check - Origin recebida: ${origin}`);
+    console.log(`🔍 CORS check - Origin normalizada: ${normalizedOrigin}`);
+    console.log(`🔍 CORS check - Origins permitidas: ${normalizedAllowed.join(', ')}`);
+    
     // Verificar se a origin está na lista permitida
-    if (corsOrigins.includes(origin)) {
+    const isAllowed = normalizedAllowed.some(allowed => allowed === normalizedOrigin);
+    
+    if (isAllowed) {
+      console.log(`✅ CORS: Origin permitida: ${normalizedOrigin}`);
       callback(null, true);
     } else {
-      // Em produção, logar mas não bloquear (para debug)
+      // Em produção, se não estiver na lista, bloquear
       if (process.env.NODE_ENV === 'production') {
-        console.warn(`⚠️  CORS: Origin não permitida: ${origin}`);
-      }
-      // Permitir em desenvolvimento, bloquear em produção se configurado
-      if (process.env.NODE_ENV === 'development' || corsOrigins.length === 0) {
-        callback(null, true);
+        console.error(`❌ CORS bloqueado: ${normalizedOrigin} não está na lista permitida`);
+        console.error(`   Origins configuradas: ${corsOrigins.join(', ')}`);
+        callback(new Error(`Not allowed by CORS: ${normalizedOrigin}`));
       } else {
-        callback(new Error('Not allowed by CORS'));
+        // Em desenvolvimento, permitir tudo
+        console.log(`⚠️  CORS: Origin não configurada, mas permitindo (modo desenvolvimento): ${normalizedOrigin}`);
+        callback(null, true);
       }
     }
   },
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  exposedHeaders: ['Content-Type'],
+  preflightContinue: false,
+  optionsSuccessStatus: 204,
 }));
 
 // Rate Limiting
@@ -62,29 +83,12 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Database status (será atualizado após inicialização)
-let dbInitialized = false;
-
 // Health Check
 app.get('/health', (req, res) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    database: dbInitialized ? 'connected' : 'disconnected'
-  });
-});
-
-// Status endpoint (mais detalhado)
-app.get('/status', (req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV || 'development',
-    database: {
-      connected: dbInitialized,
-      configured: !!(process.env.DATABASE_URL || process.env.DB_HOST)
-    },
-    port: PORT
+    database: 'connected'
   });
 });
 
@@ -100,40 +104,18 @@ app.use(notFoundHandler);
 app.use(errorHandler);
 
 // Initialize Database and Start Server
-// Iniciar servidor mesmo se banco falhar (para permitir health check)
+// Servidor só inicia se banco conectar com sucesso
 initializeDatabase()
   .then(() => {
-    dbInitialized = true;
-    console.log('✅ Database initialized successfully');
-  })
-  .catch((error) => {
-    console.error('⚠️  Database initialization failed:', error.message);
-    console.error('⚠️  Server will start but database operations will fail');
-    console.error('⚠️  Check DATABASE_URL in Railway variables');
-    dbInitialized = false;
-  })
-  .finally(() => {
-    // Sempre iniciar o servidor, mesmo se banco falhar
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
       console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
-      console.log(`💾 Database: ${dbInitialized ? '✅ Connected' : '❌ Not connected'}`);
       console.log(`✅ Server ready to accept connections`);
-      
-      if (!dbInitialized) {
-        console.error('');
-        console.error('⚠️  ============================================');
-        console.error('⚠️  ATENÇÃO: Banco de dados não conectado!');
-        console.error('⚠️  ============================================');
-        console.error('');
-        console.error('O servidor está rodando, mas operações de banco falharão.');
-        console.error('Verifique:');
-        console.error('  1. DATABASE_URL está configurado no Railway');
-        console.error('  2. Connection string está correta (sem [SENHA])');
-        console.error('  3. Senha do banco está correta');
-        console.error('');
-      }
     });
+  })
+  .catch((error) => {
+    console.error('❌ Failed to start server:', error);
+    process.exit(1);
   });
 

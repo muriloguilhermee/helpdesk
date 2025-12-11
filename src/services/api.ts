@@ -50,7 +50,11 @@ class ApiService {
         throw new Error('Timeout: O servidor demorou muito para responder. Tente novamente.');
       }
       if (error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
-        throw new Error('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
+        const apiUrl = import.meta.env.VITE_API_URL;
+        if (!apiUrl) {
+          throw new Error('Backend não configurado! Configure VITE_API_URL no Vercel (Settings → Environment Variables).');
+        }
+        throw new Error(`Erro ao conectar com o servidor (${apiUrl}). Verifique se o backend está rodando no Railway.`);
       }
       throw error;
     }

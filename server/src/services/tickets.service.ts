@@ -54,6 +54,8 @@ export const getAllTickets = async (filters?: TicketFilters) => {
   const allTicketIds = await db('tickets').select('id', 'status', 'created_by', 'assigned_to');
   console.log('📋 Todos os tickets no banco:', allTicketIds);
 
+  // Query modificada para garantir que tickets sejam retornados mesmo sem usuários
+  // Usar LEFT JOIN padrão mas com fallbacks no SELECT para quando usuários não existem
   let query = db('tickets')
     .leftJoin('users as creator', 'tickets.created_by', 'creator.id')
     .leftJoin('users as assignee', 'tickets.assigned_to', 'assignee.id')
@@ -61,22 +63,33 @@ export const getAllTickets = async (filters?: TicketFilters) => {
     .select(
       'tickets.*',
       db.raw(`
-        json_build_object(
-          'id', creator.id,
-          'name', creator.name,
-          'email', creator.email,
-          'role', creator.role,
-          'avatar', creator.avatar
-        ) as created_by_user
+        CASE
+          WHEN creator.id IS NOT NULL THEN
+            json_build_object(
+              'id', creator.id,
+              'name', COALESCE(creator.name, ''),
+              'email', COALESCE(creator.email, ''),
+              'role', COALESCE(creator.role, 'user'),
+              'avatar', creator.avatar
+            )
+          ELSE
+            json_build_object(
+              'id', tickets.created_by,
+              'name', 'Usuário não encontrado',
+              'email', '',
+              'role', 'user',
+              'avatar', NULL
+            )
+        END as created_by_user
       `),
       db.raw(`
         CASE
           WHEN assignee.id IS NOT NULL THEN
             json_build_object(
               'id', assignee.id,
-              'name', assignee.name,
-              'email', assignee.email,
-              'role', assignee.role,
+              'name', COALESCE(assignee.name, ''),
+              'email', COALESCE(assignee.email, ''),
+              'role', COALESCE(assignee.role, 'technician'),
               'avatar', assignee.avatar
             )
           ELSE NULL
@@ -87,12 +100,23 @@ export const getAllTickets = async (filters?: TicketFilters) => {
           WHEN client.id IS NOT NULL THEN
             json_build_object(
               'id', client.id,
-              'name', client.name,
-              'email', client.email,
-              'role', client.role,
+              'name', COALESCE(client.name, ''),
+              'email', COALESCE(client.email, ''),
+              'role', COALESCE(client.role, 'user'),
               'avatar', client.avatar
             )
-          ELSE NULL
+          ELSE
+            CASE
+              WHEN tickets.client_id IS NOT NULL THEN
+                json_build_object(
+                  'id', tickets.client_id,
+                  'name', 'Cliente não encontrado',
+                  'email', '',
+                  'role', 'user',
+                  'avatar', NULL
+                )
+              ELSE NULL
+            END
         END as client_user
       `)
     );
@@ -125,14 +149,55 @@ export const getAllTickets = async (filters?: TicketFilters) => {
     }
   }
 
-  const result = await query.orderBy('tickets.updated_at', 'desc');
+  try {
+    const result = await query.orderBy('tickets.updated_at', 'desc');
 
-  console.log('✅ Query executada, resultado:', {
-    total: result.length,
-    ids: result.map((t: any) => ({ id: t.id, status: t.status }))
-  });
+    console.log('✅ Query executada, resultado:', {
+      total: result.length,
+      ids: result.map((t: any) => ({
+        id: t.id,
+        status: t.status,
+        created_by: t.created_by,
+        created_by_user: t.created_by_user ? 'existe' : 'null',
+        assigned_to: t.assigned_to,
+        assigned_to_user: t.assigned_to_user ? 'existe' : 'null'
+      }))
+    });
 
-  return result;
+    // Se a query retornou vazio mas há tickets no banco, pode ser problema nos JOINs
+    if (result.length === 0 && allTicketIds.length > 0) {
+      console.error('⚠️ ATENÇÃO: Query retornou 0 tickets mas há tickets no banco!');
+      console.error('📋 Tickets no banco:', allTicketIds);
+      console.error('🔍 Verificando se os usuários existem...');
+
+      // Verificar se os usuários referenciados existem
+      const userIds = new Set<string>();
+      allTicketIds.forEach((t: any) => {
+        if (t.created_by) userIds.add(t.created_by);
+        if (t.assigned_to) userIds.add(t.assigned_to);
+      });
+
+      const existingUsers = await db('users')
+        .whereIn('id', Array.from(userIds))
+        .select('id', 'email', 'name');
+
+      console.log('👥 Usuários encontrados:', existingUsers);
+      console.log('👥 IDs de usuários nos tickets:', Array.from(userIds));
+
+      if (existingUsers.length < userIds.size) {
+        const missingUsers = Array.from(userIds).filter(id =>
+          !existingUsers.some(u => u.id === id)
+        );
+        console.error('❌ Usuários faltando na tabela users:', missingUsers);
+      }
+    }
+
+    return result;
+  } catch (error: any) {
+    console.error('❌ Erro ao executar query getAllTickets:', error);
+    console.error('Stack:', error.stack);
+    throw error;
+  }
 };
 
 export const getTicketById = async (id: string) => {

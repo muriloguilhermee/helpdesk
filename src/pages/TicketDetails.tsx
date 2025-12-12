@@ -3,12 +3,95 @@ import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, P
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
+
+// Função helper para transformar interações (copiada do TicketsContext)
+const safeDateParse = (dateValue: any): Date => {
+  if (!dateValue) return new Date();
+  if (dateValue instanceof Date) return dateValue;
+  if (typeof dateValue === 'string') {
+    const parsed = new Date(dateValue);
+    if (isNaN(parsed.getTime())) return new Date();
+    return parsed;
+  }
+  if (typeof dateValue === 'number') return new Date(dateValue);
+  return new Date();
+};
+
+const transformInteractions = (interactions: any[]): Interaction[] => {
+  if (!interactions || !Array.isArray(interactions)) {
+    console.log('⚠️ transformInteractions: interactions não é um array válido', interactions);
+    return [];
+  }
+
+  console.log('🔄 transformInteractions (TicketDetails): processando', interactions.length, 'interações');
+
+  return interactions.map(interaction => {
+    const files = interaction.files || interaction.attachments || [];
+
+    console.log('🔍 Processando interação (TicketDetails):', {
+      interactionId: interaction.id,
+      hasFilesProperty: 'files' in interaction,
+      filesValue: interaction.files,
+      filesType: typeof interaction.files,
+      filesIsArray: Array.isArray(interaction.files),
+      filesLength: Array.isArray(interaction.files) ? interaction.files.length : 0
+    });
+
+    if (files.length > 0) {
+      console.log('📎 Interação com arquivos (TicketDetails):', {
+        interactionId: interaction.id,
+        filesCount: files.length,
+        files: files.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          type: f.type,
+          hasData: !!f.data,
+          hasDataUrl: !!f.data_url,
+          dataLength: f.data?.length || 0,
+          dataUrlLength: f.data_url?.length || 0
+        }))
+      });
+    }
+
+    const transformedFiles = files.length > 0 ? files.map((f: any) => {
+      const fileData = f.data || f.data_url || null;
+      if (!fileData) {
+        console.warn('⚠️ Arquivo sem dados (TicketDetails):', {
+          fileId: f.id,
+          fileName: f.name,
+          fileKeys: Object.keys(f)
+        });
+      }
+      return {
+        id: f.id || `file-${Date.now()}-${Math.random()}`,
+        name: f.name,
+        size: f.size || 0,
+        type: f.type || 'application/octet-stream',
+        data: fileData,
+      };
+    }).filter((f: any) => f.data) : undefined;
+
+    if (transformedFiles && transformedFiles.length > 0) {
+      console.log('✅ Arquivos transformados (TicketDetails):', {
+        interactionId: interaction.id,
+        filesCount: transformedFiles.length
+      });
+    }
+
+    return {
+      ...interaction,
+      createdAt: safeDateParse(interaction.createdAt || interaction.created_at),
+      author: interaction.author || null,
+      files: transformedFiles,
+    };
+  });
+};
 import { getStatusColor, getPriorityColor, getStatusLabel } from '../utils/statusColors';
 import { formatDate } from '../utils/formatDate';
 import { formatFileSize } from '../utils/formatFileSize';
 import { formatCurrency } from '../utils/formatCurrency';
 import { UserAvatar } from '../utils/userAvatar';
-import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType, Queue, TicketFile } from '../types';
+import { Ticket, TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType, Queue, TicketFile } from '../types';
 import { mockUsers } from '../data/mockData';
 import { database } from '../services/database';
 import { api } from '../services/api';
@@ -44,17 +127,90 @@ export default function TicketDetails() {
   const [showFileViewer, setShowFileViewer] = useState(false);
   const [selectedFile, setSelectedFile] = useState<TicketFile | null>(null);
 
+  // Estado para armazenar ticket completo com arquivos
+  const [fullTicket, setFullTicket] = useState<Ticket | null>(null);
+
+  // Carregar ticket completo da API quando o ID mudar
+  useEffect(() => {
+    const loadFullTicket = async () => {
+      if (!id) return;
+
+      try {
+        console.log('🔄 Carregando ticket completo da API:', id);
+        const ticketData = await api.getTicketById(id);
+
+        console.log('📦 Ticket completo recebido da API:', {
+          id: ticketData.id,
+          interactions_count: ticketData.interactions?.length || 0,
+          interactions_with_files: ticketData.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0,
+          all_interactions: ticketData.interactions?.map((i: any) => ({
+            id: i.id,
+            type: i.type,
+            hasFiles: !!i.files && i.files.length > 0,
+            filesCount: i.files?.length || 0,
+            files: i.files?.map((f: any) => ({
+              id: f.id,
+              name: f.name,
+              type: f.type,
+              hasData: !!f.data,
+              dataLength: f.data?.length || 0
+            })) || []
+          })) || []
+        });
+
+            // Transformar resposta da API para formato Ticket
+            const transformedTicket: Ticket = {
+              id: ticketData.id,
+              title: ticketData.title,
+              description: ticketData.description,
+              status: ticketData.status,
+              priority: ticketData.priority,
+              category: ticketData.category,
+              serviceType: ticketData.service_type,
+              totalValue: ticketData.total_value ? parseFloat(ticketData.total_value) : undefined,
+              createdBy: ticketData.created_by_user || { id: ticketData.created_by, name: '', email: '', role: 'user' },
+              assignedTo: ticketData.assigned_to_user,
+              client: ticketData.client_user,
+              files: ticketData.files || [],
+              comments: ticketData.comments || [],
+              interactions: transformInteractions(ticketData.interactions || []), // IMPORTANTE: transformar interações
+              createdAt: new Date(ticketData.created_at),
+              updatedAt: new Date(ticketData.updated_at),
+            };
+
+        setFullTicket(transformedTicket);
+      } catch (error) {
+        console.error('❌ Erro ao carregar ticket completo:', error);
+        // Fallback para ticket do contexto
+        const found = tickets.find(t => t.id === id);
+        setFullTicket(found || null);
+      }
+    };
+
+    loadFullTicket();
+  }, [id, tickets]);
+
   const ticket = useMemo(() => {
+    // Usar ticket completo da API se disponível, senão usar do contexto
+    if (fullTicket) {
+      console.log('✅ Usando ticket completo da API:', {
+        id: fullTicket.id,
+        interactions_count: fullTicket.interactions?.length || 0,
+        interactions_with_files: fullTicket.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0
+      });
+      return fullTicket;
+    }
+
     if (!id) return undefined;
     const found = tickets.find(t => t.id === id);
-    console.log('🔍 Buscando ticket:', {
+    console.log('🔍 Buscando ticket do contexto:', {
       id,
       encontrado: !!found,
       total_tickets: tickets.length,
       ticket_ids: tickets.map(t => t.id)
     });
     return found;
-  }, [tickets, id]);
+  }, [fullTicket, tickets, id]);
 
   // Verificar se o chamado está fechado (fechado ou resolvido)
   const isClosed = ticket?.status === 'fechado' || ticket?.status === 'resolvido';
@@ -226,12 +382,48 @@ export default function TicketDetails() {
           }))
         });
 
-        await addInteraction(ticket.id, newInteraction);
-        setReplyText('');
-        setReplyFiles([]);
-        setShowReplyBox(false);
-        setSuccessMessage('Resposta enviada com sucesso!');
-        setTimeout(() => setSuccessMessage(''), 3000);
+          await addInteraction(ticket.id, newInteraction);
+
+          // Recarregar ticket completo da API para garantir que os arquivos apareçam
+          console.log('🔄 Recarregando ticket completo após adicionar interação...');
+          try {
+            const updatedTicketData = await api.getTicketById(ticket.id);
+            console.log('📦 Ticket recarregado após interação:', {
+              id: updatedTicketData.id,
+              interactions_count: updatedTicketData.interactions?.length || 0,
+              interactions_with_files: updatedTicketData.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0
+            });
+
+            // Transformar resposta da API para formato Ticket
+            const transformedTicket: Ticket = {
+              id: updatedTicketData.id,
+              title: updatedTicketData.title,
+              description: updatedTicketData.description,
+              status: updatedTicketData.status,
+              priority: updatedTicketData.priority,
+              category: updatedTicketData.category,
+              serviceType: updatedTicketData.service_type,
+              totalValue: updatedTicketData.total_value ? parseFloat(updatedTicketData.total_value) : undefined,
+              createdBy: updatedTicketData.created_by_user || { id: updatedTicketData.created_by, name: '', email: '', role: 'user' },
+              assignedTo: updatedTicketData.assigned_to_user,
+              client: updatedTicketData.client_user,
+              files: updatedTicketData.files || [],
+              comments: updatedTicketData.comments || [],
+              interactions: transformInteractions(updatedTicketData.interactions || []), // IMPORTANTE: transformar interações
+              createdAt: new Date(updatedTicketData.created_at),
+              updatedAt: new Date(updatedTicketData.updated_at),
+            };
+
+            setFullTicket(transformedTicket);
+          } catch (reloadError) {
+            console.error('❌ Erro ao recarregar ticket:', reloadError);
+          }
+
+          setReplyText('');
+          setReplyFiles([]);
+          setShowReplyBox(false);
+          setSuccessMessage('Resposta enviada com sucesso!');
+          setTimeout(() => setSuccessMessage(''), 3000);
       } catch (error: any) {
         console.error('❌ Erro ao adicionar interação:', error);
 

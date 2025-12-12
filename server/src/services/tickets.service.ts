@@ -541,10 +541,63 @@ export const getTicketById = async (id: string) => {
               dataLength: f.data?.length || 0
             }))
           });
-        } else if (interactionFiles.filter((f: any) => f.interaction_id === i.id).length > 0) {
-          console.warn(`⚠️ [getTicketById] Arquivos encontrados mas sem data_url para interação ${i.id}`);
         } else {
-          console.log(`⚠️ [getTicketById] Nenhum arquivo encontrado para interação ${i.id}`);
+          // Verificar diretamente no banco se há arquivos para esta interação
+          const directCheck = await db('ticket_files')
+            .where({ interaction_id: i.id })
+            .count('* as count')
+            .first();
+
+          console.log(`🔍 [getTicketById] Verificação direta no banco para interação ${i.id}:`, {
+            interactionId: i.id,
+            filesInDb: directCheck?.count || 0,
+            interactionFilesFound: interactionFiles.length,
+            interactionFilesWithMatchingId: interactionFiles.filter((f: any) => f.interaction_id === i.id).length
+          });
+
+          if (directCheck && parseInt(directCheck.count as string) > 0) {
+            // Tentar buscar novamente de forma mais simples
+            const retryFiles = await db('ticket_files')
+              .where({ interaction_id: i.id })
+              .select('*');
+
+            console.log(`🔄 [getTicketById] Tentativa de busca direta para interação ${i.id}:`, {
+              filesFound: retryFiles.length,
+              files: retryFiles.map((f: any) => ({
+                id: f.id,
+                name: f.name,
+                hasDataUrl: !!f.data_url,
+                dataUrlLength: f.data_url?.length || 0
+              }))
+            });
+
+            if (retryFiles.length > 0) {
+              const retryFilesMapped = retryFiles
+                .map((f: any) => ({
+                  id: f.id,
+                  name: f.name,
+                  size: parseInt(f.size) || 0,
+                  type: f.type || 'application/octet-stream',
+                  data: f.data_url,
+                }))
+                .filter((f: any) => f.data);
+
+              if (retryFilesMapped.length > 0) {
+                console.log(`✅ [getTicketById] Arquivos recuperados na segunda tentativa para interação ${i.id}:`, retryFilesMapped.length);
+                return {
+                  id: i.id,
+                  type: i.type,
+                  content: i.content,
+                  author: i.author,
+                  metadata: i.metadata ? JSON.parse(i.metadata) : null,
+                  files: retryFilesMapped,
+                  createdAt: i.created_at,
+                };
+              }
+            }
+          } else {
+            console.log(`⚠️ [getTicketById] Nenhum arquivo encontrado no banco para interação ${i.id}`);
+          }
         }
 
         return {
@@ -558,6 +611,26 @@ export const getTicketById = async (id: string) => {
         };
       })
     );
+
+    // Log final antes de retornar
+    console.log('📦 [getTicketById] Retornando ticket com interações:', {
+      ticketId: ticket.id,
+      interactionsCount: interactions.length,
+      interactionsWithFiles: interactions.filter((i: any) => i.files && i.files.length > 0).length,
+      allInteractions: interactions.map((i: any) => ({
+        id: i.id,
+        type: i.type,
+        content: i.content?.substring(0, 50),
+        hasFiles: !!i.files && i.files.length > 0,
+        filesCount: i.files?.length || 0,
+        files: i.files?.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          hasData: !!f.data,
+          dataLength: f.data?.length || 0
+        })) || []
+      }))
+    });
 
     return {
       ...ticket,

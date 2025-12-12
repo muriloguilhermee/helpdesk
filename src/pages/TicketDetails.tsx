@@ -197,7 +197,7 @@ export default function TicketDetails() {
                 name: f.name,
                 size: f.size,
                 type: f.type,
-                data: f.data,
+                data: f.data || f.data_url, // garantir data para fallback
               });
             }
           });

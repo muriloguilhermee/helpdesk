@@ -267,42 +267,62 @@ export const getAllTickets = async (filters?: TicketFilters) => {
         // Buscar arquivos de cada interação
         interactions = await Promise.all(
           interactionsRaw.map(async (i: any) => {
-            // Buscar arquivos da interação
-            const interactionFiles = await db('ticket_files')
-              .where({ interaction_id: i.id })
-              .select('id', 'name', 'size', 'type', 'data_url', 'interaction_id');
+        // Buscar arquivos da interação
+        const interactionFiles = await db('ticket_files')
+          .where({ interaction_id: i.id })
+          .select('id', 'name', 'size', 'type', 'data_url', 'interaction_id');
 
-            console.log(`🔍 [getAllTickets] Buscando arquivos para interação ${i.id}:`, {
-              interactionId: i.id,
-              filesFound: interactionFiles.length,
-              files: interactionFiles.map((f: any) => ({
-                id: f.id,
-                name: f.name,
-                interaction_id: f.interaction_id
-              }))
+        console.log(`🔍 [getAllTickets] Buscando arquivos para interação ${i.id}:`, {
+          interactionId: i.id,
+          filesFound: interactionFiles.length,
+          files: interactionFiles.map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            interaction_id: f.interaction_id,
+            hasDataUrl: !!f.data_url,
+            dataUrlLength: f.data_url?.length || 0
+          }))
+        });
+
+        const files = interactionFiles.map((f: any) => {
+          if (!f.data_url) {
+            console.warn(`⚠️ [getAllTickets] Arquivo sem data_url para interação ${i.id}:`, {
+              fileId: f.id,
+              fileName: f.name
             });
+          }
+          return {
+            id: f.id,
+            name: f.name,
+            size: parseInt(f.size) || 0,
+            type: f.type || 'application/octet-stream',
+            data: f.data_url, // IMPORTANTE: garantir que data_url seja retornado
+          };
+        }).filter((f: any) => f.data); // Filtrar apenas arquivos com dados
 
-            const files = interactionFiles.map((f: any) => ({
+        if (files.length > 0) {
+          console.log(`✅ [getAllTickets] Arquivos encontrados para interação ${i.id}:`, {
+            filesCount: files.length,
+            files: files.map((f: any) => ({
               id: f.id,
               name: f.name,
-              size: parseInt(f.size),
-              type: f.type,
-              data: f.data_url,
-            }));
+              hasData: !!f.data,
+              dataLength: f.data?.length || 0
+            }))
+          });
+        } else if (interactionFiles.length > 0) {
+          console.warn(`⚠️ [getAllTickets] Arquivos encontrados mas sem data_url para interação ${i.id}`);
+        }
 
-            if (files.length > 0) {
-              console.log(`✅ [getAllTickets] Arquivos encontrados para interação ${i.id}:`, files.length);
-            }
-
-            return {
-              id: i.id,
-              type: i.type,
-              content: i.content,
-              author: i.author,
-              metadata: i.metadata ? JSON.parse(i.metadata) : null,
-              files: files.length > 0 ? files : undefined,
-              createdAt: i.created_at,
-            };
+        return {
+          id: i.id,
+          type: i.type,
+          content: i.content,
+          author: i.author,
+          metadata: i.metadata ? JSON.parse(i.metadata) : null,
+          files: files.length > 0 ? files : undefined, // Retornar undefined se não houver arquivos válidos
+          createdAt: i.created_at,
+        };
           })
         );
       } catch (e) {
@@ -491,16 +511,25 @@ export const getTicketById = async (id: string) => {
         // Filtrar apenas arquivos que pertencem a esta interação
         const files = interactionFiles
           .filter((f: any) => f.interaction_id === i.id)
-          .map((f: any) => ({
-            id: f.id,
-            name: f.name,
-            size: parseInt(f.size),
-            type: f.type,
-            data: f.data_url,
-          }));
+          .map((f: any) => {
+            if (!f.data_url) {
+              console.warn(`⚠️ [getTicketById] Arquivo sem data_url para interação ${i.id}:`, {
+                fileId: f.id,
+                fileName: f.name
+              });
+            }
+            return {
+              id: f.id,
+              name: f.name,
+              size: parseInt(f.size) || 0,
+              type: f.type || 'application/octet-stream',
+              data: f.data_url, // IMPORTANTE: garantir que data_url seja retornado
+            };
+          })
+          .filter((f: any) => f.data); // Filtrar apenas arquivos com dados
 
         if (files.length > 0) {
-          console.log(`✅ Arquivos encontrados para interação ${i.id}:`, {
+          console.log(`✅ [getTicketById] Arquivos encontrados para interação ${i.id}:`, {
             interactionId: i.id,
             filesCount: files.length,
             files: files.map((f: any) => ({
@@ -512,8 +541,10 @@ export const getTicketById = async (id: string) => {
               dataLength: f.data?.length || 0
             }))
           });
+        } else if (interactionFiles.filter((f: any) => f.interaction_id === i.id).length > 0) {
+          console.warn(`⚠️ [getTicketById] Arquivos encontrados mas sem data_url para interação ${i.id}`);
         } else {
-          console.log(`⚠️ Nenhum arquivo encontrado para interação ${i.id}`);
+          console.log(`⚠️ [getTicketById] Nenhum arquivo encontrado para interação ${i.id}`);
         }
 
         return {
@@ -522,7 +553,7 @@ export const getTicketById = async (id: string) => {
           content: i.content,
           author: i.author,
           metadata: i.metadata ? JSON.parse(i.metadata) : null,
-          files: files.length > 0 ? files : undefined,
+          files: files.length > 0 ? files : undefined, // Retornar undefined se não houver arquivos válidos
           createdAt: i.created_at,
         };
       })
@@ -909,10 +940,36 @@ export const addInteraction = async (
       }))
     });
 
+    // Garantir que todos os arquivos tenham data_url válido
+    const filesWithData = interactionFiles
+      .map((f: any) => {
+        if (!f.data_url) {
+          console.warn(`⚠️ [addInteraction] Arquivo sem data_url:`, {
+            fileId: f.id,
+            fileName: f.name,
+            interactionId: interaction.id
+          });
+        }
+        return {
+          id: f.id,
+          name: f.name,
+          size: parseInt(f.size) || 0,
+          type: f.type || 'application/octet-stream',
+          data: f.data_url, // IMPORTANTE: sempre retornar data_url
+        };
+      })
+      .filter((f: any) => f.data); // Filtrar apenas arquivos com dados válidos
+
     console.log('✅ Interação criada com sucesso:', {
       id: interaction.id,
-      hasFiles: interactionFiles.length > 0,
-      filesCount: interactionFiles.length
+      hasFiles: filesWithData.length > 0,
+      filesCount: filesWithData.length,
+      files: filesWithData.map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        hasData: !!f.data,
+        dataLength: f.data?.length || 0
+      }))
     });
 
     return {
@@ -921,13 +978,7 @@ export const addInteraction = async (
       content: interaction.content,
       author,
       metadata: interaction.metadata ? JSON.parse(interaction.metadata) : null,
-      files: interactionFiles.map((f: any) => ({
-        id: f.id,
-        name: f.name,
-        size: parseInt(f.size),
-        type: f.type,
-        data: f.data_url,
-      })),
+      files: filesWithData.length > 0 ? filesWithData : undefined, // Retornar undefined se não houver arquivos válidos
       createdAt: interaction.created_at,
     };
   } catch (error: any) {

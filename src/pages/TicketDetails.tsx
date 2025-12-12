@@ -1039,21 +1039,38 @@ export default function TicketDetails() {
                               {/* Exibir arquivos anexados */}
                               {/* Anexos - Exibir de forma mais visível */}
                               {(() => {
-                                const hasFiles = interaction.files && Array.isArray(interaction.files) && interaction.files.length > 0;
+                                // Verificar se há arquivos de forma mais robusta
+                                const hasFiles = interaction.files &&
+                                                 Array.isArray(interaction.files) &&
+                                                 interaction.files.length > 0 &&
+                                                 interaction.files.some((f: any) => f && f.data); // Garantir que pelo menos um arquivo tenha dados
+
                                 if (hasFiles) {
                                   console.log('🎨 Renderizando interação COM arquivos:', {
+                                    interactionId: interaction.id,
+                                    filesCount: interaction.files.length,
+                                    filesWithData: interaction.files.filter((f: any) => f && f.data).length,
+                                    files: interaction.files.map((f: any) => ({
+                                      id: f.id,
+                                      name: f.name,
+                                      type: f.type,
+                                      hasData: !!f.data,
+                                      dataLength: f.data?.length || 0
+                                    }))
+                                  });
+                                } else if (interaction.files && interaction.files.length > 0) {
+                                  console.warn('⚠️ Interação tem arquivos mas sem dados válidos:', {
                                     interactionId: interaction.id,
                                     filesCount: interaction.files.length,
                                     files: interaction.files.map((f: any) => ({
                                       id: f.id,
                                       name: f.name,
-                                      type: f.type,
                                       hasData: !!f.data
                                     }))
                                   });
                                 }
                                 return hasFiles;
-                              })() && (
+                              })() && interaction.files && (
                                 <div className="mt-3 pt-3 border-t-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
                                   <div className="flex items-center gap-2 mb-3">
                                     <Paperclip className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -1062,7 +1079,9 @@ export default function TicketDetails() {
                                     </span>
                                   </div>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {interaction.files.map((file) => {
+                                    {interaction.files
+                                      .filter((file: any) => file && file.data) // Filtrar apenas arquivos com dados válidos
+                                      .map((file) => {
                                       const isImage = file.type?.startsWith('image/');
                                       const isPdf = file.type === 'application/pdf';
                                       const canPreview = isImage || isPdf;

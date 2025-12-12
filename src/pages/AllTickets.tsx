@@ -85,7 +85,9 @@ export default function AllTickets() {
   }
   // Admins veem todos os chamados (availableTickets = tickets)
 
+  // Não exibir chamados com status "aberto" aqui (somente em "Novos Chamados")
   const filteredTickets = availableTickets
+    .filter((ticket) => ticket.status !== 'aberto')
     .filter((ticket) => {
       if (filters.status && ticket.status !== filters.status) return false;
       if (filters.priority && ticket.priority !== filters.priority) return false;

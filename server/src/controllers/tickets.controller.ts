@@ -288,6 +288,17 @@ export const addInteractionController = async (req: AuthRequest, res: Response):
     );
     console.log('✅ Interação criada no banco:', interaction.id);
 
+    // Se for cliente (user), reabrir o chamado como "aberto" sem mexer na atribuição
+    if (req.user.role === 'user') {
+      try {
+        console.log('🔄 Cliente adicionou interação -> reabrindo chamado como "aberto"', req.params.id);
+        await updateTicket(req.params.id, { status: 'aberto' });
+      } catch (reopenError) {
+        console.error('❌ Erro ao reabrir chamado após interação do cliente:', reopenError);
+        // Não impede a resposta da interação; apenas loga
+      }
+    }
+
     res.status(201).json(interaction);
   } catch (error) {
     console.error('❌ Erro no controller de adicionar interação:', error);

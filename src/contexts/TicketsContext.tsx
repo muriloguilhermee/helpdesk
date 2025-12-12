@@ -789,97 +789,50 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
 
       console.log('✅ Interação criada no backend:', createdInteraction);
 
-      // Recarregar o ticket completo do backend para garantir que todos vejam a interação
-      // Isso é importante para que outros usuários vejam as interações imediatamente
-      console.log('🔄 Recarregando ticket do backend para atualizar interações...');
-      const updatedTicket = await api.getTicketById(ticketId);
+      // Transformar interação retornada
+      const transformedInteraction = transformInteractions([createdInteraction])[0];
 
-      console.log('📦 Ticket recarregado (RAW):', {
-        id: updatedTicket.id,
-        interactions_count: updatedTicket.interactions?.length || 0,
-        comments_count: updatedTicket.comments?.length || 0,
-        interactions_with_files: updatedTicket.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0,
-        all_interactions: updatedTicket.interactions?.map((i: any) => ({
-          id: i.id,
-          type: i.type,
-          hasFiles: !!i.files && i.files.length > 0,
-          filesCount: i.files?.length || 0,
-          filesIsArray: Array.isArray(i.files),
-          files: i.files?.map((f: any) => ({
-            id: f.id,
-            name: f.name,
-            type: f.type,
-            size: f.size,
-            hasData: !!f.data,
-            hasDataUrl: !!f.data_url,
-            dataLength: f.data?.length || f.data_url?.length || 0,
-            allKeys: Object.keys(f)
-          })) || [],
-          allKeys: Object.keys(i)
-        }))
-      });
+      // Atualizar localmente o ticket (evita depender de novo GET e evita 404)
+      setTickets((prev) =>
+        prev.map((ticket) => {
+          if (ticket.id !== ticketId) return ticket;
 
-      // Transformar resposta da API
-      const rawInteractions = transformInteractions(updatedTicket.interactions || []);
-
-      // Se alguma interação veio sem arquivos, tentar associar a partir de ticket.files via interactionId
-      const filesByInteraction: Record<string, any[]> = {};
-      if (updatedTicket.files && Array.isArray(updatedTicket.files)) {
-        updatedTicket.files.forEach((f: any) => {
-          const key = f.interactionId || f.interaction_id;
-          if (key) {
-            if (!filesByInteraction[key]) filesByInteraction[key] = [];
-            filesByInteraction[key].push({
-              id: f.id,
-              name: f.name,
-              size: f.size,
-              type: f.type,
-              data: f.data || f.data_url, // garantir data para fallback
+          const filesByInteraction: Record<string, any[]> = {};
+          if (ticket.files && Array.isArray(ticket.files)) {
+            ticket.files.forEach((f: any) => {
+              const key = (f as any).interactionId || (f as any).interaction_id;
+              if (key) {
+                if (!filesByInteraction[key]) filesByInteraction[key] = [];
+                filesByInteraction[key].push({
+                  id: f.id,
+                  name: f.name,
+                  size: f.size,
+                  type: f.type,
+                  data: (f as any).data || (f as any).data_url,
+                });
+              }
             });
           }
-        });
-      }
 
-      const mergedInteractions = rawInteractions.map((i) => {
-        if (i.files && i.files.length > 0) return i;
-        const fallback = filesByInteraction[i.id];
-        if (fallback && fallback.length > 0) {
+          const mergedInteraction =
+            transformedInteraction.files && transformedInteraction.files.length > 0
+              ? transformedInteraction
+              : (() => {
+                  const fallback = filesByInteraction[transformedInteraction.id];
+                  if (fallback && fallback.length > 0) {
+                    return { ...transformedInteraction, files: fallback };
+                  }
+                  return transformedInteraction;
+                })();
+
           return {
-            ...i,
-            files: fallback,
+            ...ticket,
+            interactions: [...(ticket.interactions || []), mergedInteraction],
           };
-        }
-        return i;
-      });
-
-      const transformedTicket = {
-        id: updatedTicket.id,
-        title: updatedTicket.title,
-        description: updatedTicket.description,
-        status: updatedTicket.status,
-        priority: updatedTicket.priority,
-        category: updatedTicket.category,
-        serviceType: updatedTicket.service_type,
-        totalValue: updatedTicket.total_value ? parseFloat(updatedTicket.total_value) : undefined,
-        createdBy: updatedTicket.created_by_user || { id: updatedTicket.created_by, name: '', email: '', role: 'user' },
-        assignedTo: updatedTicket.assigned_to_user,
-        client: updatedTicket.client_user,
-        files: updatedTicket.files || [],
-        comments: transformComments(updatedTicket.comments || []),
-        interactions: mergedInteractions,
-        createdAt: safeDateParse(updatedTicket.created_at),
-        updatedAt: safeDateParse(updatedTicket.updated_at),
-      };
-
-      // Atualizar ticket com dados completos do banco
-      setTickets((prev) =>
-        prev.map((ticket) =>
-          ticket.id === ticketId
-            ? transformedTicket
-            : ticket
-        )
+        })
       );
-      console.log('✅ Interação adicionada e ticket atualizado com sucesso');
+
+      console.log('✅ Interação adicionada localmente com anexos');
     } catch (apiError: any) {
       console.error('❌ Erro ao adicionar interação:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar

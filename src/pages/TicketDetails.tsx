@@ -234,19 +234,52 @@ export default function TicketDetails() {
       // Converter comentários antigos para interações
       if (ticket.comments && ticket.comments.length > 0) {
         ticket.comments.forEach(comment => {
+          // Garantir que createdAt seja um Date válido
+          let createdAt: Date;
+          if (comment.createdAt instanceof Date) {
+            createdAt = comment.createdAt;
+          } else if (typeof comment.createdAt === 'string') {
+            createdAt = new Date(comment.createdAt);
+            if (isNaN(createdAt.getTime())) {
+              console.warn('⚠️ Data inválida em comentário:', comment.id, comment.createdAt);
+              createdAt = new Date();
+            }
+          } else {
+            createdAt = new Date();
+          }
+
           interactions.push({
             id: comment.id,
             type: 'user',
             content: comment.content,
             author: comment.author,
-            createdAt: comment.createdAt,
+            createdAt,
           });
         });
       }
 
       // Adicionar interações do sistema
       if (ticket.interactions && ticket.interactions.length > 0) {
-        interactions.push(...ticket.interactions);
+        ticket.interactions.forEach(interaction => {
+          // Garantir que createdAt seja um Date válido
+          let createdAt: Date;
+          if (interaction.createdAt instanceof Date) {
+            createdAt = interaction.createdAt;
+          } else if (typeof interaction.createdAt === 'string') {
+            createdAt = new Date(interaction.createdAt);
+            if (isNaN(createdAt.getTime())) {
+              console.warn('⚠️ Data inválida em interação:', interaction.id, interaction.createdAt);
+              createdAt = new Date();
+            }
+          } else {
+            createdAt = new Date();
+          }
+
+          interactions.push({
+            ...interaction,
+            createdAt,
+          });
+        });
       }
 
       // Adicionar interação do sistema quando status muda
@@ -255,8 +288,21 @@ export default function TicketDetails() {
 
     // Ordenar por data
     return interactions.sort((a, b) => {
-      const dateA = new Date(a.createdAt).getTime();
-      const dateB = new Date(b.createdAt).getTime();
+      // Garantir que as datas sejam válidas
+      const dateA = a.createdAt instanceof Date
+        ? a.createdAt.getTime()
+        : (typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : 0);
+      const dateB = b.createdAt instanceof Date
+        ? b.createdAt.getTime()
+        : (typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : 0);
+
+      // Se alguma data for inválida, colocar no final
+      if (isNaN(dateA) || isNaN(dateB)) {
+        if (isNaN(dateA) && !isNaN(dateB)) return 1;
+        if (!isNaN(dateA) && isNaN(dateB)) return -1;
+        return 0;
+      }
+
       return interactionOrder === 'asc' ? dateA - dateB : dateB - dateA;
     });
   }, [ticket, ticket?.interactions, ticket?.comments, interactionOrder]);

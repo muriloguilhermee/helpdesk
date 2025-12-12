@@ -4,6 +4,57 @@ import { mockTickets } from '../data/mockData';
 import { dbAdapter as database } from '../services/dbAdapter';
 import { api } from '../services/api';
 
+// Função helper para converter datas de forma segura
+const safeDateParse = (dateValue: any): Date => {
+  if (!dateValue) {
+    return new Date();
+  }
+
+  // Se já é uma Date, retornar
+  if (dateValue instanceof Date) {
+    return dateValue;
+  }
+
+  // Se é string, tentar converter
+  if (typeof dateValue === 'string') {
+    const parsed = new Date(dateValue);
+    // Verificar se a data é válida
+    if (isNaN(parsed.getTime())) {
+      console.warn('⚠️ Data inválida recebida:', dateValue, 'usando data atual');
+      return new Date();
+    }
+    return parsed;
+  }
+
+  // Se é número (timestamp), converter
+  if (typeof dateValue === 'number') {
+    return new Date(dateValue);
+  }
+
+  // Fallback para data atual
+  console.warn('⚠️ Tipo de data desconhecido:', typeof dateValue, dateValue);
+  return new Date();
+};
+
+// Função helper para converter arrays de comentários/interações com datas
+const transformComments = (comments: any[]): Comment[] => {
+  if (!comments || !Array.isArray(comments)) return [];
+  return comments.map(comment => ({
+    ...comment,
+    createdAt: safeDateParse(comment.createdAt || comment.created_at),
+    author: comment.author || null,
+  }));
+};
+
+const transformInteractions = (interactions: any[]): Interaction[] => {
+  if (!interactions || !Array.isArray(interactions)) return [];
+  return interactions.map(interaction => ({
+    ...interaction,
+    createdAt: safeDateParse(interaction.createdAt || interaction.created_at),
+    author: interaction.author || null,
+  }));
+};
+
 interface TicketsContextType {
   tickets: Ticket[];
   deleteTicket: (id: string) => void;
@@ -102,10 +153,10 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           assignedTo: t.assigned_to_user, // Pode ser null, undefined ou objeto
           client: t.client_user,
           files: t.files || [],
-          comments: t.comments || [],
-          interactions: t.interactions || [],
-          createdAt: new Date(t.created_at),
-          updatedAt: new Date(t.updated_at),
+          comments: transformComments(t.comments || []),
+          interactions: transformInteractions(t.interactions || []),
+          createdAt: safeDateParse(t.created_at),
+          updatedAt: safeDateParse(t.updated_at),
         };
 
         // Log do ticket transformado
@@ -385,10 +436,10 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         assignedTo: updatedTicket.assigned_to_user,
         client: updatedTicket.client_user,
         files: updatedTicket.files || [],
-        comments: updatedTicket.comments || [],
-        interactions: updatedTicket.interactions || [],
-        createdAt: new Date(updatedTicket.created_at),
-        updatedAt: new Date(updatedTicket.updated_at),
+        comments: transformComments(updatedTicket.comments || []),
+        interactions: transformInteractions(updatedTicket.interactions || []),
+        createdAt: safeDateParse(updatedTicket.created_at),
+        updatedAt: safeDateParse(updatedTicket.updated_at),
       };
 
       console.log('🔄 Ticket transformado:', {
@@ -477,10 +528,10 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         assignedTo: createdTicket.assigned_to_user,
         client: createdTicket.client_user,
         files: createdTicket.files || [],
-        comments: createdTicket.comments || [],
-        interactions: createdTicket.interactions || [],
-        createdAt: new Date(createdTicket.created_at),
-        updatedAt: new Date(createdTicket.updated_at),
+        comments: transformComments(createdTicket.comments || []),
+        interactions: transformInteractions(createdTicket.interactions || []),
+        createdAt: safeDateParse(createdTicket.created_at),
+        updatedAt: safeDateParse(createdTicket.updated_at),
       };
 
       console.log('🔄 Ticket transformado após criação:', {
@@ -564,10 +615,10 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         assignedTo: updatedTicket.assigned_to_user,
         client: updatedTicket.client_user,
         files: updatedTicket.files || [],
-        comments: updatedTicket.comments || [],
-        interactions: updatedTicket.interactions || [],
-        createdAt: new Date(updatedTicket.created_at),
-        updatedAt: new Date(updatedTicket.updated_at),
+        comments: transformComments(updatedTicket.comments || []),
+        interactions: transformInteractions(updatedTicket.interactions || []),
+        createdAt: safeDateParse(updatedTicket.created_at),
+        updatedAt: safeDateParse(updatedTicket.updated_at),
       };
 
       // Atualizar ticket com dados completos do banco
@@ -623,10 +674,10 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         assignedTo: updatedTicket.assigned_to_user,
         client: updatedTicket.client_user,
         files: updatedTicket.files || [],
-        comments: updatedTicket.comments || [],
-        interactions: updatedTicket.interactions || [],
-        createdAt: new Date(updatedTicket.created_at),
-        updatedAt: new Date(updatedTicket.updated_at),
+        comments: transformComments(updatedTicket.comments || []),
+        interactions: transformInteractions(updatedTicket.interactions || []),
+        createdAt: safeDateParse(updatedTicket.created_at),
+        updatedAt: safeDateParse(updatedTicket.updated_at),
       };
 
       // Atualizar ticket com dados completos do banco

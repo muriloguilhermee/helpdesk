@@ -197,15 +197,28 @@ export const deleteTicketController = async (req: AuthRequest, res: Response): P
 
 export const addCommentController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('========================================');
+    console.log('📥 REQUISIÇÃO POST /api/tickets/:id/comments RECEBIDA');
+    console.log('========================================');
+    console.log('👤 Usuário:', req.user?.email);
+    console.log('🆔 Ticket ID:', req.params.id);
+    console.log('📝 Body:', req.body);
+
     if (!req.user) {
+      console.log('❌ Usuário não autenticado');
       res.status(401).json({ error: 'Não autenticado' });
       return;
     }
 
     const validated = commentSchema.parse(req.body);
+    console.log('✅ Validação OK, conteúdo:', validated.content);
+
     const comment = await addComment(req.params.id, req.user.id, validated.content);
+    console.log('✅ Comentário criado no banco:', comment.id);
+
     res.status(201).json(comment);
   } catch (error) {
+    console.error('❌ Erro no controller de adicionar comentário:', error);
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: error.errors[0].message });
       return;
@@ -222,12 +235,22 @@ const interactionSchema = z.object({
 
 export const addInteractionController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('========================================');
+    console.log('📥 REQUISIÇÃO POST /api/tickets/:id/interactions RECEBIDA');
+    console.log('========================================');
+    console.log('👤 Usuário:', req.user?.email);
+    console.log('🆔 Ticket ID:', req.params.id);
+    console.log('📝 Body:', req.body);
+
     if (!req.user) {
+      console.log('❌ Usuário não autenticado');
       res.status(401).json({ error: 'Não autenticado' });
       return;
     }
 
     const validated = interactionSchema.parse(req.body);
+    console.log('✅ Validação OK, tipo:', validated.type, 'conteúdo:', validated.content);
+
     const interaction = await addInteraction(
       req.params.id,
       req.user.id,
@@ -235,8 +258,11 @@ export const addInteractionController = async (req: AuthRequest, res: Response):
       validated.content,
       validated.metadata
     );
+    console.log('✅ Interação criada no banco:', interaction.id);
+
     res.status(201).json(interaction);
   } catch (error) {
+    console.error('❌ Erro no controller de adicionar interação:', error);
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: error.errors[0].message });
       return;

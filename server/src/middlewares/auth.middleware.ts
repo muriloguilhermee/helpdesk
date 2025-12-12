@@ -7,6 +7,7 @@ export interface AuthRequest extends Request {
   query: any;
   headers: any;
   path?: string;
+  url?: string;
   method?: string;
   user?: {
     id: string;

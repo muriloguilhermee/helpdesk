@@ -49,6 +49,7 @@ const permissions: Record<string, string[]> = {
   technician: [
     'view:tickets',
     'view:pending:tickets',
+    'view:all:tickets', // Permissão para ver todos os chamados
     'edit:ticket',
     'close:ticket',
   ],

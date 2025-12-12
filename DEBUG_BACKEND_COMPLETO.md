@@ -229,3 +229,4 @@ Value: https://seu-projeto.vercel.app
 - `VERIFICAR_CONEXAO_BACKEND.md` - Checklist de verificação
 
 
+

@@ -52,8 +52,13 @@ export default function TicketDetails() {
   const isAdmin = user?.role === 'admin';
   // Verificar se o usuário é técnico
   const isTechnician = user?.role === 'technician';
+  // Verificar se o ticket está atribuído a outro técnico (para técnicos)
+  const isAssignedToOtherTechnician = isTechnician && ticket?.assignedTo && ticket.assignedTo.id !== user?.id;
   // Verificar se pode alterar status (admin sempre pode, outros só se não estiver fechado)
-  const canChangeStatus = hasPermission('edit:ticket') && (isAdmin || !isClosed);
+  // Técnicos não podem alterar status de tickets atribuídos a outros técnicos
+  const canChangeStatus = hasPermission('edit:ticket') && (isAdmin || !isClosed) && !isAssignedToOtherTechnician;
+  // Verificar se pode editar o ticket (técnicos só podem adicionar comentários em tickets de outros)
+  const canEditTicket = isAdmin || !isAssignedToOtherTechnician;
 
   if (!ticket) {
     return (
@@ -1144,7 +1149,14 @@ export default function TicketDetails() {
           <div className="card dark:bg-gray-800 dark:border-gray-700">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Ações</h2>
             <div className="space-y-2">
-              {ticket?.category === 'integracao' && hasPermission('edit:ticket') && !isClosed && (
+              {/* Aviso para técnicos quando o ticket está atribuído a outro técnico */}
+              {isAssignedToOtherTechnician && (
+                <div className="w-full p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-400 mb-2">
+                  <p className="font-medium mb-1">Permissões Limitadas</p>
+                  <p>Este chamado está atribuído a outro técnico. Você pode apenas adicionar comentários e interações para informar sobre contatos de clientes.</p>
+                </div>
+              )}
+              {ticket?.category === 'integracao' && hasPermission('edit:ticket') && !isClosed && canEditTicket && (
                 <button
                   onClick={handleOpenAddValueModal}
                   className="w-full btn-primary flex items-center justify-center gap-2"
@@ -1153,7 +1165,7 @@ export default function TicketDetails() {
                   Adicionar Valor
                 </button>
               )}
-              {canChangeStatus && (
+              {canChangeStatus && canEditTicket && (
                 <button
                   onClick={() => {
                     if (ticket) {
@@ -1171,7 +1183,7 @@ export default function TicketDetails() {
                   Este chamado está fechado. Apenas administradores podem reabri-lo.
                 </div>
               )}
-              {isTechnician && hasPermission('edit:ticket') && (
+              {isTechnician && hasPermission('edit:ticket') && canEditTicket && (
                 <button
                   onClick={handleOpenServiceModal}
                   className="w-full btn-secondary flex items-center justify-center gap-2"
@@ -1180,7 +1192,7 @@ export default function TicketDetails() {
                   Informar Serviço e Valor
                 </button>
               )}
-              {hasPermission('assign:ticket') && (
+              {hasPermission('assign:ticket') && canEditTicket && (
                 <button
                   onClick={async () => {
                     if (ticket) {
@@ -1195,7 +1207,7 @@ export default function TicketDetails() {
                   Atribuir Técnico
                 </button>
               )}
-              {hasPermission('edit:ticket') && (
+              {hasPermission('edit:ticket') && canEditTicket && (
                 <button
                   onClick={() => setShowTransferModal(true)}
                   className="w-full btn-secondary flex items-center justify-center gap-2"
@@ -1204,7 +1216,7 @@ export default function TicketDetails() {
                   Transferir para Fila
                 </button>
               )}
-              {hasPermission('edit:ticket') && !isClosed && (
+              {hasPermission('edit:ticket') && !isClosed && canEditTicket && (
                 <button
                   onClick={handleCloseTicket}
                   className="w-full btn-secondary"
@@ -1212,7 +1224,7 @@ export default function TicketDetails() {
                   Fechar Chamado
                 </button>
               )}
-              {hasPermission('delete:ticket') && (
+              {hasPermission('delete:ticket') && canEditTicket && (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2"

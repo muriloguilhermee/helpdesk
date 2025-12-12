@@ -110,18 +110,22 @@ class ApiService {
           throw errorWithStatus;
         }
 
-        // Tentar ler JSON; se falhar, ler texto para logar a mensagem real
+        // Tentar ler a resposta de erro - ler como texto primeiro para poder tentar parse JSON depois
         let errorMessage = `HTTP error! status: ${response.status}`;
         try {
-          const errorJson = await response.json();
-          errorMessage = errorJson.error || errorMessage;
-        } catch {
-          try {
-            const errorText = await response.text();
-            if (errorText) errorMessage = errorText;
-          } catch {
-            // ignore
+          const errorText = await response.text();
+          if (errorText && errorText.trim()) {
+            // Tentar fazer parse como JSON
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorMessage = errorJson.error || errorMessage;
+            } catch {
+              // Se não for JSON válido, usar o texto diretamente
+              errorMessage = errorText;
+            }
           }
+        } catch (textError: any) {
+          console.error('❌ Erro ao ler resposta de erro:', textError?.message || textError);
         }
 
         const errorWithStatus = new Error(errorMessage);

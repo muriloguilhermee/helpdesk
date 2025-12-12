@@ -176,7 +176,15 @@ export const updateTicketController = async (req: AuthRequest, res: Response): P
       res.status(400).json({ error: error.errors[0].message });
       return;
     }
-    const errorMessage = (error as Error).message;
+    // Garantir que a mensagem de erro seja uma string válida
+    let errorMessage = 'Erro desconhecido';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object' && 'message' in error) {
+      errorMessage = String(error.message);
+    }
     console.error('Mensagem de erro:', errorMessage);
     res.status(400).json({ error: errorMessage });
   }
@@ -306,7 +314,17 @@ export const addInteractionController = async (req: AuthRequest, res: Response):
       res.status(400).json({ error: error.errors[0].message });
       return;
     }
-    res.status(400).json({ error: (error as Error).message });
+    // Garantir que a mensagem de erro seja uma string válida
+    let errorMessage = 'Erro desconhecido';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object' && 'message' in error) {
+      errorMessage = String(error.message);
+    }
+    console.error('Mensagem de erro:', errorMessage);
+    res.status(400).json({ error: errorMessage });
   }
 };
 

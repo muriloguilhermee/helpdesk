@@ -977,21 +977,38 @@ export default function TicketDetails() {
                                 <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                                   {interaction.content.replace(queueName, '').trim()}{' '}
                                   <span className="text-purple-600 dark:text-purple-400 font-semibold">{queueName}</span>
+                                  {/* Indicador visual se houver anexos */}
+                                  {interaction.files && interaction.files.length > 0 && (
+                                    <span className="ml-2 inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                                      <Paperclip className="w-3 h-3" />
+                                      {interaction.files.length} {interaction.files.length === 1 ? 'anexo' : 'anexos'}
+                                    </span>
+                                  )}
                                 </p>
                               ) : (
-                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>
+                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                                  {interaction.content}
+                                  {/* Indicador visual se houver anexos */}
+                                  {interaction.files && interaction.files.length > 0 && (
+                                    <span className="ml-2 inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
+                                      <Paperclip className="w-3 h-3" />
+                                      {interaction.files.length} {interaction.files.length === 1 ? 'anexo' : 'anexos'}
+                                    </span>
+                                  )}
+                                </p>
                               )}
 
                               {/* Exibir arquivos anexados */}
+                              {/* Anexos - Exibir de forma mais visível */}
                               {interaction.files && interaction.files.length > 0 && (
-                                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <Paperclip className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                      Arquivos anexados ({interaction.files.length})
+                                <div className="mt-3 pt-3 border-t-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                                  <div className="flex items-center gap-2 mb-3">
+                                    <Paperclip className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
+                                      📎 {interaction.files.length} {interaction.files.length === 1 ? 'arquivo anexado' : 'arquivos anexados'}
                                     </span>
                                   </div>
-                                  <div className="space-y-2">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {interaction.files.map((file) => {
                                       const isImage = file.type?.startsWith('image/');
                                       const isPdf = file.type === 'application/pdf';
@@ -1000,49 +1017,69 @@ export default function TicketDetails() {
                                       return (
                                         <div
                                           key={file.id}
-                                          className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                                          className="bg-white dark:bg-gray-800 rounded-lg border-2 border-blue-200 dark:border-blue-700 p-3 hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm"
                                         >
-                                          <div className="flex items-center gap-2 flex-1 min-w-0">
-                                            {isImage ? (
+                                          {/* Preview de imagem maior */}
+                                          {isImage && (
+                                            <div className="mb-2">
                                               <img
                                                 src={file.data}
                                                 alt={file.name}
-                                                className="w-8 h-8 object-cover rounded flex-shrink-0 cursor-pointer"
+                                                className="w-full h-32 object-cover rounded-lg cursor-pointer border border-gray-200 dark:border-gray-700 hover:opacity-90 transition-opacity"
                                                 loading="lazy"
                                                 onClick={() => {
                                                   setSelectedFile(file);
                                                   setShowFileViewer(true);
                                                 }}
                                               />
-                                            ) : (
-                                              <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                            )}
+                                            </div>
+                                          )}
+
+                                          {/* Preview de PDF */}
+                                          {isPdf && (
+                                            <div className="mb-2 bg-red-50 dark:bg-red-900/20 rounded-lg p-4 text-center border border-red-200 dark:border-red-800">
+                                              <File className="w-8 h-8 text-red-600 dark:text-red-400 mx-auto mb-2" />
+                                              <span className="text-xs text-red-700 dark:text-red-300 font-medium">PDF</span>
+                                            </div>
+                                          )}
+
+                                          {/* Informações do arquivo */}
+                                          <div className="flex items-start justify-between gap-2">
                                             <div className="flex-1 min-w-0">
-                                              <span className="text-sm text-gray-700 dark:text-gray-300 truncate block">{file.name}</span>
+                                              <div className="flex items-center gap-2 mb-1">
+                                                {!isImage && !isPdf && (
+                                                  <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                                )}
+                                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate block" title={file.name}>
+                                                  {file.name}
+                                                </span>
+                                              </div>
                                               <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
                                             </div>
-                                          </div>
-                                          <div className="flex items-center gap-1">
-                                            {canPreview && (
-                                              <button
-                                                onClick={() => {
-                                                  setSelectedFile(file);
-                                                  setShowFileViewer(true);
-                                                }}
-                                                className="p-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                                                title="Visualizar arquivo"
+
+                                            {/* Botões de ação */}
+                                            <div className="flex items-center gap-1 flex-shrink-0">
+                                              {canPreview && (
+                                                <button
+                                                  onClick={() => {
+                                                    setSelectedFile(file);
+                                                    setShowFileViewer(true);
+                                                  }}
+                                                  className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
+                                                  title="Visualizar arquivo"
+                                                >
+                                                  <Eye className="w-4 h-4" />
+                                                </button>
+                                              )}
+                                              <a
+                                                href={file.data}
+                                                download={file.name}
+                                                className="p-2 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-900/50 rounded-lg transition-colors"
+                                                title="Baixar arquivo"
                                               >
-                                                <Eye className="w-4 h-4" />
-                                              </button>
-                                            )}
-                                            <a
-                                              href={file.data}
-                                              download={file.name}
-                                              className="p-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
-                                              title="Baixar arquivo"
-                                            >
-                                              <Download className="w-4 h-4" />
-                                            </a>
+                                                <Download className="w-4 h-4" />
+                                              </a>
+                                            </div>
                                           </div>
                                         </div>
                                       );

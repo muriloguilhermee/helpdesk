@@ -48,12 +48,22 @@ const transformComments = (comments: any[]): Comment[] => {
 
 const transformInteractions = (interactions: any[]): Interaction[] => {
   if (!interactions || !Array.isArray(interactions)) return [];
-  return interactions.map(interaction => ({
-    ...interaction,
-    createdAt: safeDateParse(interaction.createdAt || interaction.created_at),
-    author: interaction.author || null,
-    files: interaction.files || undefined, // Preservar arquivos se existirem
-  }));
+  return interactions.map(interaction => {
+    const files = interaction.files || [];
+    if (files.length > 0) {
+      console.log('📎 Interação com arquivos:', {
+        interactionId: interaction.id,
+        filesCount: files.length,
+        files: files.map((f: any) => ({ name: f.name, type: f.type, size: f.size }))
+      });
+    }
+    return {
+      ...interaction,
+      createdAt: safeDateParse(interaction.createdAt || interaction.created_at),
+      author: interaction.author || null,
+      files: files.length > 0 ? files : undefined, // Preservar arquivos se existirem
+    };
+  });
 };
 
 interface TicketsContextType {

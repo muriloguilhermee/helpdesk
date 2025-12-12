@@ -91,16 +91,29 @@ export default function TicketDetails() {
   }
   // Técnicos e Admins podem ver todos os chamados (sem restrição)
 
-  const handleAddComment = () => {
+  const handleAddComment = async () => {
     if (comment.trim() && user && ticket) {
-      const newComment: Comment = {
-        id: `comment-${Date.now()}`,
-        content: comment.trim(),
-        author: user,
-        createdAt: new Date(),
-      };
-      addComment(ticket.id, newComment);
-      setComment('');
+      try {
+        const newComment: Comment = {
+          id: `comment-${Date.now()}`,
+          content: comment.trim(),
+          author: user,
+          createdAt: new Date(),
+        };
+        console.log('📤 Enviando comentário:', {
+          ticketId: ticket.id,
+          content: newComment.content
+        });
+        await addComment(ticket.id, newComment);
+        setComment('');
+        setSuccessMessage('Comentário adicionado com sucesso!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } catch (error: any) {
+        console.error('❌ Erro ao adicionar comentário:', error);
+        const errorMessage = error.message || 'Erro ao adicionar comentário. Tente novamente.';
+        alert(`Erro: ${errorMessage}`);
+        setSuccessMessage('');
+      }
     }
   };
 
@@ -140,27 +153,42 @@ export default function TicketDetails() {
 
   const handleAddInteraction = async () => {
     if ((replyText.trim() || replyFiles.length > 0) && user && ticket) {
-      // Converter arquivos
-      const interactionFiles: TicketFile[] = [];
-      for (let i = 0; i < replyFiles.length; i++) {
-        const ticketFile = await convertFileToTicketFile(replyFiles[i], i);
-        interactionFiles.push(ticketFile);
-      }
+      try {
+        // Converter arquivos
+        const interactionFiles: TicketFile[] = [];
+        for (let i = 0; i < replyFiles.length; i++) {
+          const ticketFile = await convertFileToTicketFile(replyFiles[i], i);
+          interactionFiles.push(ticketFile);
+        }
 
-      const newInteraction: Interaction = {
-        id: `interaction-${Date.now()}`,
-        type: 'user',
-        content: replyText.trim() || '(Sem texto)',
-        author: user,
-        createdAt: new Date(),
-        files: interactionFiles.length > 0 ? interactionFiles : undefined,
-      };
-      await addInteraction(ticket.id, newInteraction);
-      setReplyText('');
-      setReplyFiles([]);
-      setShowReplyBox(false);
-      setSuccessMessage('Resposta enviada com sucesso!');
-      setTimeout(() => setSuccessMessage(''), 3000);
+        const newInteraction: Interaction = {
+          id: `interaction-${Date.now()}`,
+          type: 'user',
+          content: replyText.trim() || '(Sem texto)',
+          author: user,
+          createdAt: new Date(),
+          files: interactionFiles.length > 0 ? interactionFiles : undefined,
+        };
+
+        console.log('📤 Enviando interação:', {
+          ticketId: ticket.id,
+          type: newInteraction.type,
+          content: newInteraction.content,
+          hasFiles: !!newInteraction.files && newInteraction.files.length > 0
+        });
+
+        await addInteraction(ticket.id, newInteraction);
+        setReplyText('');
+        setReplyFiles([]);
+        setShowReplyBox(false);
+        setSuccessMessage('Resposta enviada com sucesso!');
+        setTimeout(() => setSuccessMessage(''), 3000);
+      } catch (error: any) {
+        console.error('❌ Erro ao adicionar interação:', error);
+        const errorMessage = error.message || 'Erro ao enviar resposta. Tente novamente.';
+        alert(`Erro: ${errorMessage}`);
+        setSuccessMessage('');
+      }
     }
   };
 

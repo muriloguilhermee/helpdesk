@@ -438,9 +438,11 @@ export const getTicketById = async (id: string) => {
     console.log('✅ Ticket encontrado:', ticket.id, ticket.title);
 
     // Get files
+    // Arquivos do ticket (somente os que não pertencem a interações)
     const files = await db('ticket_files')
       .where({ ticket_id: id })
-      .select('id', 'name', 'size', 'type', 'data_url', 'interaction_id', 'created_at');
+      .whereNull('interaction_id')
+      .select('id', 'name', 'size', 'type', 'data_url', 'created_at');
 
     // Get comments
     const comments = await db('comments')

@@ -925,15 +925,8 @@ export default function TicketDetails() {
 
             {activeTab === 'interactions' ? (
               <div className="space-y-4">
-                {/* Barra de Ferramentas */}
+                {/* Barra de Ferramentas (sem botão Responder) */}
                 <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-gray-200 dark:border-gray-700">
-                  <button
-                    onClick={() => setShowReplyBox(!showReplyBox)}
-                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 text-sm font-medium"
-                  >
-                    <Send className="w-4 h-4" />
-                    Responder
-                  </button>
                   <select
                     value={interactionOrder}
                     onChange={(e) => setInteractionOrder(e.target.value as 'asc' | 'desc')}
@@ -1051,7 +1044,22 @@ export default function TicketDetails() {
 
                               {/* Exibir arquivos anexados */}
                               {/* Anexos - Exibir de forma mais visível */}
-                              {interaction.files && interaction.files.length > 0 && (
+                              {(() => {
+                                const hasFiles = interaction.files && Array.isArray(interaction.files) && interaction.files.length > 0;
+                                if (hasFiles) {
+                                  console.log('🎨 Renderizando interação COM arquivos:', {
+                                    interactionId: interaction.id,
+                                    filesCount: interaction.files.length,
+                                    files: interaction.files.map((f: any) => ({
+                                      id: f.id,
+                                      name: f.name,
+                                      type: f.type,
+                                      hasData: !!f.data
+                                    }))
+                                  });
+                                }
+                                return hasFiles;
+                              })() && (
                                 <div className="mt-3 pt-3 border-t-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
                                   <div className="flex items-center gap-2 mb-3">
                                     <Paperclip className="w-5 h-5 text-blue-600 dark:text-blue-400" />
@@ -1146,6 +1154,19 @@ export default function TicketDetails() {
                   ) : (
                     <p className="text-gray-500 dark:text-gray-400 text-center py-8">Nenhuma interação encontrada</p>
                   )}
+                </div>
+
+                {/* Botão Responder - Aparece abaixo da lista de interações */}
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+                  {!showReplyBox ? (
+                    <button
+                      onClick={() => setShowReplyBox(true)}
+                      className="w-full px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
+                    >
+                      <Send className="w-4 h-4" />
+                      Responder
+                    </button>
+                  ) : null}
                 </div>
 
                 {/* Caixa de Resposta */}

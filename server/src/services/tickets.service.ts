@@ -267,9 +267,32 @@ export const getAllTickets = async (filters?: TicketFilters) => {
         // Buscar arquivos de cada interação
         interactions = await Promise.all(
           interactionsRaw.map(async (i: any) => {
+            // Buscar arquivos da interação
             const interactionFiles = await db('ticket_files')
               .where({ interaction_id: i.id })
-              .select('id', 'name', 'size', 'type', 'data_url');
+              .select('id', 'name', 'size', 'type', 'data_url', 'interaction_id');
+
+            console.log(`🔍 [getAllTickets] Buscando arquivos para interação ${i.id}:`, {
+              interactionId: i.id,
+              filesFound: interactionFiles.length,
+              files: interactionFiles.map((f: any) => ({
+                id: f.id,
+                name: f.name,
+                interaction_id: f.interaction_id
+              }))
+            });
+
+            const files = interactionFiles.map((f: any) => ({
+              id: f.id,
+              name: f.name,
+              size: parseInt(f.size),
+              type: f.type,
+              data: f.data_url,
+            }));
+
+            if (files.length > 0) {
+              console.log(`✅ [getAllTickets] Arquivos encontrados para interação ${i.id}:`, files.length);
+            }
 
             return {
               id: i.id,
@@ -277,13 +300,7 @@ export const getAllTickets = async (filters?: TicketFilters) => {
               content: i.content,
               author: i.author,
               metadata: i.metadata ? JSON.parse(i.metadata) : null,
-              files: interactionFiles.map((f: any) => ({
-                id: f.id,
-                name: f.name,
-                size: parseInt(f.size),
-                type: f.type,
-                data: f.data_url,
-              })),
+              files: files.length > 0 ? files : undefined,
               createdAt: i.created_at,
             };
           })
@@ -448,20 +465,42 @@ export const getTicketById = async (id: string) => {
     // Buscar arquivos de cada interação
     const interactions = await Promise.all(
       interactionsRaw.map(async (i: any) => {
+        // Buscar arquivos da interação - verificar se interaction_id está NULL também
         const interactionFiles = await db('ticket_files')
-          .where({ interaction_id: i.id })
-          .select('id', 'name', 'size', 'type', 'data_url');
+          .where(function() {
+            this.where({ interaction_id: i.id })
+              .orWhere(function() {
+                // Também buscar arquivos que podem ter sido salvos sem interaction_id (fallback)
+                this.where({ ticket_id: id, interaction_id: null });
+              });
+          })
+          .select('id', 'name', 'size', 'type', 'data_url', 'interaction_id', 'ticket_id');
 
-        const files = interactionFiles.map((f: any) => ({
-          id: f.id,
-          name: f.name,
-          size: parseInt(f.size),
-          type: f.type,
-          data: f.data_url,
-        }));
+        console.log(`🔍 Buscando arquivos para interação ${i.id}:`, {
+          interactionId: i.id,
+          filesFound: interactionFiles.length,
+          files: interactionFiles.map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            interaction_id: f.interaction_id,
+            ticket_id: f.ticket_id,
+            matches: f.interaction_id === i.id
+          }))
+        });
+
+        // Filtrar apenas arquivos que pertencem a esta interação
+        const files = interactionFiles
+          .filter((f: any) => f.interaction_id === i.id)
+          .map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            size: parseInt(f.size),
+            type: f.type,
+            data: f.data_url,
+          }));
 
         if (files.length > 0) {
-          console.log(`📎 Arquivos encontrados para interação ${i.id}:`, {
+          console.log(`✅ Arquivos encontrados para interação ${i.id}:`, {
             interactionId: i.id,
             filesCount: files.length,
             files: files.map((f: any) => ({
@@ -473,6 +512,8 @@ export const getTicketById = async (id: string) => {
               dataLength: f.data?.length || 0
             }))
           });
+        } else {
+          console.log(`⚠️ Nenhum arquivo encontrado para interação ${i.id}`);
         }
 
         return {

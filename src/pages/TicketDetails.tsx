@@ -44,7 +44,17 @@ export default function TicketDetails() {
   const [showFileViewer, setShowFileViewer] = useState(false);
   const [selectedFile, setSelectedFile] = useState<TicketFile | null>(null);
 
-  const ticket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
+  const ticket = useMemo(() => {
+    if (!id) return undefined;
+    const found = tickets.find(t => t.id === id);
+    console.log('🔍 Buscando ticket:', {
+      id,
+      encontrado: !!found,
+      total_tickets: tickets.length,
+      ticket_ids: tickets.map(t => t.id)
+    });
+    return found;
+  }, [tickets, id]);
 
   // Verificar se o chamado está fechado (fechado ou resolvido)
   const isClosed = ticket?.status === 'fechado' || ticket?.status === 'resolvido';
@@ -60,10 +70,25 @@ export default function TicketDetails() {
   // Verificar se pode editar o ticket (técnicos só podem adicionar comentários em tickets de outros)
   const canEditTicket = isAdmin || !isAssignedToOtherTechnician;
 
-  if (!ticket) {
+  // Tratamento de erro para evitar tela branca
+  if (!id) {
+    console.error('❌ ID do ticket não fornecido');
     return (
       <div className="text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">Chamado não encontrado</p>
+        <p className="text-gray-500 dark:text-gray-400">ID do chamado não fornecido</p>
+        <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
+          Voltar para lista
+        </button>
+      </div>
+    );
+  }
+
+  if (!ticket) {
+    console.log('⏳ Ticket não encontrado ainda, aguardando carregamento...');
+    return (
+      <div className="text-center py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+        <p className="text-gray-500 dark:text-gray-400">Carregando chamado...</p>
         <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
           Voltar para lista
         </button>
@@ -341,6 +366,17 @@ export default function TicketDetails() {
   const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
 
   // Listener para mudanças no token
+  // Log quando o ticket não é encontrado para debug
+  useEffect(() => {
+    if (id && !ticket) {
+      console.log('⚠️ Ticket não encontrado:', {
+        id,
+        total_tickets: tickets.length,
+        ticket_ids: tickets.map(t => t.id)
+      });
+    }
+  }, [id, ticket, tickets]);
+
   useEffect(() => {
     const interval = setInterval(() => {
       const currentToken = localStorage.getItem('token');

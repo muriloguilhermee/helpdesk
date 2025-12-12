@@ -537,24 +537,48 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       console.log('💬 Adicionando comentário via API:', ticketId);
       const createdComment = await api.addComment(ticketId, comment.content);
 
-      // Atualizar ticket com comentário do banco
+      console.log('✅ Comentário criado no backend:', createdComment);
+
+      // Recarregar o ticket completo do backend para garantir que todos vejam o comentário
+      // Isso é importante para que outros usuários vejam os comentários imediatamente
+      console.log('🔄 Recarregando ticket do backend para atualizar comentários...');
+      const updatedTicket = await api.getTicketById(ticketId);
+
+      console.log('📦 Ticket recarregado:', {
+        id: updatedTicket.id,
+        interactions_count: updatedTicket.interactions?.length || 0,
+        comments_count: updatedTicket.comments?.length || 0
+      });
+
+      // Transformar resposta da API
+      const transformedTicket = {
+        id: updatedTicket.id,
+        title: updatedTicket.title,
+        description: updatedTicket.description,
+        status: updatedTicket.status,
+        priority: updatedTicket.priority,
+        category: updatedTicket.category,
+        serviceType: updatedTicket.service_type,
+        totalValue: updatedTicket.total_value ? parseFloat(updatedTicket.total_value) : undefined,
+        createdBy: updatedTicket.created_by_user || { id: updatedTicket.created_by, name: '', email: '', role: 'user' },
+        assignedTo: updatedTicket.assigned_to_user,
+        client: updatedTicket.client_user,
+        files: updatedTicket.files || [],
+        comments: updatedTicket.comments || [],
+        interactions: updatedTicket.interactions || [],
+        createdAt: new Date(updatedTicket.created_at),
+        updatedAt: new Date(updatedTicket.updated_at),
+      };
+
+      // Atualizar ticket com dados completos do banco
       setTickets((prev) =>
         prev.map((ticket) =>
           ticket.id === ticketId
-            ? {
-                ...ticket,
-                comments: [...(ticket.comments || []), {
-                  id: createdComment.id,
-                  content: createdComment.content,
-                  author: createdComment.author,
-                  createdAt: new Date(createdComment.createdAt),
-                }],
-                updatedAt: new Date(),
-              }
+            ? transformedTicket
             : ticket
         )
       );
-      console.log('✅ Comentário adicionado com sucesso');
+      console.log('✅ Comentário adicionado e ticket atualizado com sucesso');
     } catch (apiError: any) {
       console.error('❌ Erro ao adicionar comentário:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar
@@ -572,26 +596,48 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         interaction.metadata
       );
 
-      // Atualizar ticket com interação do banco
+      console.log('✅ Interação criada no backend:', createdInteraction);
+
+      // Recarregar o ticket completo do backend para garantir que todos vejam a interação
+      // Isso é importante para que outros usuários vejam as interações imediatamente
+      console.log('🔄 Recarregando ticket do backend para atualizar interações...');
+      const updatedTicket = await api.getTicketById(ticketId);
+
+      console.log('📦 Ticket recarregado:', {
+        id: updatedTicket.id,
+        interactions_count: updatedTicket.interactions?.length || 0,
+        comments_count: updatedTicket.comments?.length || 0
+      });
+
+      // Transformar resposta da API
+      const transformedTicket = {
+        id: updatedTicket.id,
+        title: updatedTicket.title,
+        description: updatedTicket.description,
+        status: updatedTicket.status,
+        priority: updatedTicket.priority,
+        category: updatedTicket.category,
+        serviceType: updatedTicket.service_type,
+        totalValue: updatedTicket.total_value ? parseFloat(updatedTicket.total_value) : undefined,
+        createdBy: updatedTicket.created_by_user || { id: updatedTicket.created_by, name: '', email: '', role: 'user' },
+        assignedTo: updatedTicket.assigned_to_user,
+        client: updatedTicket.client_user,
+        files: updatedTicket.files || [],
+        comments: updatedTicket.comments || [],
+        interactions: updatedTicket.interactions || [],
+        createdAt: new Date(updatedTicket.created_at),
+        updatedAt: new Date(updatedTicket.updated_at),
+      };
+
+      // Atualizar ticket com dados completos do banco
       setTickets((prev) =>
         prev.map((ticket) =>
           ticket.id === ticketId
-            ? {
-                ...ticket,
-                interactions: [...(ticket.interactions || []), {
-                  id: createdInteraction.id,
-                  type: createdInteraction.type,
-                  content: createdInteraction.content,
-                  author: createdInteraction.author,
-                  metadata: createdInteraction.metadata,
-                  createdAt: new Date(createdInteraction.createdAt),
-                }],
-                updatedAt: new Date(),
-              }
+            ? transformedTicket
             : ticket
         )
       );
-      console.log('✅ Interação adicionada com sucesso');
+      console.log('✅ Interação adicionada e ticket atualizado com sucesso');
     } catch (apiError: any) {
       console.error('❌ Erro ao adicionar interação:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar

@@ -139,24 +139,48 @@ export default function TicketDetails() {
         console.log('🔄 Carregando ticket completo da API:', id);
         const ticketData = await api.getTicketById(id);
 
-        console.log('📦 Ticket completo recebido da API:', {
+        console.log('📦 Ticket completo recebido da API (RAW):', {
           id: ticketData.id,
           interactions_count: ticketData.interactions?.length || 0,
           interactions_with_files: ticketData.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0,
           all_interactions: ticketData.interactions?.map((i: any) => ({
             id: i.id,
             type: i.type,
+            content: i.content?.substring(0, 50),
             hasFiles: !!i.files && i.files.length > 0,
             filesCount: i.files?.length || 0,
+            filesIsArray: Array.isArray(i.files),
+            filesType: typeof i.files,
             files: i.files?.map((f: any) => ({
               id: f.id,
               name: f.name,
               type: f.type,
               hasData: !!f.data,
-              dataLength: f.data?.length || 0
-            })) || []
+              hasDataUrl: !!f.data_url,
+              dataLength: f.data?.length || 0,
+              dataUrlLength: f.data_url?.length || 0,
+              allKeys: Object.keys(f)
+            })) || [],
+            allKeys: Object.keys(i)
           })) || []
         });
+
+        // Log detalhado de cada interação
+        if (ticketData.interactions && ticketData.interactions.length > 0) {
+          ticketData.interactions.forEach((interaction: any, index: number) => {
+            console.log(`📋 Interação ${index + 1}/${ticketData.interactions.length}:`, {
+              id: interaction.id,
+              type: interaction.type,
+              content: interaction.content?.substring(0, 50),
+              hasFilesProperty: 'files' in interaction,
+              filesValue: interaction.files,
+              filesType: typeof interaction.files,
+              filesIsArray: Array.isArray(interaction.files),
+              filesLength: Array.isArray(interaction.files) ? interaction.files.length : 'N/A',
+              rawInteraction: interaction
+            });
+          });
+        }
 
             // Transformar resposta da API para formato Ticket
             const transformedTicket: Ticket = {
@@ -193,11 +217,44 @@ export default function TicketDetails() {
   const ticket = useMemo(() => {
     // Usar ticket completo da API se disponível, senão usar do contexto
     if (fullTicket) {
+      const interactionsWithFiles = fullTicket.interactions?.filter((i: any) => i.files && i.files.length > 0) || [];
       console.log('✅ Usando ticket completo da API:', {
         id: fullTicket.id,
         interactions_count: fullTicket.interactions?.length || 0,
-        interactions_with_files: fullTicket.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0
+        interactions_with_files: interactionsWithFiles.length,
+        interactions_with_files_details: interactionsWithFiles.map((i: any) => ({
+          id: i.id,
+          type: i.type,
+          content: i.content?.substring(0, 50),
+          filesCount: i.files?.length || 0,
+          files: i.files?.map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            hasData: !!f.data,
+            dataLength: f.data?.length || 0
+          })) || []
+        }))
       });
+
+      // Log de todas as interações para debug
+      if (fullTicket.interactions && fullTicket.interactions.length > 0) {
+        fullTicket.interactions.forEach((interaction: any, index: number) => {
+          console.log(`🎯 Interação ${index + 1} no ticket usado:`, {
+            id: interaction.id,
+            type: interaction.type,
+            content: interaction.content?.substring(0, 50),
+            hasFiles: !!interaction.files && interaction.files.length > 0,
+            filesCount: interaction.files?.length || 0,
+            files: interaction.files?.map((f: any) => ({
+              id: f.id,
+              name: f.name,
+              hasData: !!f.data,
+              dataLength: f.data?.length || 0
+            })) || []
+          });
+        });
+      }
+
       return fullTicket;
     }
 
@@ -388,11 +445,45 @@ export default function TicketDetails() {
           console.log('🔄 Recarregando ticket completo após adicionar interação...');
           try {
             const updatedTicketData = await api.getTicketById(ticket.id);
-            console.log('📦 Ticket recarregado após interação:', {
+            console.log('📦 Ticket recarregado após interação (RAW):', {
               id: updatedTicketData.id,
               interactions_count: updatedTicketData.interactions?.length || 0,
-              interactions_with_files: updatedTicketData.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0
+              interactions_with_files: updatedTicketData.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0,
+              all_interactions: updatedTicketData.interactions?.map((i: any) => ({
+                id: i.id,
+                type: i.type,
+                content: i.content?.substring(0, 50),
+                hasFiles: !!i.files && i.files.length > 0,
+                filesCount: i.files?.length || 0,
+                filesIsArray: Array.isArray(i.files),
+                files: i.files?.map((f: any) => ({
+                  id: f.id,
+                  name: f.name,
+                  type: f.type,
+                  hasData: !!f.data,
+                  hasDataUrl: !!f.data_url,
+                  dataLength: f.data?.length || 0,
+                  dataUrlLength: f.data_url?.length || 0
+                })) || [],
+                allKeys: Object.keys(i)
+              })) || []
             });
+
+            // Log detalhado de cada interação após recarregar
+            if (updatedTicketData.interactions && updatedTicketData.interactions.length > 0) {
+              updatedTicketData.interactions.forEach((interaction: any, index: number) => {
+                console.log(`📋 Interação ${index + 1}/${updatedTicketData.interactions.length} (após recarregar):`, {
+                  id: interaction.id,
+                  type: interaction.type,
+                  content: interaction.content?.substring(0, 50),
+                  hasFilesProperty: 'files' in interaction,
+                  filesValue: interaction.files,
+                  filesType: typeof interaction.files,
+                  filesIsArray: Array.isArray(interaction.files),
+                  filesLength: Array.isArray(interaction.files) ? interaction.files.length : 'N/A'
+                });
+              });
+            }
 
             // Transformar resposta da API para formato Ticket
             const transformedTicket: Ticket = {

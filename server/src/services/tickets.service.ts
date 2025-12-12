@@ -452,19 +452,36 @@ export const getTicketById = async (id: string) => {
           .where({ interaction_id: i.id })
           .select('id', 'name', 'size', 'type', 'data_url');
 
+        const files = interactionFiles.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          size: parseInt(f.size),
+          type: f.type,
+          data: f.data_url,
+        }));
+
+        if (files.length > 0) {
+          console.log(`📎 Arquivos encontrados para interação ${i.id}:`, {
+            interactionId: i.id,
+            filesCount: files.length,
+            files: files.map((f: any) => ({
+              id: f.id,
+              name: f.name,
+              size: f.size,
+              type: f.type,
+              hasData: !!f.data,
+              dataLength: f.data?.length || 0
+            }))
+          });
+        }
+
         return {
           id: i.id,
           type: i.type,
           content: i.content,
           author: i.author,
           metadata: i.metadata ? JSON.parse(i.metadata) : null,
-          files: interactionFiles.map((f: any) => ({
-            id: f.id,
-            name: f.name,
-            size: parseInt(f.size),
-            type: f.type,
-            data: f.data_url,
-          })),
+          files: files.length > 0 ? files : undefined,
           createdAt: i.created_at,
         };
       })

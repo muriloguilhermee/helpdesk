@@ -50,18 +50,45 @@ const transformInteractions = (interactions: any[]): Interaction[] => {
   if (!interactions || !Array.isArray(interactions)) return [];
   return interactions.map(interaction => {
     const files = interaction.files || [];
+
+    // Log detalhado para debug
     if (files.length > 0) {
-      console.log('📎 Interação com arquivos:', {
+      console.log('📎 Interação com arquivos (transformInteractions):', {
         interactionId: interaction.id,
         filesCount: files.length,
-        files: files.map((f: any) => ({ name: f.name, type: f.type, size: f.size }))
+        files: files.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          type: f.type,
+          size: f.size,
+          hasData: !!f.data,
+          dataLength: f.data?.length || 0,
+          dataPreview: f.data?.substring(0, 50) + '...'
+        }))
+      });
+    } else if (interaction.id) {
+      // Log quando não há arquivos mas a interação existe
+      console.log('⚠️ Interação sem arquivos:', {
+        interactionId: interaction.id,
+        hasFilesProperty: 'files' in interaction,
+        filesValue: interaction.files
       });
     }
+
+    // Garantir que os arquivos tenham a estrutura correta
+    const transformedFiles = files.length > 0 ? files.map((f: any) => ({
+      id: f.id || `file-${Date.now()}-${Math.random()}`,
+      name: f.name,
+      size: f.size || 0,
+      type: f.type || 'application/octet-stream',
+      data: f.data || f.data_url, // Aceitar tanto 'data' quanto 'data_url'
+    })) : undefined;
+
     return {
       ...interaction,
       createdAt: safeDateParse(interaction.createdAt || interaction.created_at),
       author: interaction.author || null,
-      files: files.length > 0 ? files : undefined, // Preservar arquivos se existirem
+      files: transformedFiles, // Preservar arquivos se existirem
     };
   });
 };
@@ -693,7 +720,18 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       console.log('📦 Ticket recarregado:', {
         id: updatedTicket.id,
         interactions_count: updatedTicket.interactions?.length || 0,
-        comments_count: updatedTicket.comments?.length || 0
+        comments_count: updatedTicket.comments?.length || 0,
+        interactions_with_files: updatedTicket.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0,
+        all_interactions: updatedTicket.interactions?.map((i: any) => ({
+          id: i.id,
+          hasFiles: !!i.files && i.files.length > 0,
+          filesCount: i.files?.length || 0,
+          files: i.files?.map((f: any) => ({
+            name: f.name,
+            type: f.type,
+            hasData: !!f.data
+          }))
+        }))
       });
 
       // Transformar resposta da API

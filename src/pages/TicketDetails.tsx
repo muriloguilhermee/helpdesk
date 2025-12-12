@@ -283,9 +283,25 @@ export default function TicketDetails() {
             createdAt = new Date();
           }
 
+          // Log para debug de arquivos
+          if (interaction.files && interaction.files.length > 0) {
+            console.log('📎 Interação com arquivos (allInteractions):', {
+              interactionId: interaction.id,
+              filesCount: interaction.files.length,
+              files: interaction.files.map((f: any) => ({
+                id: f.id,
+                name: f.name,
+                type: f.type,
+                hasData: !!f.data
+              }))
+            });
+          }
+
           interactions.push({
             ...interaction,
             createdAt,
+            // Garantir que os arquivos sejam preservados
+            files: interaction.files || undefined,
           });
         });
       }

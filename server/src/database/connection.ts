@@ -361,6 +361,8 @@ const runMigrations = async (): Promise<void> => {
         table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
         // CASCADE: quando ticket é excluído, exclui arquivos
         table.string('ticket_id').references('id').inTable('tickets').onDelete('CASCADE');
+        // CASCADE: quando interação é excluída, exclui arquivos associados
+        table.uuid('interaction_id').references('id').inTable('interactions').onDelete('CASCADE').nullable();
         table.string('name').notNullable();
         table.bigInteger('size').notNullable();
         table.string('type').notNullable();
@@ -368,6 +370,19 @@ const runMigrations = async (): Promise<void> => {
         table.timestamps(true, true);
       });
       console.log('✅ Created ticket_files table with CASCADE');
+    } else {
+      // Verificar se interaction_id existe, se não, adicionar
+      const hasInteractionId = await db!.schema.hasColumn('ticket_files', 'interaction_id');
+      if (!hasInteractionId) {
+        // Primeiro garantir que a tabela interactions existe
+        const hasInteractionsTable = await db!.schema.hasTable('interactions');
+        if (hasInteractionsTable) {
+          await db!.schema.alterTable('ticket_files', (table) => {
+            table.uuid('interaction_id').references('id').inTable('interactions').onDelete('CASCADE').nullable();
+          });
+          console.log('✅ Added interaction_id column to ticket_files table');
+        }
+      }
     }
 
     const hasCommentsTable = await db!.schema.hasTable('comments');

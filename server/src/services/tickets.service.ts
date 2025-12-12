@@ -264,14 +264,30 @@ export const getAllTickets = async (filters?: TicketFilters) => {
           )
           .orderBy('interactions.created_at', 'asc');
 
-        interactions = interactionsRaw.map((i: any) => ({
-          id: i.id,
-          type: i.type,
-          content: i.content,
-          author: i.author,
-          metadata: i.metadata ? JSON.parse(i.metadata) : null,
-          createdAt: i.created_at,
-        }));
+        // Buscar arquivos de cada interação
+        interactions = await Promise.all(
+          interactionsRaw.map(async (i: any) => {
+            const interactionFiles = await db('ticket_files')
+              .where({ interaction_id: i.id })
+              .select('id', 'name', 'size', 'type', 'data_url');
+
+            return {
+              id: i.id,
+              type: i.type,
+              content: i.content,
+              author: i.author,
+              metadata: i.metadata ? JSON.parse(i.metadata) : null,
+              files: interactionFiles.map((f: any) => ({
+                id: f.id,
+                name: f.name,
+                size: parseInt(f.size),
+                type: f.type,
+                data: f.data_url,
+              })),
+              createdAt: i.created_at,
+            };
+          })
+        );
       } catch (e) {
         console.error(`Erro ao buscar interações do ticket ${ticket.id}:`, e);
       }
@@ -408,22 +424,51 @@ export const getTicketById = async (id: string) => {
       .orderBy('comments.created_at', 'asc');
 
     // Get interactions
-    const interactions = await db('interactions')
+    const interactionsRaw = await db('interactions')
       .leftJoin('users', 'interactions.author_id', 'users.id')
-      .where({ ticket_id: id })
+      .where({ 'interactions.ticket_id': id })
       .select(
         'interactions.*',
         db.raw(`
-          json_build_object(
-            'id', users.id,
-            'name', users.name,
-            'email', users.email,
-            'role', users.role,
-            'avatar', users.avatar
-          ) as author
+          CASE
+            WHEN users.id IS NOT NULL THEN
+              json_build_object(
+                'id', users.id,
+                'name', users.name,
+                'email', users.email,
+                'role', users.role,
+                'avatar', users.avatar
+              )
+            ELSE NULL
+          END as author
         `)
       )
       .orderBy('interactions.created_at', 'asc');
+
+    // Buscar arquivos de cada interação
+    const interactions = await Promise.all(
+      interactionsRaw.map(async (i: any) => {
+        const interactionFiles = await db('ticket_files')
+          .where({ interaction_id: i.id })
+          .select('id', 'name', 'size', 'type', 'data_url');
+
+        return {
+          id: i.id,
+          type: i.type,
+          content: i.content,
+          author: i.author,
+          metadata: i.metadata ? JSON.parse(i.metadata) : null,
+          files: interactionFiles.map((f: any) => ({
+            id: f.id,
+            name: f.name,
+            size: parseInt(f.size),
+            type: f.type,
+            data: f.data_url,
+          })),
+          createdAt: i.created_at,
+        };
+      })
+    );
 
     return {
       ...ticket,
@@ -440,14 +485,7 @@ export const getTicketById = async (id: string) => {
         author: c.author,
         createdAt: c.created_at,
       })),
-      interactions: interactions.map(i => ({
-        id: i.id,
-        type: i.type,
-        content: i.content,
-        author: i.author,
-        metadata: i.metadata ? JSON.parse(i.metadata) : null,
-        createdAt: i.created_at,
-      })),
+      interactions: interactions,
     };
   } catch (error: any) {
     console.error('❌ Erro em getTicketById:', error);
@@ -716,12 +754,21 @@ export const addInteraction = async (
   authorId: string,
   type: string,
   content: string,
-  metadata?: any
+  metadata?: any,
+  files?: Array<{
+    name: string;
+    size: number;
+    type: string;
+    dataUrl: string;
+  }>
 ) => {
   try {
     const db = getDatabase();
 
-    console.log('💬 Adicionando interação ao ticket:', ticketId, type);
+    console.log('💬 Adicionando interação ao ticket:', ticketId, type, {
+      hasFiles: !!files && files.length > 0,
+      filesCount: files?.length || 0
+    });
 
     const insertResult = await db('interactions')
       .insert({
@@ -739,10 +786,31 @@ export const addInteraction = async (
       throw new Error('Falha ao criar interação: nenhum registro retornado');
     }
 
+    // Salvar arquivos se fornecidos
+    if (files && files.length > 0) {
+      console.log('📎 Salvando arquivos da interação:', files.length);
+      await db('ticket_files').insert(
+        files.map(file => ({
+          ticket_id: ticketId,
+          interaction_id: interaction.id,
+          name: file.name,
+          size: file.size.toString(),
+          type: file.type,
+          data_url: file.dataUrl,
+        }))
+      );
+      console.log('✅ Arquivos da interação salvos com sucesso');
+    }
+
     const author = await db('users')
       .where({ id: authorId })
       .select('id', 'name', 'email', 'role', 'avatar')
       .first();
+
+    // Buscar arquivos da interação
+    const interactionFiles = await db('ticket_files')
+      .where({ interaction_id: interaction.id })
+      .select('id', 'name', 'size', 'type', 'data_url');
 
     console.log('✅ Interação criada com sucesso:', interaction.id);
 
@@ -752,6 +820,13 @@ export const addInteraction = async (
       content: interaction.content,
       author,
       metadata: interaction.metadata ? JSON.parse(interaction.metadata) : null,
+      files: interactionFiles.map(f => ({
+        id: f.id,
+        name: f.name,
+        size: parseInt(f.size),
+        type: f.type,
+        data: f.data_url,
+      })),
       createdAt: interaction.created_at,
     };
   } catch (error: any) {

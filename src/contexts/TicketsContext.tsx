@@ -52,6 +52,7 @@ const transformInteractions = (interactions: any[]): Interaction[] => {
     ...interaction,
     createdAt: safeDateParse(interaction.createdAt || interaction.created_at),
     author: interaction.author || null,
+    files: interaction.files || undefined, // Preservar arquivos se existirem
   }));
 };
 
@@ -639,12 +640,25 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   const addInteraction = async (ticketId: string, interaction: Interaction) => {
     try {
       // SEMPRE usar API - sem fallback para dados locais
-      console.log('💬 Adicionando interação via API:', ticketId, interaction.type);
+      console.log('💬 Adicionando interação via API:', ticketId, interaction.type, {
+        hasFiles: !!interaction.files && interaction.files.length > 0,
+        filesCount: interaction.files?.length || 0
+      });
+
+      // Preparar arquivos para envio
+      const filesToSend = interaction.files?.map(file => ({
+        name: file.name,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+        data: file.data, // Base64 data URL
+      }));
+
       const createdInteraction = await api.addInteraction(
         ticketId,
         interaction.type,
         interaction.content,
-        interaction.metadata
+        interaction.metadata,
+        filesToSend
       );
 
       console.log('✅ Interação criada no backend:', createdInteraction);

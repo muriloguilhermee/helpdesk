@@ -231,6 +231,12 @@ const interactionSchema = z.object({
   type: z.string().min(1, 'Tipo da interação é obrigatório'),
   content: z.string().min(1, 'Conteúdo da interação é obrigatório'),
   metadata: z.any().optional(),
+  files: z.array(z.object({
+    name: z.string(),
+    size: z.number(),
+    type: z.string(),
+    dataUrl: z.string(),
+  })).optional(),
 });
 
 export const addInteractionController = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -256,7 +262,8 @@ export const addInteractionController = async (req: AuthRequest, res: Response):
       req.user.id,
       validated.type,
       validated.content,
-      validated.metadata
+      validated.metadata,
+      validated.files
     );
     console.log('✅ Interação criada no banco:', interaction.id);
 

@@ -279,10 +279,25 @@ class ApiService {
     });
   }
 
-  async addInteraction(ticketId: string, type: string, content: string, metadata?: any) {
+  async addInteraction(ticketId: string, type: string, content: string, metadata?: any, files?: Array<{
+    name: string;
+    size: number;
+    type: string;
+    data: string; // Base64 data URL
+  }>) {
     return this.request<any>(`/tickets/${ticketId}/interactions`, {
       method: 'POST',
-      body: JSON.stringify({ type, content, metadata }),
+      body: JSON.stringify({
+        type,
+        content,
+        metadata,
+        files: files?.map(f => ({
+          name: f.name,
+          size: f.size,
+          type: f.type,
+          dataUrl: f.data, // Enviar como dataUrl para o backend
+        }))
+      }),
     });
   }
 

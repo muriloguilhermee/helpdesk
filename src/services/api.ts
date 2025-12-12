@@ -110,8 +110,20 @@ class ApiService {
           throw errorWithStatus;
         }
 
-        const error = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        const errorMessage = error.error || `HTTP error! status: ${response.status}`;
+        // Tentar ler JSON; se falhar, ler texto para logar a mensagem real
+        let errorMessage = `HTTP error! status: ${response.status}`;
+        try {
+          const errorJson = await response.json();
+          errorMessage = errorJson.error || errorMessage;
+        } catch {
+          try {
+            const errorText = await response.text();
+            if (errorText) errorMessage = errorText;
+          } catch {
+            // ignore
+          }
+        }
+
         const errorWithStatus = new Error(errorMessage);
         (errorWithStatus as any).status = response.status;
         throw errorWithStatus;

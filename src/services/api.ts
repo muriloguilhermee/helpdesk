@@ -43,6 +43,11 @@ class ApiService {
 
     if (token) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
+      console.log('🔑 Token encontrado, adicionando ao header Authorization');
+    } else {
+      console.error('❌ Token não encontrado no localStorage!');
+      console.error('   Endpoint:', endpoint);
+      console.error('   localStorage token:', localStorage.getItem('token'));
     }
 
     // Adicionar timeout e retry para conexões intermitentes
@@ -77,6 +82,23 @@ class ApiService {
       }
 
       if (!response.ok) {
+        // Para 401, verificar se é problema de token
+        if (response.status === 401) {
+          console.error('❌ Erro 401 (Unauthorized):', {
+            endpoint,
+            hasToken: !!token,
+            tokenPreview: token ? token.substring(0, 20) + '...' : 'null'
+          });
+
+          // Tentar obter token novamente
+          const currentToken = this.getToken();
+          if (!currentToken) {
+            const errorWithStatus = new Error('Token não fornecido. Faça login novamente.');
+            (errorWithStatus as any).status = 401;
+            throw errorWithStatus;
+          }
+        }
+
         // Para 429, marcar como rate limited e lançar erro
         if (response.status === 429) {
           const retryAfter = response.headers.get('Retry-After');

@@ -179,6 +179,22 @@ export default function TicketDetails() {
   const handleAddInteraction = async () => {
     if ((replyText.trim() || replyFiles.length > 0) && user && ticket) {
       try {
+        // Verificar se há token antes de continuar
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.error('❌ Token não encontrado no localStorage!');
+          alert('Sessão expirada. Por favor, faça login novamente.');
+          // Redirecionar para login se necessário
+          window.location.href = '/login';
+          return;
+        }
+
+        console.log('🔑 Token verificado:', {
+          hasToken: !!token,
+          tokenPreview: token.substring(0, 20) + '...',
+          tokenLength: token.length
+        });
+
         // Converter arquivos
         const interactionFiles: TicketFile[] = [];
         for (let i = 0; i < replyFiles.length; i++) {
@@ -218,6 +234,17 @@ export default function TicketDetails() {
         setTimeout(() => setSuccessMessage(''), 3000);
       } catch (error: any) {
         console.error('❌ Erro ao adicionar interação:', error);
+
+        // Tratamento específico para erro 401
+        if (error.status === 401 || error.message?.includes('Token não fornecido') || error.message?.includes('Unauthorized')) {
+          alert('Sessão expirada. Por favor, faça login novamente.');
+          // Limpar token e redirecionar
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+          return;
+        }
+
         const errorMessage = error.message || 'Erro ao enviar resposta. Tente novamente.';
         alert(`Erro: ${errorMessage}`);
         setSuccessMessage('');

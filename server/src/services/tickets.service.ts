@@ -240,6 +240,42 @@ export const getAllTickets = async (filters?: TicketFilters) => {
         console.error(`Erro ao buscar comentários do ticket ${ticket.id}:`, e);
       }
 
+      // Buscar interações
+      let interactions: any[] = [];
+      try {
+        const interactionsRaw = await db('interactions')
+          .leftJoin('users', 'interactions.author_id', 'users.id')
+          .where('interactions.ticket_id', ticket.id)
+          .select(
+            'interactions.*',
+            db.raw(`
+              CASE
+                WHEN users.id IS NOT NULL THEN
+                  json_build_object(
+                    'id', users.id,
+                    'name', users.name,
+                    'email', users.email,
+                    'role', users.role,
+                    'avatar', users.avatar
+                  )
+                ELSE NULL
+              END as author
+            `)
+          )
+          .orderBy('interactions.created_at', 'asc');
+
+        interactions = interactionsRaw.map((i: any) => ({
+          id: i.id,
+          type: i.type,
+          content: i.content,
+          author: i.author,
+          metadata: i.metadata ? JSON.parse(i.metadata) : null,
+          createdAt: i.created_at,
+        }));
+      } catch (e) {
+        console.error(`Erro ao buscar interações do ticket ${ticket.id}:`, e);
+      }
+
       return {
         ...ticket,
         created_by_user: createdByUser,
@@ -253,6 +289,7 @@ export const getAllTickets = async (filters?: TicketFilters) => {
           data: f.data_url,
         })),
         comments: comments,
+        interactions: interactions,
       };
     }));
 
@@ -370,6 +407,24 @@ export const getTicketById = async (id: string) => {
       )
       .orderBy('comments.created_at', 'asc');
 
+    // Get interactions
+    const interactions = await db('interactions')
+      .leftJoin('users', 'interactions.author_id', 'users.id')
+      .where({ ticket_id: id })
+      .select(
+        'interactions.*',
+        db.raw(`
+          json_build_object(
+            'id', users.id,
+            'name', users.name,
+            'email', users.email,
+            'role', users.role,
+            'avatar', users.avatar
+          ) as author
+        `)
+      )
+      .orderBy('interactions.created_at', 'asc');
+
     return {
       ...ticket,
       files: files.map(f => ({
@@ -384,6 +439,14 @@ export const getTicketById = async (id: string) => {
         content: c.content,
         author: c.author,
         createdAt: c.created_at,
+      })),
+      interactions: interactions.map(i => ({
+        id: i.id,
+        type: i.type,
+        content: i.content,
+        author: i.author,
+        metadata: i.metadata ? JSON.parse(i.metadata) : null,
+        createdAt: i.created_at,
       })),
     };
   } catch (error: any) {
@@ -644,6 +707,55 @@ export const addComment = async (ticketId: string, authorId: string, content: st
     };
   } catch (error: any) {
     console.error('❌ Erro ao adicionar comentário:', error);
+    throw error;
+  }
+};
+
+export const addInteraction = async (
+  ticketId: string,
+  authorId: string,
+  type: string,
+  content: string,
+  metadata?: any
+) => {
+  try {
+    const db = getDatabase();
+
+    console.log('💬 Adicionando interação ao ticket:', ticketId, type);
+
+    const insertResult = await db('interactions')
+      .insert({
+        ticket_id: ticketId,
+        author_id: authorId,
+        type,
+        content,
+        metadata: metadata ? JSON.stringify(metadata) : null,
+      })
+      .returning('*');
+
+    const interaction = Array.isArray(insertResult) ? insertResult[0] : insertResult;
+
+    if (!interaction || !interaction.id) {
+      throw new Error('Falha ao criar interação: nenhum registro retornado');
+    }
+
+    const author = await db('users')
+      .where({ id: authorId })
+      .select('id', 'name', 'email', 'role', 'avatar')
+      .first();
+
+    console.log('✅ Interação criada com sucesso:', interaction.id);
+
+    return {
+      id: interaction.id,
+      type: interaction.type,
+      content: interaction.content,
+      author,
+      metadata: interaction.metadata ? JSON.parse(interaction.metadata) : null,
+      createdAt: interaction.created_at,
+    };
+  } catch (error: any) {
+    console.error('❌ Erro ao adicionar interação:', error);
     throw error;
   }
 };

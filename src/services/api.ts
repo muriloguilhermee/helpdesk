@@ -279,6 +279,13 @@ class ApiService {
     });
   }
 
+  async addInteraction(ticketId: string, type: string, content: string, metadata?: any) {
+    return this.request<any>(`/tickets/${ticketId}/interactions`, {
+      method: 'POST',
+      body: JSON.stringify({ type, content, metadata }),
+    });
+  }
+
   // Financial Tickets
   async getFinancialTickets() {
     return this.request<any[]>('/financial');

@@ -7,6 +7,7 @@ import {
   updateTicket,
   deleteTicket,
   addComment,
+  addInteraction,
 } from '../services/tickets.service.js';
 import { z } from 'zod';
 
@@ -204,6 +205,37 @@ export const addCommentController = async (req: AuthRequest, res: Response): Pro
     const validated = commentSchema.parse(req.body);
     const comment = await addComment(req.params.id, req.user.id, validated.content);
     res.status(201).json(comment);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      res.status(400).json({ error: error.errors[0].message });
+      return;
+    }
+    res.status(400).json({ error: (error as Error).message });
+  }
+};
+
+const interactionSchema = z.object({
+  type: z.string().min(1, 'Tipo da interação é obrigatório'),
+  content: z.string().min(1, 'Conteúdo da interação é obrigatório'),
+  metadata: z.any().optional(),
+});
+
+export const addInteractionController = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    if (!req.user) {
+      res.status(401).json({ error: 'Não autenticado' });
+      return;
+    }
+
+    const validated = interactionSchema.parse(req.body);
+    const interaction = await addInteraction(
+      req.params.id,
+      req.user.id,
+      validated.type,
+      validated.content,
+      validated.metadata
+    );
+    res.status(201).json(interaction);
   } catch (error) {
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: error.errors[0].message });

@@ -85,7 +85,8 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           status_tipo: typeof t.status,
           assigned_to_user: t.assigned_to_user,
           assigned_to_id: t.assigned_to,
-          title: t.title
+          title: t.title,
+          interactions_count: t.interactions?.length || 0
         });
 
         const transformed = {
@@ -102,6 +103,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           client: t.client_user,
           files: t.files || [],
           comments: t.comments || [],
+          interactions: t.interactions || [],
           createdAt: new Date(t.created_at),
           updatedAt: new Date(t.updated_at),
         };
@@ -384,6 +386,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         client: updatedTicket.client_user,
         files: updatedTicket.files || [],
         comments: updatedTicket.comments || [],
+        interactions: updatedTicket.interactions || [],
         createdAt: new Date(updatedTicket.created_at),
         updatedAt: new Date(updatedTicket.updated_at),
       };
@@ -475,6 +478,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         client: createdTicket.client_user,
         files: createdTicket.files || [],
         comments: createdTicket.comments || [],
+        interactions: createdTicket.interactions || [],
         createdAt: new Date(createdTicket.created_at),
         updatedAt: new Date(createdTicket.updated_at),
       };
@@ -558,25 +562,39 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   };
 
   const addInteraction = async (ticketId: string, interaction: Interaction) => {
-    const updatedTickets = tickets.map((ticket) =>
-      ticket.id === ticketId
-        ? {
-            ...ticket,
-            interactions: [...(ticket.interactions || []), interaction],
-            updatedAt: new Date(),
-          }
-        : ticket
-    );
-    setTickets(updatedTickets);
+    try {
+      // SEMPRE usar API - sem fallback para dados locais
+      console.log('💬 Adicionando interação via API:', ticketId, interaction.type);
+      const createdInteraction = await api.addInteraction(
+        ticketId,
+        interaction.type,
+        interaction.content,
+        interaction.metadata
+      );
 
-    // Encontrar o ticket atualizado e salvar no banco
-    const updatedTicket = updatedTickets.find(t => t.id === ticketId);
-    if (updatedTicket) {
-      try {
-        await database.saveTicket(updatedTicket);
-      } catch (error) {
-        console.error('Erro ao salvar interação no banco de dados:', error);
-      }
+      // Atualizar ticket com interação do banco
+      setTickets((prev) =>
+        prev.map((ticket) =>
+          ticket.id === ticketId
+            ? {
+                ...ticket,
+                interactions: [...(ticket.interactions || []), {
+                  id: createdInteraction.id,
+                  type: createdInteraction.type,
+                  content: createdInteraction.content,
+                  author: createdInteraction.author,
+                  metadata: createdInteraction.metadata,
+                  createdAt: new Date(createdInteraction.createdAt),
+                }],
+                updatedAt: new Date(),
+              }
+            : ticket
+        )
+      );
+      console.log('✅ Interação adicionada com sucesso');
+    } catch (apiError: any) {
+      console.error('❌ Erro ao adicionar interação:', apiError);
+      throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
 

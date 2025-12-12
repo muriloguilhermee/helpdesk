@@ -7,6 +7,7 @@ import {
   updateTicketController,
   deleteTicketController,
   addCommentController,
+  addInteractionController,
 } from '../controllers/tickets.controller.js';
 
 const router = Router();
@@ -23,20 +24,23 @@ router.get('/pending', async (req, res) => {
   return getAllTicketsController(req as any, res);
 });
 
-// Get ticket by ID
-router.get('/:id', getTicketByIdController);
-
 // Create ticket
 router.post('/', createTicketController);
+
+// Add comment (deve vir antes de /:id para evitar conflito)
+router.post('/:id/comments', addCommentController);
+
+// Add interaction (deve vir antes de /:id para evitar conflito)
+router.post('/:id/interactions', addInteractionController);
+
+// Get ticket by ID
+router.get('/:id', getTicketByIdController);
 
 // Update ticket
 router.put('/:id', updateTicketController);
 
 // Delete ticket (admin only)
 router.delete('/:id', authorize('admin'), deleteTicketController);
-
-// Add comment
-router.post('/:id/comments', addCommentController);
 
 export default router;
 

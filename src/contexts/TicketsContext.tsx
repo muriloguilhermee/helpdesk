@@ -47,9 +47,28 @@ const transformComments = (comments: any[]): Comment[] => {
 };
 
 const transformInteractions = (interactions: any[]): Interaction[] => {
-  if (!interactions || !Array.isArray(interactions)) return [];
+  if (!interactions || !Array.isArray(interactions)) {
+    console.log('⚠️ transformInteractions: interactions não é um array válido', interactions);
+    return [];
+  }
+
+  console.log('🔄 transformInteractions: processando', interactions.length, 'interações');
+
   return interactions.map(interaction => {
-    const files = interaction.files || [];
+    // Verificar múltiplas possibilidades de onde os arquivos podem estar
+    const files = interaction.files || interaction.attachments || [];
+
+    // Log detalhado para TODAS as interações
+    console.log('🔍 Processando interação:', {
+      interactionId: interaction.id,
+      hasFilesProperty: 'files' in interaction,
+      hasAttachmentsProperty: 'attachments' in interaction,
+      filesValue: interaction.files,
+      filesType: typeof interaction.files,
+      filesIsArray: Array.isArray(interaction.files),
+      filesLength: Array.isArray(interaction.files) ? interaction.files.length : 0,
+      rawInteraction: interaction
+    });
 
     // Log detalhado para debug
     if (files.length > 0) {
@@ -62,8 +81,10 @@ const transformInteractions = (interactions: any[]): Interaction[] => {
           type: f.type,
           size: f.size,
           hasData: !!f.data,
+          hasDataUrl: !!f.data_url,
           dataLength: f.data?.length || 0,
-          dataPreview: f.data?.substring(0, 50) + '...'
+          dataUrlLength: f.data_url?.length || 0,
+          dataPreview: f.data?.substring(0, 50) || f.data_url?.substring(0, 50) || 'sem dados'
         }))
       });
     } else if (interaction.id) {
@@ -71,18 +92,42 @@ const transformInteractions = (interactions: any[]): Interaction[] => {
       console.log('⚠️ Interação sem arquivos:', {
         interactionId: interaction.id,
         hasFilesProperty: 'files' in interaction,
-        filesValue: interaction.files
+        filesValue: interaction.files,
+        allKeys: Object.keys(interaction)
       });
     }
 
     // Garantir que os arquivos tenham a estrutura correta
-    const transformedFiles = files.length > 0 ? files.map((f: any) => ({
-      id: f.id || `file-${Date.now()}-${Math.random()}`,
-      name: f.name,
-      size: f.size || 0,
-      type: f.type || 'application/octet-stream',
-      data: f.data || f.data_url, // Aceitar tanto 'data' quanto 'data_url'
-    })) : undefined;
+    const transformedFiles = files.length > 0 ? files.map((f: any) => {
+      const fileData = f.data || f.data_url || null;
+      if (!fileData) {
+        console.warn('⚠️ Arquivo sem dados:', {
+          fileId: f.id,
+          fileName: f.name,
+          fileKeys: Object.keys(f)
+        });
+      }
+      return {
+        id: f.id || `file-${Date.now()}-${Math.random()}`,
+        name: f.name,
+        size: f.size || 0,
+        type: f.type || 'application/octet-stream',
+        data: fileData, // Aceitar tanto 'data' quanto 'data_url'
+      };
+    }).filter((f: any) => f.data) : undefined; // Filtrar arquivos sem dados
+
+    if (transformedFiles && transformedFiles.length > 0) {
+      console.log('✅ Arquivos transformados:', {
+        interactionId: interaction.id,
+        filesCount: transformedFiles.length,
+        files: transformedFiles.map((f: any) => ({
+          id: f.id,
+          name: f.name,
+          hasData: !!f.data,
+          dataLength: f.data?.length || 0
+        }))
+      });
+    }
 
     return {
       ...interaction,
@@ -717,20 +762,28 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       console.log('🔄 Recarregando ticket do backend para atualizar interações...');
       const updatedTicket = await api.getTicketById(ticketId);
 
-      console.log('📦 Ticket recarregado:', {
+      console.log('📦 Ticket recarregado (RAW):', {
         id: updatedTicket.id,
         interactions_count: updatedTicket.interactions?.length || 0,
         comments_count: updatedTicket.comments?.length || 0,
         interactions_with_files: updatedTicket.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0,
         all_interactions: updatedTicket.interactions?.map((i: any) => ({
           id: i.id,
+          type: i.type,
           hasFiles: !!i.files && i.files.length > 0,
           filesCount: i.files?.length || 0,
+          filesIsArray: Array.isArray(i.files),
           files: i.files?.map((f: any) => ({
+            id: f.id,
             name: f.name,
             type: f.type,
-            hasData: !!f.data
-          }))
+            size: f.size,
+            hasData: !!f.data,
+            hasDataUrl: !!f.data_url,
+            dataLength: f.data?.length || f.data_url?.length || 0,
+            allKeys: Object.keys(f)
+          })) || [],
+          allKeys: Object.keys(i)
         }))
       });
 

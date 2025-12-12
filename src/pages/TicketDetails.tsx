@@ -427,18 +427,12 @@ export default function TicketDetails() {
       const apiUrl = import.meta.env.VITE_API_URL;
       let allUsers: any[] = [];
 
-      if (apiUrl) {
-        try {
-          // Usar API para buscar usuários
-          allUsers = await api.getUsers();
-        } catch (error) {
-          console.error('Erro ao buscar usuários da API, usando database local:', error);
-          await database.init();
-          allUsers = await database.getUsers();
-        }
-      } else {
-        await database.init();
-        allUsers = await database.getUsers();
+      // SEMPRE usar API para buscar usuários - sem fallback para database local
+      try {
+        allUsers = await api.getUsers();
+      } catch (error) {
+        console.error('Erro ao buscar usuários da API:', error);
+        throw error; // Propagar o erro ao invés de usar fallback
       }
 
       // Filtrar apenas técnicos que NÃO são mockados

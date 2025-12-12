@@ -121,20 +121,13 @@ export default function Dashboard() {
       }
 
       try {
-        // Usar API se disponível, senão usar database local
-        const apiUrl = import.meta.env.VITE_API_URL;
+        // SEMPRE usar API para buscar usuários - sem fallback para database local
         let allUsers: UserType[];
-        if (apiUrl) {
-          try {
-            allUsers = await api.getUsers();
-          } catch (error) {
-            console.error('Erro ao buscar usuários da API, usando database local:', error);
-            await database.init();
-            allUsers = await database.getUsers();
-          }
-        } else {
-          await database.init();
-          allUsers = await database.getUsers();
+        try {
+          allUsers = await api.getUsers();
+        } catch (error) {
+          console.error('Erro ao buscar usuários da API:', error);
+          throw error; // Propagar o erro ao invés de usar fallback
         }
 
         // Filtrar apenas técnicos que NÃO são mockados

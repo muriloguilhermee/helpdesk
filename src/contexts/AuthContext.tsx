@@ -173,15 +173,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             return;
           }
 
-          // Buscar versão atualizada do usuário no banco de dados
+          // Buscar versão atualizada do usuário da API
           try {
-            await database.init();
-            const allUsersArray = await database.getUsers();
-            const updatedUser = allUsersArray.find((u: User) => u.id === user.id);
-            if (updatedUser) {
-              setUser(updatedUser);
-              localStorage.setItem('user', JSON.stringify(updatedUser));
-              return;
+            const apiUrl = import.meta.env.VITE_API_URL;
+            if (apiUrl) {
+              const allUsersArray = await api.getUsers();
+              const updatedUser = allUsersArray.find((u: any) => u.id === user.id);
+              if (updatedUser) {
+                const transformedUser: User = {
+                  id: updatedUser.id,
+                  name: updatedUser.name,
+                  email: updatedUser.email,
+                  role: updatedUser.role,
+                  avatar: updatedUser.avatar,
+                  company: updatedUser.company,
+                };
+                setUser(transformedUser);
+                localStorage.setItem('user', JSON.stringify(transformedUser));
+                return;
+              }
             }
           } catch {
             // Se houver erro, usar o usuário salvo
@@ -326,20 +336,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const allUsersWithPasswords = Array.from(usersMap.values());
     localStorage.setItem('usersWithPasswords', JSON.stringify(allUsersWithPasswords));
 
-    let allUsersArray: User[] = [];
-    try {
-      await database.init();
-      allUsersArray = await database.getUsers();
-    } catch {
-      // Continue without database
-    }
-
     const foundUser = allUsersWithPasswords.find(
       (u: any) => u.email.toLowerCase() === normalizedEmail && u.password === password
     );
 
     if (foundUser) {
-      const updatedUser = allUsersArray.find(u => u.id === foundUser.id) || foundUser;
+      // Buscar usuário atualizado da API se disponível
+      let updatedUser = foundUser;
+      try {
+        const apiUrl = import.meta.env.VITE_API_URL;
+        if (apiUrl) {
+          const allUsersArray = await api.getUsers();
+          const apiUser = allUsersArray.find((u: any) => u.id === foundUser.id);
+          if (apiUser) {
+            updatedUser = {
+              id: apiUser.id,
+              name: apiUser.name,
+              email: apiUser.email,
+              role: apiUser.role,
+              avatar: apiUser.avatar,
+              company: apiUser.company,
+            };
+          }
+        }
+      } catch {
+        // Se houver erro, usar o usuário mockado
+      }
       const { password: _, ...userWithoutPassword } = updatedUser;
       setUser(userWithoutPassword);
       localStorage.setItem('user', JSON.stringify(userWithoutPassword));

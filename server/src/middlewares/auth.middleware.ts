@@ -6,6 +6,8 @@ export interface AuthRequest extends Request {
   params: any;
   query: any;
   headers: any;
+  path?: string;
+  method?: string;
   user?: {
     id: string;
     email: string;
@@ -17,8 +19,8 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   try {
     const authHeader = req.headers.authorization;
     console.log('🔐 Middleware de autenticação:', {
-      path: req.path,
-      method: req.method,
+      path: req.path || req.url,
+      method: req.method || 'UNKNOWN',
       hasAuthHeader: !!authHeader,
       authHeaderPreview: authHeader ? authHeader.substring(0, 20) + '...' : 'null'
     });
@@ -49,8 +51,8 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
   } catch (error: any) {
     console.error('❌ Erro ao verificar token:', {
       error: error.message,
-      path: req.path,
-      method: req.method
+      path: req.path || req.url,
+      method: req.method || 'UNKNOWN'
     });
     res.status(401).json({ error: 'Token inválido ou expirado' });
   }

@@ -268,13 +268,23 @@ export const addInteractionController = async (req: AuthRequest, res: Response):
       }))
     });
 
+    // Filtrar e validar arquivos antes de enviar - garantir que todos os campos obrigatórios estejam presentes
+    const validFiles = validated.files?.filter((f: any) =>
+      f && f.name && typeof f.size === 'number' && f.type && f.dataUrl
+    ).map((f: any) => ({
+      name: f.name as string,
+      size: f.size as number,
+      type: f.type as string,
+      dataUrl: f.dataUrl as string,
+    }));
+
     const interaction = await addInteraction(
       req.params.id,
       req.user.id,
       validated.type,
       validated.content,
       validated.metadata,
-      validated.files
+      validFiles && validFiles.length > 0 ? validFiles : undefined
     );
     console.log('✅ Interação criada no banco:', interaction.id);
 

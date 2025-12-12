@@ -891,23 +891,24 @@ export const addInteraction = async (
       });
 
       try {
-        const insertResult = await db('ticket_files').insert(
-          files.map(file => ({
-            ticket_id: ticketId,
-            interaction_id: interaction.id,
-            name: file.name,
-            size: file.size.toString(),
-            type: file.type,
-            data_url: file.dataUrl,
-          }))
-          .returning('*')
-        );
+        const insertResult = await db('ticket_files')
+          .insert(
+            files.map(file => ({
+              ticket_id: ticketId,
+              interaction_id: interaction.id,
+              name: file.name,
+              size: file.size.toString(),
+              type: file.type,
+              data_url: file.dataUrl,
+            }))
+          )
+          .returning('*');
 
         console.log('✅ Arquivos da interação salvos com sucesso:', {
           savedCount: Array.isArray(insertResult) ? insertResult.length : 1,
           fileIds: Array.isArray(insertResult)
             ? insertResult.map((f: any) => f.id)
-            : [insertResult.id]
+            : []
         });
       } catch (fileError: any) {
         console.error('❌ Erro ao salvar arquivos da interação:', fileError);

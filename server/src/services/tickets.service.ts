@@ -440,7 +440,7 @@ export const getTicketById = async (id: string) => {
     // Get files
     const files = await db('ticket_files')
       .where({ ticket_id: id })
-      .select('id', 'name', 'size', 'type', 'data_url', 'created_at');
+      .select('id', 'name', 'size', 'type', 'data_url', 'interaction_id', 'created_at');
 
     // Get comments
     const comments = await db('comments')
@@ -586,6 +586,7 @@ export const getTicketById = async (id: string) => {
         size: parseInt(f.size),
         type: f.type,
         data: f.data_url,
+        interactionId: f.interaction_id || null,
       })),
       comments: comments.map(c => ({
         id: c.id,

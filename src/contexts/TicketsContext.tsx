@@ -685,6 +685,38 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       });
 
       // Transformar resposta da API
+      const rawInteractions = transformInteractions(updatedTicket.interactions || []);
+
+      // Se alguma interação veio sem arquivos, tentar associar a partir de ticket.files via interactionId
+      const filesByInteraction: Record<string, any[]> = {};
+      if (updatedTicket.files && Array.isArray(updatedTicket.files)) {
+        updatedTicket.files.forEach((f: any) => {
+          const key = f.interactionId || f.interaction_id;
+          if (key) {
+            if (!filesByInteraction[key]) filesByInteraction[key] = [];
+            filesByInteraction[key].push({
+              id: f.id,
+              name: f.name,
+              size: f.size,
+              type: f.type,
+              data: f.data,
+            });
+          }
+        });
+      }
+
+      const mergedInteractions = rawInteractions.map((i) => {
+        if (i.files && i.files.length > 0) return i;
+        const fallback = filesByInteraction[i.id];
+        if (fallback && fallback.length > 0) {
+          return {
+            ...i,
+            files: fallback,
+          };
+        }
+        return i;
+      });
+
       const transformedTicket = {
         id: updatedTicket.id,
         title: updatedTicket.title,
@@ -699,7 +731,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         client: updatedTicket.client_user,
         files: updatedTicket.files || [],
         comments: transformComments(updatedTicket.comments || []),
-        interactions: transformInteractions(updatedTicket.interactions || []),
+        interactions: mergedInteractions,
         createdAt: safeDateParse(updatedTicket.created_at),
         updatedAt: safeDateParse(updatedTicket.updated_at),
       };
@@ -732,7 +764,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         name: file.name,
         size: file.size,
         type: file.type || 'application/octet-stream',
-        dataUrl: file.data, // Base64 data URL - IMPORTANTE: usar dataUrl para o backend
+        dataUrl: file.data || '', // Base64 data URL - IMPORTANTE: usar dataUrl para o backend
       }));
 
       console.log('📎 Arquivos preparados para envio:', {

@@ -182,25 +182,57 @@ export default function TicketDetails() {
           });
         }
 
-            // Transformar resposta da API para formato Ticket
-            const transformedTicket: Ticket = {
-              id: ticketData.id,
-              title: ticketData.title,
-              description: ticketData.description,
-              status: ticketData.status,
-              priority: ticketData.priority,
-              category: ticketData.category,
-              serviceType: ticketData.service_type,
-              totalValue: ticketData.total_value ? parseFloat(ticketData.total_value) : undefined,
-              createdBy: ticketData.created_by_user || { id: ticketData.created_by, name: '', email: '', role: 'user' },
-              assignedTo: ticketData.assigned_to_user,
-              client: ticketData.client_user,
-              files: ticketData.files || [],
-              comments: ticketData.comments || [],
-              interactions: transformInteractions(ticketData.interactions || []), // IMPORTANTE: transformar interações
-              createdAt: new Date(ticketData.created_at),
-              updatedAt: new Date(ticketData.updated_at),
+        // Transformar resposta da API para formato Ticket
+        const rawInteractions = transformInteractions(ticketData.interactions || []);
+
+        // Se alguma interação veio sem arquivos, tentar associar a partir de ticket.files via interactionId
+        const filesByInteraction: Record<string, any[]> = {};
+        if (ticketData.files && Array.isArray(ticketData.files)) {
+          ticketData.files.forEach((f: any) => {
+            const key = f.interactionId || f.interaction_id;
+            if (key) {
+              if (!filesByInteraction[key]) filesByInteraction[key] = [];
+              filesByInteraction[key].push({
+                id: f.id,
+                name: f.name,
+                size: f.size,
+                type: f.type,
+                data: f.data,
+              });
+            }
+          });
+        }
+
+        const mergedInteractions = rawInteractions.map((i) => {
+          if (i.files && i.files.length > 0) return i;
+          const fallback = filesByInteraction[i.id];
+          if (fallback && fallback.length > 0) {
+            return {
+              ...i,
+              files: fallback,
             };
+          }
+          return i;
+        });
+
+        const transformedTicket: Ticket = {
+          id: ticketData.id,
+          title: ticketData.title,
+          description: ticketData.description,
+          status: ticketData.status,
+          priority: ticketData.priority,
+          category: ticketData.category,
+          serviceType: ticketData.service_type,
+          totalValue: ticketData.total_value ? parseFloat(ticketData.total_value) : undefined,
+          createdBy: ticketData.created_by_user || { id: ticketData.created_by, name: '', email: '', role: 'user' },
+          assignedTo: ticketData.assigned_to_user,
+          client: ticketData.client_user,
+          files: ticketData.files || [],
+          comments: ticketData.comments || [],
+          interactions: mergedInteractions, // Transformadas + merge de arquivos
+          createdAt: new Date(ticketData.created_at),
+          updatedAt: new Date(ticketData.updated_at),
+        };
 
         setFullTicket(transformedTicket);
       } catch (error) {
@@ -1322,18 +1354,18 @@ export default function TicketDetails() {
                               {/* Exibir arquivos anexados */}
                               {/* Anexos - Exibir de forma mais visível */}
                               {(() => {
+                                const interactionFiles = interaction.files ?? [];
                                 // Verificar se há arquivos de forma mais robusta
-                                const hasFiles = interaction.files &&
-                                                 Array.isArray(interaction.files) &&
-                                                 interaction.files.length > 0 &&
-                                                 interaction.files.some((f: any) => f && f.data); // Garantir que pelo menos um arquivo tenha dados
+                                const hasFiles = Array.isArray(interactionFiles) &&
+                                                 interactionFiles.length > 0 &&
+                                                 interactionFiles.some((f: any) => f && f.data); // Garantir que pelo menos um arquivo tenha dados
 
                                 if (hasFiles) {
                                   console.log('🎨 Renderizando interação COM arquivos:', {
                                     interactionId: interaction.id,
-                                    filesCount: interaction.files.length,
-                                    filesWithData: interaction.files.filter((f: any) => f && f.data).length,
-                                    files: interaction.files.map((f: any) => ({
+                                    filesCount: interactionFiles.length,
+                                    filesWithData: interactionFiles.filter((f: any) => f && f.data).length,
+                                    files: interactionFiles.map((f: any) => ({
                                       id: f.id,
                                       name: f.name,
                                       type: f.type,
@@ -1341,11 +1373,11 @@ export default function TicketDetails() {
                                       dataLength: f.data?.length || 0
                                     }))
                                   });
-                                } else if (interaction.files && interaction.files.length > 0) {
+                                } else if (interactionFiles.length > 0) {
                                   console.warn('⚠️ Interação tem arquivos mas sem dados válidos:', {
                                     interactionId: interaction.id,
-                                    filesCount: interaction.files.length,
-                                    files: interaction.files.map((f: any) => ({
+                                    filesCount: interactionFiles.length,
+                                    files: interactionFiles.map((f: any) => ({
                                       id: f.id,
                                       name: f.name,
                                       hasData: !!f.data
@@ -1362,7 +1394,7 @@ export default function TicketDetails() {
                                     </span>
                                   </div>
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {interaction.files
+                                    {(interaction.files ?? [])
                                       .filter((file: any) => file && file.data) // Filtrar apenas arquivos com dados válidos
                                       .map((file) => {
                                       const isImage = file.type?.startsWith('image/');

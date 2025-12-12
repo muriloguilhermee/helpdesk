@@ -660,8 +660,20 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         name: file.name,
         size: file.size,
         type: file.type || 'application/octet-stream',
-        data: file.data, // Base64 data URL
+        dataUrl: file.data, // Base64 data URL - IMPORTANTE: usar dataUrl para o backend
       }));
+
+      console.log('📎 Arquivos preparados para envio:', {
+        count: filesToSend?.length || 0,
+        files: filesToSend?.map(f => ({
+          name: f.name,
+          size: f.size,
+          type: f.type,
+          hasDataUrl: !!f.dataUrl,
+          dataUrlLength: f.dataUrl?.length || 0,
+          dataUrlPreview: f.dataUrl?.substring(0, 50) + '...'
+        }))
+      });
 
       const createdInteraction = await api.addInteraction(
         ticketId,

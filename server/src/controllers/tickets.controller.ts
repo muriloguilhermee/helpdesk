@@ -256,6 +256,17 @@ export const addInteractionController = async (req: AuthRequest, res: Response):
 
     const validated = interactionSchema.parse(req.body);
     console.log('✅ Validação OK, tipo:', validated.type, 'conteúdo:', validated.content);
+    console.log('📎 Arquivos recebidos no controller:', {
+      hasFiles: !!validated.files && validated.files.length > 0,
+      filesCount: validated.files?.length || 0,
+      files: validated.files?.map((f: any) => ({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        hasDataUrl: !!f.dataUrl,
+        dataUrlLength: f.dataUrl?.length || 0
+      }))
+    });
 
     const interaction = await addInteraction(
       req.params.id,

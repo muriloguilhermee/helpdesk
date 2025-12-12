@@ -788,18 +788,44 @@ export const addInteraction = async (
 
     // Salvar arquivos se fornecidos
     if (files && files.length > 0) {
-      console.log('📎 Salvando arquivos da interação:', files.length);
-      await db('ticket_files').insert(
-        files.map(file => ({
-          ticket_id: ticketId,
-          interaction_id: interaction.id,
-          name: file.name,
-          size: file.size.toString(),
-          type: file.type,
-          data_url: file.dataUrl,
+      console.log('📎 Salvando arquivos da interação:', {
+        count: files.length,
+        interactionId: interaction.id,
+        ticketId: ticketId,
+        files: files.map(f => ({
+          name: f.name,
+          size: f.size,
+          type: f.type,
+          hasDataUrl: !!f.dataUrl,
+          dataUrlLength: f.dataUrl?.length || 0
         }))
-      );
-      console.log('✅ Arquivos da interação salvos com sucesso');
+      });
+
+      try {
+        const insertResult = await db('ticket_files').insert(
+          files.map(file => ({
+            ticket_id: ticketId,
+            interaction_id: interaction.id,
+            name: file.name,
+            size: file.size.toString(),
+            type: file.type,
+            data_url: file.dataUrl,
+          }))
+          .returning('*')
+        );
+
+        console.log('✅ Arquivos da interação salvos com sucesso:', {
+          savedCount: Array.isArray(insertResult) ? insertResult.length : 1,
+          fileIds: Array.isArray(insertResult)
+            ? insertResult.map((f: any) => f.id)
+            : [insertResult.id]
+        });
+      } catch (fileError: any) {
+        console.error('❌ Erro ao salvar arquivos da interação:', fileError);
+        throw new Error(`Erro ao salvar arquivos: ${fileError.message}`);
+      }
+    } else {
+      console.log('⚠️ Nenhum arquivo fornecido para a interação');
     }
 
     const author = await db('users')
@@ -812,7 +838,24 @@ export const addInteraction = async (
       .where({ interaction_id: interaction.id })
       .select('id', 'name', 'size', 'type', 'data_url');
 
-    console.log('✅ Interação criada com sucesso:', interaction.id);
+    console.log('📎 Arquivos buscados da interação:', {
+      interactionId: interaction.id,
+      filesCount: interactionFiles.length,
+      files: interactionFiles.map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        hasDataUrl: !!f.data_url,
+        dataUrlLength: f.data_url?.length || 0
+      }))
+    });
+
+    console.log('✅ Interação criada com sucesso:', {
+      id: interaction.id,
+      hasFiles: interactionFiles.length > 0,
+      filesCount: interactionFiles.length
+    });
 
     return {
       id: interaction.id,
@@ -820,7 +863,7 @@ export const addInteraction = async (
       content: interaction.content,
       author,
       metadata: interaction.metadata ? JSON.parse(interaction.metadata) : null,
-      files: interactionFiles.map(f => ({
+      files: interactionFiles.map((f: any) => ({
         id: f.id,
         name: f.name,
         size: parseInt(f.size),

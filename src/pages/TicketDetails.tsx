@@ -199,7 +199,15 @@ export default function TicketDetails() {
           ticketId: ticket.id,
           type: newInteraction.type,
           content: newInteraction.content,
-          hasFiles: !!newInteraction.files && newInteraction.files.length > 0
+          hasFiles: !!newInteraction.files && newInteraction.files.length > 0,
+          filesCount: newInteraction.files?.length || 0,
+          files: newInteraction.files?.map(f => ({
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            hasData: !!f.data,
+            dataLength: f.data?.length || 0
+          }))
         });
 
         await addInteraction(ticket.id, newInteraction);

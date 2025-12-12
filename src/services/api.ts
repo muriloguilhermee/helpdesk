@@ -283,21 +283,38 @@ class ApiService {
     name: string;
     size: number;
     type: string;
-    data: string; // Base64 data URL
+    dataUrl: string; // Base64 data URL
   }>) {
+    const payload = {
+      type,
+      content,
+      metadata,
+      files: files?.map(f => ({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        dataUrl: f.dataUrl, // Enviar como dataUrl para o backend
+      }))
+    };
+
+    console.log('📤 Payload da requisição:', {
+      type,
+      content: content.substring(0, 50) + '...',
+      hasMetadata: !!metadata,
+      hasFiles: !!files && files.length > 0,
+      filesCount: files?.length || 0,
+      files: files?.map(f => ({
+        name: f.name,
+        size: f.size,
+        type: f.type,
+        hasDataUrl: !!f.dataUrl,
+        dataUrlLength: f.dataUrl?.length || 0
+      }))
+    });
+
     return this.request<any>(`/tickets/${ticketId}/interactions`, {
       method: 'POST',
-      body: JSON.stringify({
-        type,
-        content,
-        metadata,
-        files: files?.map(f => ({
-          name: f.name,
-          size: f.size,
-          type: f.type,
-          dataUrl: f.data, // Enviar como dataUrl para o backend
-        }))
-      }),
+      body: JSON.stringify(payload),
     });
   }
 

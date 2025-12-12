@@ -485,15 +485,9 @@ export const getTicketById = async (id: string) => {
     // Buscar arquivos de cada interação
     const interactions = await Promise.all(
       interactionsRaw.map(async (i: any) => {
-        // Buscar arquivos da interação - verificar se interaction_id está NULL também
+        // Buscar arquivos da interação - busca simples e direta
         const interactionFiles = await db('ticket_files')
-          .where(function() {
-            this.where({ interaction_id: i.id })
-              .orWhere(function() {
-                // Também buscar arquivos que podem ter sido salvos sem interaction_id (fallback)
-                this.where({ ticket_id: id, interaction_id: null });
-              });
-          })
+          .where({ interaction_id: i.id })
           .select('id', 'name', 'size', 'type', 'data_url', 'interaction_id', 'ticket_id');
 
         console.log(`🔍 Buscando arquivos para interação ${i.id}:`, {
@@ -508,25 +502,23 @@ export const getTicketById = async (id: string) => {
           }))
         });
 
-        // Filtrar apenas arquivos que pertencem a esta interação
-        const files = interactionFiles
-          .filter((f: any) => f.interaction_id === i.id)
-          .map((f: any) => {
-            if (!f.data_url) {
-              console.warn(`⚠️ [getTicketById] Arquivo sem data_url para interação ${i.id}:`, {
-                fileId: f.id,
-                fileName: f.name
-              });
-            }
-            return {
-              id: f.id,
-              name: f.name,
-              size: parseInt(f.size) || 0,
-              type: f.type || 'application/octet-stream',
-              data: f.data_url, // IMPORTANTE: garantir que data_url seja retornado
-            };
-          })
-          .filter((f: any) => f.data); // Filtrar apenas arquivos com dados
+        // Mapear arquivos diretamente (já filtrados pela query WHERE interaction_id = i.id)
+        const files = interactionFiles.map((f: any) => {
+          if (!f.data_url) {
+            console.warn(`⚠️ [getTicketById] Arquivo sem data_url para interação ${i.id}:`, {
+              fileId: f.id,
+              fileName: f.name
+            });
+            return null;
+          }
+          return {
+            id: f.id,
+            name: f.name,
+            size: parseInt(f.size) || 0,
+            type: f.type || 'application/octet-stream',
+            data: f.data_url, // IMPORTANTE: garantir que data_url seja retornado
+          };
+        }).filter((f: any) => f !== null && f.data); // Filtrar nulos e arquivos sem dados
 
         if (files.length > 0) {
           console.log(`✅ [getTicketById] Arquivos encontrados para interação ${i.id}:`, {
@@ -542,65 +534,10 @@ export const getTicketById = async (id: string) => {
             }))
           });
         } else {
-          // Verificar diretamente no banco se há arquivos para esta interação
-          const directCheck = await db('ticket_files')
-            .where({ interaction_id: i.id })
-            .count('* as count')
-            .first();
-
-          console.log(`🔍 [getTicketById] Verificação direta no banco para interação ${i.id}:`, {
-            interactionId: i.id,
-            filesInDb: directCheck?.count || 0,
-            interactionFilesFound: interactionFiles.length,
-            interactionFilesWithMatchingId: interactionFiles.filter((f: any) => f.interaction_id === i.id).length
-          });
-
-          if (directCheck && parseInt(directCheck.count as string) > 0) {
-            // Tentar buscar novamente de forma mais simples
-            const retryFiles = await db('ticket_files')
-              .where({ interaction_id: i.id })
-              .select('*');
-
-            console.log(`🔄 [getTicketById] Tentativa de busca direta para interação ${i.id}:`, {
-              filesFound: retryFiles.length,
-              files: retryFiles.map((f: any) => ({
-                id: f.id,
-                name: f.name,
-                hasDataUrl: !!f.data_url,
-                dataUrlLength: f.data_url?.length || 0
-              }))
-            });
-
-            if (retryFiles.length > 0) {
-              const retryFilesMapped = retryFiles
-                .map((f: any) => ({
-                  id: f.id,
-                  name: f.name,
-                  size: parseInt(f.size) || 0,
-                  type: f.type || 'application/octet-stream',
-                  data: f.data_url,
-                }))
-                .filter((f: any) => f.data);
-
-              if (retryFilesMapped.length > 0) {
-                console.log(`✅ [getTicketById] Arquivos recuperados na segunda tentativa para interação ${i.id}:`, retryFilesMapped.length);
-                return {
-                  id: i.id,
-                  type: i.type,
-                  content: i.content,
-                  author: i.author,
-                  metadata: i.metadata ? JSON.parse(i.metadata) : null,
-                  files: retryFilesMapped,
-                  createdAt: i.created_at,
-                };
-              }
-            }
-          } else {
-            console.log(`⚠️ [getTicketById] Nenhum arquivo encontrado no banco para interação ${i.id}`);
-          }
+          console.log(`⚠️ [getTicketById] Nenhum arquivo encontrado para interação ${i.id}`);
         }
 
-        return {
+        const result = {
           id: i.id,
           type: i.type,
           content: i.content,
@@ -609,6 +546,15 @@ export const getTicketById = async (id: string) => {
           files: files.length > 0 ? files : undefined, // Retornar undefined se não houver arquivos válidos
           createdAt: i.created_at,
         };
+
+        // Log final da interação sendo retornada
+        if (files.length > 0) {
+          console.log(`✅ [getTicketById] Retornando interação ${i.id} COM ${files.length} arquivo(s):`, {
+            files: files.map((f: any) => ({ id: f.id, name: f.name, hasData: !!f.data }))
+          });
+        }
+
+        return result;
       })
     );
 

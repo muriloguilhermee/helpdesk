@@ -55,6 +55,8 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
           assignedTo: t.assigned_to_user,
           client: t.client_user,
+        queue: t.queue?.name || t.queue_name || null,
+        queueId: t.queue?.id || t.queue_id || null,
           files: t.files || [],
           comments: t.comments || [],
           createdAt: new Date(t.created_at),
@@ -177,7 +179,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateTicket = async (id: string, updates: Partial<Ticket>) => {
+  const updateTicket = async (id: string, updates: Partial<Ticket> & { queueId?: string | null }) => {
     try {
       // SEMPRE usar API - sem fallback para dados locais
       console.log('📝 Atualizando ticket via API:', id, updates);
@@ -191,7 +193,12 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         totalValue: updates.totalValue,
         assignedTo: updates.assignedTo?.id || null,
         clientId: updates.client?.id,
-        queueId: (updates.queue && typeof updates.queue === 'object' && 'id' in updates.queue) ? (updates.queue as any).id : (typeof updates.queue === 'string' ? updates.queue : null),
+        queueId:
+          updates.queueId !== undefined
+            ? updates.queueId
+            : (updates.queue && typeof updates.queue === 'object' && 'id' in updates.queue)
+              ? (updates.queue as any).id
+              : (typeof updates.queue === 'string' ? updates.queue : null),
       });
 
       // Transform API response to Ticket format
@@ -207,6 +214,8 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         createdBy: updatedTicket.created_by_user || { id: updatedTicket.created_by, name: '', email: '', role: 'user' },
         assignedTo: updatedTicket.assigned_to_user,
         client: updatedTicket.client_user,
+        queue: updatedTicket.queue?.name || updatedTicket.queue_name || null,
+        queueId: updatedTicket.queue?.id || updatedTicket.queue_id || null,
         files: updatedTicket.files || [],
         comments: updatedTicket.comments || [],
         createdAt: new Date(updatedTicket.created_at),

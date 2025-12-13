@@ -442,7 +442,9 @@ export default function TicketDetails() {
   const handleTransferToQueue = async () => {
     if (ticket && user && selectedQueue) {
       const currentQueue = ticket.queue || 'Sem atribuição';
-      const queueName = selectedQueue;
+      const targetQueue = queues.find((q) => q.id === selectedQueue || q.name === selectedQueue);
+      const queueName = targetQueue?.name || selectedQueue;
+      const queueId = targetQueue?.id || selectedQueue;
       
       // Criar interação de transferência
       const transferInteraction: Interaction = {
@@ -457,15 +459,14 @@ export default function TicketDetails() {
         },
       };
       
-      // Adicionar interação e atualizar fila em uma única operação
-      // Primeiro adicionamos a interação ao array existente
-      const updatedInteractions = [...(ticket.interactions || []), transferInteraction];
-      
-      // Atualizar o ticket com a nova interação e a nova fila
+      // Atualizar o ticket com a nova fila (API) e registrar interação local
       await updateTicket(ticket.id, { 
         queue: queueName,
-        interactions: updatedInteractions
+        queueId,
       });
+
+      // Adicionar interação localmente para manter o histórico na UI
+      addInteraction(ticket.id, transferInteraction);
       
       setShowTransferModal(false);
       setSelectedQueue('');
@@ -1544,7 +1545,7 @@ export default function TicketDetails() {
               >
                 <option value="">Selecione uma fila</option>
                 {queues.map((queue) => (
-                  <option key={queue.id} value={queue.name}>
+                  <option key={queue.id} value={queue.id || queue.name}>
                     {queue.name}
                   </option>
                 ))}

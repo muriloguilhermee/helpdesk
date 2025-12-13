@@ -1,5 +1,48 @@
 import { getDatabase } from '../database/connection.js';
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const resolveQueueId = async (db: any, queueValue?: string | null) => {
+  if (queueValue === undefined) {
+    return { queueId: undefined, queueName: undefined };
+  }
+
+  if (queueValue === null || queueValue === '') {
+    return { queueId: null, queueName: null };
+  }
+
+  // Se já for UUID, apenas confirma a existência
+  if (uuidRegex.test(queueValue)) {
+    const existing = await db('queues').where({ id: queueValue }).first();
+    return { queueId: queueValue, queueName: existing?.name };
+  }
+
+  // Tratar como nome de fila
+  const existingByName = await db('queues')
+    .whereRaw('LOWER(name) = LOWER(?)', [queueValue])
+    .first();
+
+  if (existingByName) {
+    return { queueId: existingByName.id, queueName: existingByName.name };
+  }
+
+  // Criar fila automaticamente
+  const inserted = await db('queues')
+    .insert(
+      {
+        name: queueValue,
+        description: 'Fila criada automaticamente ao transferir chamado',
+      },
+      ['id', 'name']
+    );
+
+  const insertedQueue = Array.isArray(inserted) ? inserted[0] : inserted;
+  return {
+    queueId: insertedQueue?.id || null,
+    queueName: insertedQueue?.name || queueValue,
+  };
+};
+
 export interface CreateTicketData {
   title: string;
   description: string;
@@ -21,7 +64,7 @@ export interface CreateTicketData {
 export interface UpdateTicketData {
   title?: string;
   description?: string;
-  status?: 'aberto' | 'em_andamento' | 'em_atendimento' | 'pendente' | 'resolvido' | 'fechado' | 'encerrado';
+  status?: 'aberto' | 'em_andamento' | 'em_atendimento' | 'pendente' | 'resolvido' | 'fechado' | 'encerrado' | 'em_fase_de_testes' | 'homologacao' | 'aguardando_cliente';
   priority?: 'baixa' | 'media' | 'alta' | 'critica';
   category?: 'tecnico' | 'suporte' | 'financeiro' | 'outros';
   serviceType?: string;
@@ -47,6 +90,7 @@ export const getAllTickets = async (filters?: TicketFilters) => {
     .leftJoin('users as creator', 'tickets.created_by', 'creator.id')
     .leftJoin('users as assignee', 'tickets.assigned_to', 'assignee.id')
     .leftJoin('users as client', 'tickets.client_id', 'client.id')
+    .leftJoin('queues as queue', 'tickets.queue_id', 'queue.id')
     .select(
       'tickets.*',
       db.raw(`
@@ -83,6 +127,17 @@ export const getAllTickets = async (filters?: TicketFilters) => {
             )
           ELSE NULL
         END as client_user
+      `),
+      db.raw(`
+        CASE
+          WHEN queue.id IS NOT NULL THEN
+            json_build_object(
+              'id', queue.id,
+              'name', queue.name,
+              'description', queue.description
+            )
+          ELSE NULL
+        END as queue
       `)
     );
 
@@ -141,6 +196,7 @@ export const getTicketById = async (id: string) => {
       .leftJoin('users as creator', 'tickets.created_by', 'creator.id')
       .leftJoin('users as assignee', 'tickets.assigned_to', 'assignee.id')
       .leftJoin('users as client', 'tickets.client_id', 'client.id')
+      .leftJoin('queues as queue', 'tickets.queue_id', 'queue.id')
       .where('tickets.id', id)
       .select(
         'tickets.*',
@@ -178,6 +234,17 @@ export const getTicketById = async (id: string) => {
               )
             ELSE NULL
           END as client_user
+        `),
+        db.raw(`
+          CASE
+            WHEN queue.id IS NOT NULL THEN
+              json_build_object(
+                'id', queue.id,
+                'name', queue.name,
+                'description', queue.description
+              )
+            ELSE NULL
+          END as queue
         `)
       )
       .first();
@@ -240,6 +307,8 @@ export const createTicket = async (data: CreateTicketData) => {
 
     console.log('📝 Criando ticket:', { title: data.title, category: data.category, priority: data.priority });
 
+    const { queueId } = await resolveQueueId(db, data.queueId);
+
     // Generate ticket ID
     const ticketCount = await db('tickets').count('* as count').first();
     const count = ticketCount?.count;
@@ -260,7 +329,7 @@ export const createTicket = async (data: CreateTicketData) => {
         created_by: data.createdBy,
         client_id: data.clientId || data.createdBy,
         assigned_to: null,
-        queue_id: data.queueId || null,
+        queue_id: queueId ?? null,
       })
       .returning('*');
 
@@ -323,8 +392,9 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
     }
     if (data.clientId !== undefined) updateData.client_id = data.clientId;
     if (data.queueId !== undefined) {
-      updateData.queue_id = data.queueId;
-      console.log('🔄 Transferindo ticket para fila:', data.queueId || 'nenhuma fila');
+      const { queueId, queueName } = await resolveQueueId(db, data.queueId);
+      updateData.queue_id = queueId ?? null;
+      console.log('🔄 Transferindo ticket para fila:', queueName || data.queueId || 'nenhuma fila');
     }
 
     // Atualizar updated_at manualmente

@@ -31,3 +31,4 @@ rl.question('Digite a senha do banco de dados: ', (password) => {
   rl.close();
 });
 
+

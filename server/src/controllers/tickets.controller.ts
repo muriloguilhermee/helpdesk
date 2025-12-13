@@ -30,14 +30,27 @@ const createTicketSchema = z.object({
 const updateTicketSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
-  status: z.enum(['aberto', 'em_andamento', 'em_atendimento', 'pendente', 'resolvido', 'fechado', 'encerrado']).optional(),
+  status: z
+    .enum([
+      'aberto',
+      'em_andamento',
+      'em_atendimento',
+      'pendente',
+      'resolvido',
+      'fechado',
+      'encerrado',
+      'em_fase_de_testes',
+      'homologacao',
+      'aguardando_cliente',
+    ])
+    .optional(),
   priority: z.enum(['baixa', 'media', 'alta', 'critica']).optional(),
   category: z.enum(['tecnico', 'suporte', 'financeiro', 'outros']).optional(),
   serviceType: z.string().optional(),
   totalValue: z.number().optional(),
   assignedTo: z.string().uuid().nullable().optional(),
   clientId: z.string().uuid().optional(),
-  queueId: z.string().uuid().nullable().optional(),
+  queueId: z.union([z.string().uuid(), z.string().min(1), z.null()]).optional(),
 });
 
 const commentSchema = z.object({

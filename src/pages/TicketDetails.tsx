@@ -246,40 +246,20 @@ export default function TicketDetails() {
     }
   };
 
-  // Combinar comentários antigos com interações (sem repetir a descrição e evitando duplicar mensagem)
+  // Combinar comentários e interações
   const allInteractions = useMemo(() => {
     const interactions: Interaction[] = [];
 
     if (ticket) {
-      console.log('🔍 Processando interações para ticket:', ticket.id);
-      console.log('💬 Comentários disponíveis:', ticket.comments);
-      console.log('🔄 Interações disponíveis:', ticket.interactions);
-
-      // 1) Adicionar interações (principalmente de sistema, atribuições, etc)
+      // 1) Adicionar interações já existentes (principalmente de sistema, atribuições, etc)
       if (ticket.interactions && ticket.interactions.length > 0) {
         interactions.push(...ticket.interactions);
       }
 
-      // 2) Converter comentários antigos para interações de usuário,
-      //    incluindo arquivos vindos da API e evitando duplicar quando já
-      //    existe uma interação de usuário com o mesmo autor e conteúdo
+      // 2) Converter comentários para interações de usuário,
+      //    incluindo arquivos vindos da API
       if (ticket.comments && ticket.comments.length > 0) {
-        console.log(`📝 Convertendo ${ticket.comments.length} comentário(s) para interações`);
         ticket.comments.forEach((comment, index) => {
-          console.log(`  Comentário ${index + 1}:`, comment);
-          const hasSameInteraction = interactions.some((i) =>
-            i.type === 'user' &&
-            i.author?.id === comment.author.id &&
-            i.content?.trim() === comment.content.trim()
-          );
-
-          if (hasSameInteraction) {
-            console.log(`  ⚠️ Comentário ${index + 1} duplicado, pulando`);
-            // Já existe uma interação equivalente (com anexo, por exemplo),
-            // então não adicionamos o comentário novamente para não duplicar.
-            return;
-          }
-
           const interaction = {
             id: comment.id,
             type: 'user' as const,
@@ -291,15 +271,9 @@ export default function TicketDetails() {
           console.log(`  ✅ Adicionando interação do comentário ${index + 1}:`, interaction);
           interactions.push(interaction);
         });
-      } else {
-        console.log('⚠️ Nenhum comentário encontrado no ticket');
       }
-
-      // Adicionar interação do sistema quando status muda
-      // (isso será adicionado quando o status for atualizado)
     }
 
-    console.log(`✅ Total de interações montadas: ${interactions.length}`);
     // Ordenar por data
     return interactions.sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();

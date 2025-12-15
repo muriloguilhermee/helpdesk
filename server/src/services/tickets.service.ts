@@ -373,14 +373,9 @@ export const getTicketById = async (id: string) => {
 
     return {
       ...ticket,
-      files: files.map(f => ({
-        id: f.id,
-        name: f.name,
-        size: parseInt(f.size),
-        type: f.type,
-        data: f.data_url,
-      })),
+      // Arquivos anexados diretamente ao ticket (não vinculados a comentário)
       files: ticketFiles,
+      // Comentários com seus respectivos arquivos vinculados
       comments: comments.map(c => ({
         id: c.id,
         content: c.content,

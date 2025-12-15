@@ -66,12 +66,17 @@ export const createUserController = async (req: AuthRequest, res: Response): Pro
 
 export const updateUserController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('📥 Recebida requisição para atualizar usuário:', req.params.id, req.body);
     const validated = updateUserSchema.parse(req.body);
+    console.log('✅ Dados validados:', validated);
     const user = await updateUser(req.params.id, validated);
     res.json(user);
   } catch (error) {
+    console.error('❌ Erro no controller de atualização de usuário:', error);
     if (error instanceof z.ZodError) {
-      res.status(400).json({ error: error.errors[0].message });
+      console.error('Erros de validação:', error.errors);
+      const errorMessage = error.errors.map(e => e.message).join(', ');
+      res.status(400).json({ error: errorMessage });
       return;
     }
     res.status(400).json({ error: (error as Error).message });

@@ -403,12 +403,16 @@ export const createTicket = async (data: CreateTicketData) => {
 
     const { queueId } = await resolveQueueId(db, data.queueId);
 
-    // Generate ticket ID
-    const ticketCount = await db('tickets').count('* as count').first();
-    const count = ticketCount?.count;
-    const nextId = String((parseInt(count as string) || 0) + 1).padStart(5, '0');
+    // Generate ticket ID baseado no MAIOR ID já existente (evita duplicar quando há buracos)
+    const lastTicket = await db('tickets')
+      .select('id')
+      .orderBy('id', 'desc')
+      .first();
 
-    console.log('🆔 Próximo ID do ticket:', nextId);
+    const lastNumericId = lastTicket ? parseInt(String(lastTicket.id), 10) || 0 : 0;
+    const nextId = String(lastNumericId + 1).padStart(5, '0');
+
+    console.log('🆔 Último ID:', lastTicket?.id, '→ Próximo ID do ticket:', nextId);
 
     const insertResult = await db('tickets')
       .insert({

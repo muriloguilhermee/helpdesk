@@ -75,9 +75,14 @@ export const getAllTicketsController = async (req: AuthRequest, res: Response): 
     if (req.query.search) filters.search = req.query.search;
 
     // Apenas usuários comuns são filtrados por seus próprios tickets
+    // Técnicos N2 veem APENAS tickets na fila "Suporte N2"
     // Técnicos e admins veem todos os tickets
     if (req.user?.role === 'user') {
       filters.createdBy = req.user.id;
+    } else if (req.user?.role === 'technician_n2') {
+      // Técnicos N2 veem APENAS tickets na fila "Suporte N2"
+      // Filtrar por queue contendo "Suporte N2" ou "N2"
+      filters.queue = 'Suporte N2'; // Será filtrado no service
     }
     // Técnicos e admins não têm filtro de atribuição - veem todos os tickets
 

@@ -132,7 +132,8 @@ export default function TicketDetails() {
   // Verificar se o usuário é admin
   const isAdmin = user?.role === 'admin';
   // Verificar se o usuário é técnico
-  const isTechnician = user?.role === 'technician' || user?.role === 'technician_n2';
+  const isTechnician = user?.role === 'technician';
+  const isTechnicianN2 = user?.role === 'technician_n2';
   // Verificar se o técnico veio da página "Todos os Chamados"
   const cameFromAllTickets = location.state?.fromAllTickets || sessionStorage.getItem('viewingTicketFrom') === 'all-tickets';
   // Se técnico veio de "Todos os Chamados" e não é o técnico atribuído, só pode comentar
@@ -172,6 +173,7 @@ export default function TicketDetails() {
   // Verificar se o usuário tem permissão para ver este chamado
   // Usuários podem ver seus próprios chamados OU chamados de melhoria
   // Técnicos podem ver chamados atribuídos a eles OU chamados de melhoria
+  // Técnicos N2 podem ver APENAS chamados na fila "Suporte N2" (não veem atribuições diretas)
   if (user?.role === 'user') {
     const isOwnTicket = ticket.createdBy.id === user.id;
     const isMelhoria = ticket.category === 'melhoria';
@@ -179,6 +181,22 @@ export default function TicketDetails() {
       return (
         <div className="text-center py-12">
           <p className="text-gray-500 dark:text-gray-400">Você não tem permissão para ver este chamado</p>
+          <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
+            Voltar para lista
+          </button>
+        </div>
+      );
+    }
+  }
+
+  if (isTechnicianN2) {
+    // Técnicos N2 veem APENAS chamados na fila "Suporte N2"
+    const queueName = ticket.queue || '';
+    const isInN2Queue = queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
+    if (!isInN2Queue) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">Você não tem permissão para ver este chamado. Técnicos N2 só podem ver chamados na fila "Suporte N2".</p>
           <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
             Voltar para lista
           </button>

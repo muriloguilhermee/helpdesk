@@ -45,6 +45,7 @@ export default function Dashboard() {
 
   // Filtrar tickets baseado no role do usuário
   // Técnicos e admins veem todos os chamados
+  // Técnicos N2 veem APENAS chamados na fila "Suporte N2"
   // Usuários veem apenas seus próprios chamados OU chamados de melhoria
   let availableTickets = tickets;
   if (user?.role === 'user') {
@@ -52,6 +53,12 @@ export default function Dashboard() {
     availableTickets = tickets.filter(ticket =>
       ticket.createdBy.id === user.id || ticket.category === 'melhoria'
     );
+  } else if (user?.role === 'technician_n2') {
+    // Técnicos N2 veem APENAS chamados na fila "Suporte N2"
+    availableTickets = tickets.filter(ticket => {
+      const queueName = ticket.queue || '';
+      return queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
+    });
   }
   // Técnicos e admins veem todos os chamados (availableTickets = tickets)
 

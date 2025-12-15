@@ -78,11 +78,21 @@ export default function TicketsList() {
 
   // Filtrar tickets baseado no role do usuário
   // Técnicos veem apenas chamados atribuídos a eles (Meus Chamados)
+  // Técnicos N2 veem APENAS chamados na fila "Suporte N2" (não veem atribuições diretas)
   // Admins veem todos os chamados
   // Usuários veem apenas seus próprios chamados OU chamados de melhoria
   let availableTickets = tickets;
-  const isTechnician = user?.role === 'technician' || user?.role === 'technician_n2';
-  if (isTechnician) {
+  const isTechnician = user?.role === 'technician';
+  const isTechnicianN2 = user?.role === 'technician_n2';
+
+  if (isTechnicianN2) {
+    // Técnicos N2 veem APENAS chamados na fila "Suporte N2"
+    // NÃO veem chamados atribuídos diretamente a eles (level 1)
+    availableTickets = tickets.filter(ticket => {
+      const queueName = ticket.queue || '';
+      return queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
+    });
+  } else if (isTechnician) {
     // Técnicos veem apenas chamados atribuídos a eles
     availableTickets = tickets.filter(ticket =>
       ticket.assignedTo?.id === user.id
@@ -132,7 +142,7 @@ export default function TicketsList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-          {isTechnician ? 'Meus Chamados' : user?.role === 'user' ? 'Meus Chamados' : 'Chamados'}
+          {isTechnician ? 'Meus Chamados' : isTechnicianN2 ? 'Chamados N2' : user?.role === 'user' ? 'Meus Chamados' : 'Chamados'}
         </h1>
         {hasPermission('create:ticket') && (
           <Link to="/tickets/new" className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">

@@ -81,6 +81,7 @@ export interface TicketFilters {
   category?: string;
   assignedTo?: string;
   createdBy?: string;
+  queue?: string;
   search?: string;
 }
 
@@ -157,6 +158,10 @@ export const getAllTickets = async (filters?: TicketFilters) => {
     }
     if (filters.createdBy) {
       query = query.where('tickets.created_by', filters.createdBy);
+    }
+    if (filters.queue) {
+      // Filtrar por fila - buscar por nome da fila (case insensitive, contém)
+      query = query.whereRaw('LOWER(queue.name) LIKE LOWER(?)', [`%${filters.queue}%`]);
     }
     if (filters.search) {
       query = query.where((builder) => {

@@ -73,10 +73,19 @@ export default function AllTickets() {
   }) as TicketStatus[];
 
   // Técnicos veem chamados de OUTROS técnicos (não os atribuídos a eles)
+  // Técnicos N2 veem APENAS chamados na fila "Suporte N2"
   // Isso evita duplicação com "Meus Chamados"
   let availableTickets = tickets;
-  const isTechnician = user?.role === 'technician' || user?.role === 'technician_n2';
-  if (isTechnician) {
+  const isTechnician = user?.role === 'technician';
+  const isTechnicianN2 = user?.role === 'technician_n2';
+
+  if (isTechnicianN2) {
+    // Técnicos N2 veem APENAS chamados na fila "Suporte N2"
+    availableTickets = tickets.filter(ticket => {
+      const queueName = ticket.queue || '';
+      return queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
+    });
+  } else if (isTechnician) {
     // Excluir tickets atribuídos ao técnico atual
     availableTickets = tickets.filter(ticket =>
       !ticket.assignedTo || ticket.assignedTo.id !== user.id

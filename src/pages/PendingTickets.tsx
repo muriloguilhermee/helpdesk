@@ -13,12 +13,22 @@ export default function PendingTickets() {
   const { tickets, updateTicket } = useTickets();
   const navigate = useNavigate();
 
-  // Filtrar apenas chamados pendentes ou abertos (não atribuídos ou atribuídos ao técnico atual)
+  // Filtrar apenas chamados pendentes ou abertos
+  // Técnicos N2 veem APENAS chamados pendentes na fila "Suporte N2"
+  // Técnicos normais veem chamados pendentes atribuídos a eles ou não atribuídos
   const pendingTickets = tickets.filter((ticket) => {
     const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
+
+    if (user?.role === 'technician_n2') {
+      // Técnicos N2 veem APENAS chamados pendentes na fila "Suporte N2"
+      const queueName = ticket.queue || '';
+      const isInN2Queue = queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
+      return isPending && isInN2Queue;
+    }
+
+    // Técnicos normais veem chamados pendentes atribuídos a eles ou não atribuídos
     const isAssignedToMe = ticket.assignedTo?.id === user?.id;
     const isNotAssigned = !ticket.assignedTo;
-
     return isPending && (isAssignedToMe || isNotAssigned);
   });
 
@@ -144,7 +154,7 @@ export default function PendingTickets() {
                               )}
                             </div>
                           </div>
-                          
+
                           <div className="flex flex-wrap items-center gap-2 mt-2">
                             {ticket.system && (
                               <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium">
@@ -166,7 +176,7 @@ export default function PendingTickets() {
                               {ticket.category}
                             </div>
                           </div>
-                          
+
                           {ticket.serviceType && (
                             <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                               <span className="font-medium">Serviço:</span> {ticket.serviceType}
@@ -178,7 +188,7 @@ export default function PendingTickets() {
                         <div className="flex flex-col gap-1">
                           <div className="text-xs text-gray-500 dark:text-gray-400">Valor</div>
                           <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {ticket.category === 'integracao' 
+                            {ticket.category === 'integracao'
                               ? (ticket.integrationValue ? formatCurrency(ticket.integrationValue) : '-')
                               : (ticket.totalValue ? formatCurrency(ticket.totalValue) : '-')
                             }

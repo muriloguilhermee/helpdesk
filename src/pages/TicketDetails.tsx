@@ -45,7 +45,7 @@ const transformApiTicketToFrontend = (t: any): Ticket => ({
       name: f.name,
       size: f.size,
       type: f.type,
-      data: f.data,
+      data: f.data || f.data_url, // Aceitar tanto 'data' quanto 'data_url'
     })),
   })),
   interactions: t.interactions || [],
@@ -98,9 +98,21 @@ export default function TicketDetails() {
         const apiTicket = await api.getTicketById(id);
         console.log('📥 Ticket completo da API:', apiTicket);
         console.log('💬 Comentários recebidos:', apiTicket.comments);
+        // Verificar arquivos em cada comentário
+        if (apiTicket.comments && Array.isArray(apiTicket.comments)) {
+          apiTicket.comments.forEach((c: any, idx: number) => {
+            console.log(`  📎 Comentário ${idx + 1} (${c.id}) tem ${(c.files || []).length} arquivo(s):`, c.files);
+          });
+        }
         const transformed = transformApiTicketToFrontend(apiTicket);
         console.log('✅ Ticket transformado:', transformed);
         console.log('💬 Comentários transformados:', transformed.comments);
+        // Verificar arquivos após transformação
+        if (transformed.comments && Array.isArray(transformed.comments)) {
+          transformed.comments.forEach((c: any, idx: number) => {
+            console.log(`  📎 Comentário transformado ${idx + 1} (${c.id}) tem ${(c.files || []).length} arquivo(s):`, c.files);
+          });
+        }
         setTicketDetails(transformed);
       } catch (error) {
         console.error('Erro ao carregar detalhes do chamado:', error);
@@ -260,15 +272,17 @@ export default function TicketDetails() {
       //    incluindo arquivos vindos da API
       if (ticket.comments && ticket.comments.length > 0) {
         ticket.comments.forEach((comment, index) => {
+          const commentFiles = (comment as any).files || [];
+          console.log(`  📎 Comentário ${index + 1} tem ${commentFiles.length} arquivo(s):`, commentFiles);
           const interaction = {
             id: comment.id,
             type: 'user' as const,
             content: comment.content,
             author: comment.author,
             createdAt: comment.createdAt,
-            files: (comment as any).files || undefined,
+            files: commentFiles.length > 0 ? commentFiles : undefined,
           };
-          console.log(`  ✅ Adicionando interação do comentário ${index + 1}:`, interaction);
+          console.log(`  ✅ Adicionando interação do comentário ${index + 1} com ${interaction.files?.length || 0} arquivo(s):`, interaction);
           interactions.push(interaction);
         });
       }

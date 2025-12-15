@@ -81,7 +81,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
               name: f.name,
               size: f.size,
               type: f.type,
-              data: f.data,
+              data: f.data || f.data_url, // Aceitar tanto 'data' quanto 'data_url'
             })),
           })),
           createdAt: new Date(t.created_at),

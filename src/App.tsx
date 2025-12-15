@@ -12,6 +12,7 @@ import UsersPage from './pages/UsersPage';
 import ReportsPage from './pages/ReportsPage';
 import SettingsPage from './pages/SettingsPage';
 import PendingTickets from './pages/PendingTickets';
+import ReturnFromN2 from './pages/ReturnFromN2';
 import FinancialTicketsPage from './pages/FinancialTicketsPage';
 import FinancialManagementPage from './pages/FinancialManagementPage';
 import ERPIntegrationPage from './pages/ERPIntegrationPage';
@@ -47,6 +48,7 @@ function AppRoutes() {
         <Route path="tickets" element={<ProtectedRoute requiredPermission="view:tickets"><TicketsList /></ProtectedRoute>} />
         <Route path="tickets/all" element={<ProtectedRoute requiredPermission="view:tickets"><AllTickets /></ProtectedRoute>} />
         <Route path="tickets/pending" element={<ProtectedRoute requiredPermission="view:pending:tickets"><PendingTickets /></ProtectedRoute>} />
+        <Route path="tickets/retorno-n2" element={<ProtectedRoute requiredPermission="view:pending:tickets"><ReturnFromN2 /></ProtectedRoute>} />
         <Route path="tickets/new" element={<ProtectedRoute requiredPermission="create:ticket"><NewTicket /></ProtectedRoute>} />
         <Route path="tickets/:id" element={<ProtectedRoute requiredPermission="view:tickets"><TicketDetails /></ProtectedRoute>} />
         <Route path="users" element={<ProtectedRoute requiredPermission="view:users"><UsersPage /></ProtectedRoute>} />

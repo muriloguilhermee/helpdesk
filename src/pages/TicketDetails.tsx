@@ -581,20 +581,33 @@ export default function TicketDetails() {
       try {
         const currentQueue = ticket.queue || 'Sem atribuição';
         const targetQueue = queues.find((q) => q.id === selectedQueue || q.name === selectedQueue);
-        const queueName = targetQueue?.name || selectedQueue;
+        const selectedName = targetQueue?.name || selectedQueue;
         const queueId = targetQueue?.id || selectedQueue;
-        const queueIdForApi = (typeof queueId === 'string' && uuidRegex.test(queueId)) ? queueId : queueName;
+
+        // Se o técnico N2 enviar para N1, registrar como "Retorno N2"
+        let finalQueueName = selectedName;
+        if (user?.role === 'technician_n2') {
+          const nameLower = selectedName.toLowerCase();
+          if (nameLower.includes('suporte n1') || nameLower.includes('n1')) {
+            finalQueueName = 'Retorno N2';
+          }
+        }
+
+        const queueIdForApi =
+          typeof queueId === 'string' && uuidRegex.test(queueId)
+            ? queueId
+            : finalQueueName;
 
         // Criar interação de transferência
         const transferInteraction: Interaction = {
           id: `transfer-${Date.now()}`,
           type: 'queue_transfer',
-          content: `Chamado transferido para a fila "${queueName}"`,
+          content: `Chamado transferido de "${currentQueue}" para a fila "${finalQueueName}"`,
           author: user,
           createdAt: new Date(),
           metadata: {
             fromQueue: currentQueue,
-            toQueue: queueName,
+            toQueue: finalQueueName,
           },
         };
 
@@ -953,7 +966,10 @@ export default function TicketDetails() {
                       }
 
                       return (
-                        <div key={interaction.id} className="flex gap-4">
+                        <div key={interaction.id} className={`flex gap-4 ${isTransfer ? 'relative pl-4' : ''}`}>
+                          {isTransfer && (
+                            <span className="absolute left-0 top-0 bottom-0 w-0.5 bg-purple-300 dark:bg-purple-700" aria-hidden />
+                          )}
                           <div className="flex-shrink-0">
                             {isTransfer ? (
                               <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center border-2 border-purple-300 dark:border-purple-700 shadow-sm">

@@ -9,7 +9,8 @@ import {
   X,
   DollarSign,
   Wallet,
-  Plug
+  Plug,
+  ArrowLeftRight
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -32,6 +33,7 @@ interface MenuItem {
 const allMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/', permission: 'view:dashboard', role: 'all' },
   { icon: Clock, label: 'Novos Chamados', path: '/tickets/pending', permission: 'view:pending:tickets', role: 'technician' },
+  { icon: ArrowLeftRight, label: 'Retorno N2', path: '/tickets/retorno-n2', permission: 'view:pending:tickets', role: 'technician' },
   { icon: Ticket, label: 'Meus Chamados', path: '/tickets', permission: 'view:tickets', role: 'all' },
   { icon: Ticket, label: 'Todos os Chamados', path: '/tickets/all', permission: 'view:tickets', role: 'technician' },
   { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },
@@ -62,7 +64,18 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     return newTickets.length;
   };
 
+  const getReturnFromN2Count = () => {
+    if (user?.role !== 'technician') return 0;
+    const returns = tickets.filter((ticket) => {
+      const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
+      const queueName = ticket.queue?.toLowerCase() || '';
+      return isPending && queueName.includes('retorno n2');
+    });
+    return returns.length;
+  };
+
   const newTicketsCount = getNewTicketsCount();
+  const returnN2Count = getReturnFromN2Count();
 
   // Filtrar itens do menu baseado em permissões e role
   const menuItems = allMenuItems.filter((item) => {
@@ -123,9 +136,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
 
-            // Verificar se é o item de "Novos Chamados" e se tem novos chamados
+            // Notificações para "Novos Chamados" e "Retorno N2"
             const isNewTicketsItem = item.path === '/tickets/pending';
-            const showNotification = isNewTicketsItem && newTicketsCount > 0;
+            const isReturnN2Item = item.path === '/tickets/retorno-n2';
+            const showNotification =
+              (isNewTicketsItem && newTicketsCount > 0) ||
+              (isReturnN2Item && returnN2Count > 0);
+            const badgeCount = isNewTicketsItem ? newTicketsCount : isReturnN2Item ? returnN2Count : 0;
 
             return (
               <li key={item.path}>
@@ -145,14 +162,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
                 >
                   <div className="relative">
                     <Icon className="w-5 h-5" />
-                    {showNotification && (
+                  {showNotification && (
                       <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-gray-800"></span>
                     )}
                   </div>
                   <span>{item.label}</span>
                   {showNotification && (
                     <span className="ml-auto bg-red-500 text-white text-xs font-medium px-2 py-0.5 rounded-full">
-                      {newTicketsCount}
+                      {badgeCount}
                     </span>
                   )}
                 </Link>

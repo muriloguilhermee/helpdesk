@@ -435,12 +435,13 @@ export const createTicket = async (data: CreateTicketData) => {
     const { queueId } = await resolveQueueId(db, data.queueId);
 
     // Gerar ID numérico incremental usando MAX(CAST(id AS INTEGER))
-    const maxResult = await db('tickets')
-      .select(db.raw('MAX(CAST(id AS INTEGER)) as maxId'))
+    // Usamos um alias explícito para evitar problemas de sintaxe com DBs diferentes
+    const maxRow = await db('tickets')
+      .max<{ maxId: number | null }>({ maxId: db.raw('CAST(id AS INTEGER)') })
       .first();
 
-    const lastNumericId = maxResult && maxResult.maxId != null
-      ? Number(maxResult.maxId) || 0
+    const lastNumericId = maxRow && maxRow.maxId != null
+      ? Number(maxRow.maxId) || 0
       : 0;
 
     const nextId = String(lastNumericId + 1).padStart(5, '0');

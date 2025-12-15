@@ -13,6 +13,8 @@ import { mockUsers } from '../data/mockData';
 import { database } from '../services/database';
 import { api } from '../services/api';
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 // Função de transformação de ticket vindo da API para o modelo usado no frontend
 const transformApiTicketToFrontend = (t: any): Ticket => ({
   id: t.id,
@@ -580,12 +582,13 @@ export default function TicketDetails() {
       const targetQueue = queues.find((q) => q.id === selectedQueue || q.name === selectedQueue);
       const queueName = targetQueue?.name || selectedQueue;
       const queueId = targetQueue?.id || selectedQueue;
+      const queueIdForApi = (typeof queueId === 'string' && uuidRegex.test(queueId)) ? queueId : queueName;
 
       // Criar interação de transferência
       const transferInteraction: Interaction = {
         id: `transfer-${Date.now()}`,
         type: 'queue_transfer',
-        content: `Chamado transferido para fila de ${queueName}`,
+        content: `Chamado transferido para a fila "${queueName}"`,
         author: user,
         createdAt: new Date(),
         metadata: {
@@ -596,8 +599,7 @@ export default function TicketDetails() {
 
       // Atualizar o ticket com a nova fila (API) e registrar interação local
       await updateTicket(ticket.id, {
-        queue: queueName,
-        queueId,
+        queueId: queueIdForApi,
       });
 
       // Adicionar interação localmente para manter o histórico na UI

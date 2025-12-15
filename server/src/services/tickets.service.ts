@@ -11,15 +11,30 @@ const resolveQueueId = async (db: any, queueValue?: string | null) => {
     return { queueId: null, queueName: null };
   }
 
-  // Primeiro, tentar buscar por ID (pode ser UUID ou outro formato de ID)
-  const existingById = await db('queues').where({ id: queueValue }).first();
-  if (existingById) {
-    return { queueId: existingById.id, queueName: existingById.name };
+  // Normalizar valores usados no frontend offline (queue-n1/queue-n2) para nomes reais
+  const isUuid = typeof queueValue === 'string' && uuidRegex.test(queueValue);
+  let normalizedQueueValue = queueValue;
+
+  if (!isUuid && typeof queueValue === 'string') {
+    const valueLower = queueValue.toLowerCase();
+    if (valueLower.startsWith('queue-n1')) {
+      normalizedQueueValue = 'Suporte N1';
+    } else if (valueLower.startsWith('queue-n2')) {
+      normalizedQueueValue = 'Suporte N2';
+    }
   }
 
-  // Se não encontrou por ID, tentar buscar por nome
+  // Primeiro, tentar buscar por ID somente se o formato for UUID válido
+  if (isUuid) {
+    const existingById = await db('queues').where({ id: queueValue }).first();
+    if (existingById) {
+      return { queueId: existingById.id, queueName: existingById.name };
+    }
+  }
+
+  // Se não encontrou por ID (ou não era UUID), tentar buscar por nome
   const existingByName = await db('queues')
-    .whereRaw('LOWER(name) = LOWER(?)', [queueValue])
+    .whereRaw('LOWER(name) = LOWER(?)', [normalizedQueueValue])
     .first();
 
   if (existingByName) {
@@ -30,7 +45,7 @@ const resolveQueueId = async (db: any, queueValue?: string | null) => {
   const inserted = await db('queues')
     .insert(
       {
-        name: queueValue,
+        name: normalizedQueueValue,
         description: 'Fila criada automaticamente ao transferir chamado',
       },
       ['id', 'name']
@@ -39,7 +54,7 @@ const resolveQueueId = async (db: any, queueValue?: string | null) => {
   const insertedQueue = Array.isArray(inserted) ? inserted[0] : inserted;
   return {
     queueId: insertedQueue?.id || null,
-    queueName: insertedQueue?.name || queueValue,
+    queueName: insertedQueue?.name || normalizedQueueValue,
   };
 };
 

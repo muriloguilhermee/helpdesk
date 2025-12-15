@@ -7,6 +7,10 @@ export interface AuthRequest extends Request {
     email: string;
     role: string;
   };
+  params: any;
+  query: any;
+  body: any;
+  headers: any;
 }
 
 export const authenticate = (req: AuthRequest, res: Response, next: NextFunction): void => {

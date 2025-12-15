@@ -13,8 +13,9 @@ export interface UpdateUserData {
   name?: string;
   email?: string;
   password?: string;
-  role?: 'admin' | 'technician' | 'user';
-  avatar?: string;
+  role?: 'admin' | 'technician' | 'technician_n2' | 'user' | 'financial';
+  avatar?: string | null;
+  company?: string | null;
 }
 
 export const getAllUsers = async () => {
@@ -89,6 +90,7 @@ export const updateUser = async (id: string, data: UpdateUserData) => {
   if (data.email) updateData.email = data.email;
   if (data.role) updateData.role = data.role;
   if (data.avatar !== undefined) updateData.avatar = data.avatar;
+  if (data.company !== undefined) updateData.company = data.company;
 
   // Only update password if provided
   if (data.password) {
@@ -98,7 +100,7 @@ export const updateUser = async (id: string, data: UpdateUserData) => {
   const [user] = await db('users')
     .where({ id })
     .update(updateData)
-    .returning(['id', 'email', 'name', 'role', 'avatar', 'created_at', 'updated_at']);
+    .returning(['id', 'email', 'name', 'role', 'avatar', 'company', 'created_at', 'updated_at']);
 
   return user;
 };

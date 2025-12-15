@@ -1,40 +1,14 @@
-// Garantir que a URL sempre termine com /api
-const getApiUrl = () => {
-  const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-  // Remover /api se já existir e adicionar novamente para garantir
-  const cleanUrl = baseUrl.replace(/\/api\/?$/, '');
-  return `${cleanUrl}/api`;
-};
-
-const API_URL = getApiUrl();
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
 
 class ApiService {
-  private rateLimitUntil: number = 0; // Timestamp até quando estamos em rate limit
-
   private getToken(): string | null {
     return localStorage.getItem('token');
   }
 
-  private isRateLimited(): boolean {
-    return Date.now() < this.rateLimitUntil;
-  }
-
-  private setRateLimited(seconds: number = 60): void {
-    this.rateLimitUntil = Date.now() + (seconds * 1000);
-    console.log(`🚫 Rate limit ativo até ${new Date(this.rateLimitUntil).toLocaleTimeString()}`);
-  }
-
   private async request<T>(
     endpoint: string,
-    options: RequestInit = {},
-    retries = 2
+    options: RequestInit = {}
   ): Promise<T> {
-    // Verificar se estamos em rate limit - não fazer requisição se estiver bloqueado
-    if (this.isRateLimited()) {
-      const waitTime = Math.ceil((this.rateLimitUntil - Date.now()) / 1000);
-      throw new Error(`Rate limit ativo. Aguarde ${waitTime} segundos antes de tentar novamente.`);
-    }
-
     const token = this.getToken();
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -43,11 +17,6 @@ class ApiService {
 
     if (token) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${token}`;
-      console.log('🔑 Token encontrado, adicionando ao header Authorization');
-    } else {
-      console.error('❌ Token não encontrado no localStorage!');
-      console.error('   Endpoint:', endpoint);
-      console.error('   localStorage token:', localStorage.getItem('token'));
     }
 
     // Adicionar timeout e retry para conexões intermitentes
@@ -62,72 +31,9 @@ class ApiService {
       });
       clearTimeout(timeoutId);
 
-      // Se receber 429 (Too Many Requests), aguardar e tentar novamente
-      // Para login, usar menos retries e mais tempo de espera
-      const isLoginEndpoint = endpoint.includes('/auth/login');
-      const maxRetries = isLoginEndpoint ? 1 : retries; // Login só tenta 1 vez após erro
-
-      if (response.status === 429 && maxRetries > 0) {
-        const retryAfter = response.headers.get('Retry-After');
-        // Para login, aguardar mais tempo (60 segundos) para evitar bloqueios
-        const waitTime = retryAfter
-          ? parseInt(retryAfter) * 1000
-          : (isLoginEndpoint ? 60000 : 5000); // 60s para login, 5s para outros
-
-        console.log(`⏳ Rate limit atingido. Aguardando ${waitTime/1000}s antes de tentar novamente...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-
-        // Tentar novamente com um retry a menos
-        return this.request<T>(endpoint, options, maxRetries - 1);
-      }
-
       if (!response.ok) {
-        // Para 401, verificar se é problema de token
-        if (response.status === 401) {
-          console.error('❌ Erro 401 (Unauthorized):', {
-            endpoint,
-            hasToken: !!token,
-            tokenPreview: token ? token.substring(0, 20) + '...' : 'null'
-          });
-
-          // Tentar obter token novamente
-          const currentToken = this.getToken();
-          if (!currentToken) {
-            const errorWithStatus = new Error('Token não fornecido. Faça login novamente.');
-            (errorWithStatus as any).status = 401;
-            throw errorWithStatus;
-          }
-        }
-
-        // Para 429, marcar como rate limited e lançar erro
-        if (response.status === 429) {
-          const retryAfter = response.headers.get('Retry-After');
-          const waitSeconds = retryAfter ? parseInt(retryAfter) : 120; // 2 minutos por padrão
-          this.setRateLimited(waitSeconds);
-
-          const errorWithStatus = new Error(`Muitas tentativas. Aguarde ${waitSeconds} segundos antes de tentar novamente.`);
-          (errorWithStatus as any).status = 429;
-          throw errorWithStatus;
-        }
-
-        // Tentar ler a resposta de erro - ler como texto primeiro para poder tentar parse JSON depois
-        let errorMessage = `HTTP error! status: ${response.status}`;
-        try {
-          const errorText = await response.text();
-          if (errorText && errorText.trim()) {
-            // Tentar fazer parse como JSON
-            try {
-              const errorJson = JSON.parse(errorText);
-              errorMessage = errorJson.error || errorMessage;
-            } catch {
-              // Se não for JSON válido, usar o texto diretamente
-              errorMessage = errorText;
-            }
-          }
-        } catch (textError: any) {
-          console.error('❌ Erro ao ler resposta de erro:', textError?.message || textError);
-        }
-
+        const error = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
+        const errorMessage = error.error || `HTTP error! status: ${response.status}`;
         const errorWithStatus = new Error(errorMessage);
         (errorWithStatus as any).status = response.status;
         throw errorWithStatus;
@@ -140,19 +46,6 @@ class ApiService {
       return response.json();
     } catch (error: any) {
       clearTimeout(timeoutId);
-
-      // Se for erro de rate limit, marcar como rate limited e não tentar novamente
-      if (error.status === 429) {
-        const waitSeconds = 120; // 2 minutos por padrão
-        this.setRateLimited(waitSeconds);
-
-        // Se for login, dar mensagem mais clara
-        if (endpoint.includes('/auth/login')) {
-          throw new Error(`Muitas tentativas de login. Aguarde ${waitSeconds} segundos antes de tentar novamente.`);
-        }
-        throw error;
-      }
-
       if (error.name === 'AbortError') {
         throw new Error('Timeout: O servidor demorou muito para responder. Tente novamente.');
       }
@@ -161,7 +54,7 @@ class ApiService {
         if (!apiUrl) {
           throw new Error('Backend não configurado! Configure VITE_API_URL no Vercel (Settings → Environment Variables).');
         }
-        throw new Error(`Erro ao conectar com o servidor (${apiUrl}). Verifique se o backend está rodando no Render.`);
+        throw new Error(`Erro ao conectar com o servidor (${apiUrl}). Verifique se o backend está rodando no Railway.`);
       }
       throw error;
     }
@@ -314,45 +207,6 @@ class ApiService {
     return this.request<any>(`/tickets/${ticketId}/comments`, {
       method: 'POST',
       body: JSON.stringify({ content }),
-    });
-  }
-
-  async addInteraction(ticketId: string, type: string, content: string, metadata?: any, files?: Array<{
-    name: string;
-    size: number;
-    type: string;
-    dataUrl: string; // Base64 data URL
-  }>) {
-    const payload = {
-      type,
-      content,
-      metadata,
-      files: files?.map(f => ({
-        name: f.name,
-        size: f.size,
-        type: f.type,
-        dataUrl: f.dataUrl, // Enviar como dataUrl para o backend
-      }))
-    };
-
-    console.log('📤 Payload da requisição:', {
-      type,
-      content: content.substring(0, 50) + '...',
-      hasMetadata: !!metadata,
-      hasFiles: !!files && files.length > 0,
-      filesCount: files?.length || 0,
-      files: files?.map(f => ({
-        name: f.name,
-        size: f.size,
-        type: f.type,
-        hasDataUrl: !!f.dataUrl,
-        dataUrlLength: f.dataUrl?.length || 0
-      }))
-    });
-
-    return this.request<any>(`/tickets/${ticketId}/interactions`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
     });
   }
 

@@ -20,21 +20,9 @@ const PORT = Number(process.env.PORT) || 3001;
 // ============================================
 // CORS - ABSOLUTAMENTE PRIMEIRO (CRÍTICO!)
 // ============================================
-const corsOrigins = process.env.CORS_ORIGIN
+const corsOrigins = process.env.CORS_ORIGIN 
   ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim().replace(/\/$/, ''))
   : ['http://localhost:5173'];
-
-// Adicionar origens comuns do Vercel se não estiverem na lista
-const vercelOrigins = [
-  'https://helpdesk-psi-seven.vercel.app',
-  'https://helpdesk-psi-seven.vercel.app/',
-  'https://*.vercel.app'
-];
-
-// Se estiver em produção e não tiver CORS_ORIGIN configurado, permitir Vercel
-if (process.env.NODE_ENV === 'production' && !process.env.CORS_ORIGIN) {
-  corsOrigins.push(...vercelOrigins);
-}
 
 console.log('🌐 CORS Origins configuradas:', corsOrigins);
 
@@ -44,15 +32,13 @@ app.options('*', (req, res) => {
   console.log(`🔍 OPTIONS ABSOLUTO recebido - Origin: ${origin || 'N/A'}`);
   console.log(`   Path: ${req.path}`);
   console.log(`   Headers:`, req.headers);
-
+  
   if (origin) {
     const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
     const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
     const isAllowed = normalizedAllowed.includes(normalizedOrigin);
-
-    // Permitir se estiver na lista OU se não for produção OU se for Vercel
-    const isVercel = normalizedOrigin.includes('vercel.app');
-    if (isAllowed || process.env.NODE_ENV !== 'production' || isVercel) {
+    
+    if (isAllowed || process.env.NODE_ENV !== 'production') {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
@@ -64,7 +50,7 @@ app.options('*', (req, res) => {
       console.error(`❌ OPTIONS ABSOLUTO bloqueado: ${normalizedOrigin}`);
     }
   }
-
+  
   // Sempre responder, mesmo sem origin
   res.status(204).end();
 });
@@ -72,27 +58,26 @@ app.options('*', (req, res) => {
 // Middleware CORS manual - PRIMEIRO, antes de qualquer coisa
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-
+  
   // Log TODAS as requisições para debug
   if (req.method === 'OPTIONS' || req.path.includes('/api/')) {
     console.log(`📥 ${req.method} ${req.path} - Origin: ${origin || 'N/A'}`);
   }
-
+  
   // Sempre adicionar headers CORS se houver origin
   if (origin) {
     const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
     const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
     const isAllowed = normalizedAllowed.includes(normalizedOrigin);
-
-    // Permitir se estiver na lista OU se não for produção OU se for Vercel
-    const isVercel = normalizedOrigin.includes('vercel.app');
-    if (isAllowed || process.env.NODE_ENV !== 'production' || isVercel) {
+    
+    // Permitir se estiver na lista OU se não for produção
+    if (isAllowed || process.env.NODE_ENV !== 'production') {
       res.setHeader('Access-Control-Allow-Origin', origin);
       res.setHeader('Access-Control-Allow-Credentials', 'true');
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
       res.setHeader('Access-Control-Max-Age', '86400');
-
+      
       if (req.method === 'OPTIONS') {
         console.log(`✅ CORS middleware respondeu OPTIONS para: ${origin}`);
       }
@@ -100,7 +85,7 @@ app.use((req, res, next) => {
       console.error(`❌ CORS middleware bloqueou: ${normalizedOrigin}`);
     }
   }
-
+  
   next();
 });
 
@@ -108,14 +93,12 @@ app.use((req, res, next) => {
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true);
-
+    
     const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
     const normalizedAllowed = corsOrigins.map(o => o.replace(/\/$/, '').toLowerCase());
     const isAllowed = normalizedAllowed.includes(normalizedOrigin);
-    const isVercel = normalizedOrigin.includes('vercel.app');
-
-    // Permitir se estiver na lista OU se não for produção OU se for Vercel
-    if (isAllowed || process.env.NODE_ENV !== 'production' || isVercel) {
+    
+    if (isAllowed || process.env.NODE_ENV !== 'production') {
       callback(null, true);
     } else {
       callback(new Error(`Not allowed by CORS: ${normalizedOrigin}`));
@@ -136,42 +119,13 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// Rate Limiting - Criar dois limiters: um geral e um específico para rotas não-auth
-// Rate limiter geral (muito permissivo para evitar bloquear login)
-const generalLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutos
-  max: 1000, // Muito alto para evitar bloqueios
-  skip: (req) => {
-    // Não aplicar rate limit em OPTIONS
-    if (req.method === 'OPTIONS') return true;
-
-    // Verificar path completo (req.url inclui query string, req.path não)
-    const path = (req.url || req.path || '').toLowerCase();
-
-    // Não aplicar rate limit em rotas de autenticação
-    if (path.includes('/auth/login') || path.includes('/auth/register')) {
-      return true;
-    }
-
-    // Não aplicar rate limit em requisições autenticadas
-    if (req.headers.authorization) {
-      return true;
-    }
-
-    return false;
-  },
-  message: 'Muitas requisições. Tente novamente em alguns minutos.',
-  standardHeaders: true,
-  legacyHeaders: false,
+// Rate Limiting - EXCLUIR OPTIONS
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  skip: (req) => req.method === 'OPTIONS', // Não aplicar rate limit em OPTIONS
 });
-
-// Aplicar rate limit APENAS em rotas específicas (não em /api/auth)
-app.use('/api/users', generalLimiter);
-app.use('/api/tickets', generalLimiter);
-app.use('/api/files', generalLimiter);
-app.use('/api/financial', generalLimiter);
-
-// NÃO aplicar rate limit em /api/auth - permitir login/register sem limite
+app.use('/api/', limiter);
 
 // Body Parsing
 app.use(express.json({ limit: '10mb' }));
@@ -194,8 +148,8 @@ app.options('/api/*', (req, res) => {
 
 // Health Check
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
+  res.json({ 
+    status: 'ok', 
     timestamp: new Date().toISOString(),
     database: 'connected'
   });
@@ -218,7 +172,7 @@ app.get('/test-cors', (req, res) => {
 app.options('/test-cors', (req, res) => {
   const origin = req.headers.origin;
   console.log(`🔍 TEST-CORS OPTIONS recebido - Origin: ${origin || 'N/A'}`);
-
+  
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
     res.setHeader('Access-Control-Allow-Credentials', 'true');

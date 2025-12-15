@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState } from 'react';
 import { CheckCircle, Clock, AlertCircle, Tag, Calendar, User, Building2, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,77 +13,14 @@ export default function PendingTickets() {
   const { tickets, updateTicket } = useTickets();
   const navigate = useNavigate();
 
-  // Filtrar apenas chamados com status "aberto" (não importa se estão atribuídos ou não)
-  // Quando um técnico aceitar, o status muda para "em_atendimento" e não aparece mais aqui
-  // Usar useMemo para garantir que o filtro seja recalculado quando tickets mudar
-  const pendingTickets = useMemo(() => {
-    console.log('🔄 Recalculando pendingTickets, total de tickets:', tickets.length);
-    return tickets.filter((ticket) => {
-    // Mostrar TODOS os tickets com status "aberto", independente de atribuição
-    // Normalizar comparação para funcionar com qualquer capitalização
-    const statusNormalized = String(ticket.status || '').toLowerCase().trim();
-    const isOpen = statusNormalized === 'aberto';
+  // Filtrar apenas chamados pendentes ou abertos (não atribuídos ou atribuídos ao técnico atual)
+  const pendingTickets = tickets.filter((ticket) => {
+    const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
+    const isAssignedToMe = ticket.assignedTo?.id === user?.id;
+    const isNotAssigned = !ticket.assignedTo;
 
-    if (isOpen) {
-      console.log('✅ Ticket "aberto" encontrado:', {
-        id: ticket.id,
-        status: ticket.status,
-        statusNormalized,
-        assignedTo: ticket.assignedTo?.name || 'Não atribuído',
-        assignedToId: ticket.assignedTo?.id || null,
-        title: ticket.title
-      });
-    } else {
-      // Log para debug: por que o ticket não está sendo incluído?
-      console.log('❌ Ticket NÃO é "aberto":', {
-        id: ticket.id,
-        status: ticket.status,
-        statusNormalized,
-        tipo_status: typeof ticket.status,
-        é_string: typeof ticket.status === 'string',
-        title: ticket.title
-      });
-    }
-    return isOpen;
-    });
-  }, [tickets]);
-
-  // Log imediato sempre que pendingTickets mudar
-  useEffect(() => {
-    console.log('🔄 PendingTickets atualizado:', {
-      total_tickets: tickets.length,
-      pending_count: pendingTickets.length,
-      pending_ids: pendingTickets.map(t => t.id),
-      user_role: user?.role
-    });
-  }, [pendingTickets, tickets.length, user?.role]);
-
-  // Debug: Log dos tickets para verificar o que está sendo carregado
-  useEffect(() => {
-    console.log('📋 Total de tickets carregados:', tickets.length);
-    console.log('📋 Tickets com status "aberto":', pendingTickets.length);
-
-    // Log detalhado de cada ticket e sua comparação
-    tickets.forEach(ticket => {
-      const statusNormalized = String(ticket.status || '').toLowerCase().trim();
-      const isOpen = statusNormalized === 'aberto';
-      console.log(`📋 Ticket ${ticket.id}:`, {
-        status_original: ticket.status,
-        status_normalizado: statusNormalized,
-        é_aberto: isOpen ? '✅ SIM' : '❌ NÃO',
-        assignedTo: ticket.assignedTo?.name || 'Não atribuído',
-        title: ticket.title
-      });
-    });
-
-    console.log('📋 Tickets "aberto" detalhados:', pendingTickets.map(t => ({
-      id: t.id,
-      status: t.status,
-      assignedTo: t.assignedTo?.name || 'Não atribuído',
-      assignedToId: t.assignedTo?.id || null,
-      title: t.title
-    })));
-  }, [tickets, pendingTickets]);
+    return isPending && (isAssignedToMe || isNotAssigned);
+  });
 
   const filteredTickets = pendingTickets;
 
@@ -107,7 +44,7 @@ export default function PendingTickets() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Novos Chamados</h1>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Chamados com status "Aberto" aguardando aceitação</p>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Chamados novos ou atribuídos a você</p>
         </div>
       </div>
 
@@ -136,9 +73,9 @@ export default function PendingTickets() {
         <div className="card dark:bg-gray-800 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Aguardando Aceitação</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Atribuídos a Você</p>
               <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                {pendingTickets.length}
+                {pendingTickets.filter(t => t.assignedTo?.id === user?.id).length}
               </p>
             </div>
             <CheckCircle className="w-8 h-8 text-green-600" />
@@ -161,9 +98,8 @@ export default function PendingTickets() {
                 filteredTickets.map((ticket) => {
                   const StatusIcon = getStatusIcon(ticket.status);
                   const client = ticket.client || ticket.createdBy;
-                  // Verificar se não está atribuído (assignedTo pode ser null, undefined ou objeto vazio)
-                  const isNotAssigned = !ticket.assignedTo ||
-                          (typeof ticket.assignedTo === 'object' && (!ticket.assignedTo.id || ticket.assignedTo.id === null));
+                  const isAssignedToMe = ticket.assignedTo?.id === user?.id;
+                  const isNotAssigned = !ticket.assignedTo;
 
                   return (
                     <tr
@@ -208,7 +144,7 @@ export default function PendingTickets() {
                               )}
                             </div>
                           </div>
-
+                          
                           <div className="flex flex-wrap items-center gap-2 mt-2">
                             {ticket.system && (
                               <div className="inline-flex items-center gap-1.5 px-2 py-1 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-md text-xs font-medium">
@@ -230,7 +166,7 @@ export default function PendingTickets() {
                               {ticket.category}
                             </div>
                           </div>
-
+                          
                           {ticket.serviceType && (
                             <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                               <span className="font-medium">Serviço:</span> {ticket.serviceType}
@@ -242,7 +178,7 @@ export default function PendingTickets() {
                         <div className="flex flex-col gap-1">
                           <div className="text-xs text-gray-500 dark:text-gray-400">Valor</div>
                           <div className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            {ticket.category === 'integracao'
+                            {ticket.category === 'integracao' 
                               ? (ticket.integrationValue ? formatCurrency(ticket.integrationValue) : '-')
                               : (ticket.totalValue ? formatCurrency(ticket.totalValue) : '-')
                             }
@@ -291,6 +227,23 @@ export default function PendingTickets() {
                             >
                               Aceitar
                             </button>
+                          )}
+                          {isAssignedToMe && (
+                            <>
+                              <button
+                                onClick={() => navigate(`/tickets/${ticket.id}`)}
+                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                              >
+                                Ver Detalhes
+                              </button>
+                              <button
+                                onClick={() => handleCloseTicket(ticket.id)}
+                                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5 shadow-sm hover:shadow-md"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                                Fechar
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>

@@ -9,8 +9,7 @@ import {
   X,
   DollarSign,
   Wallet,
-  Plug,
-  List
+  Plug
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
@@ -34,7 +33,6 @@ const allMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/', permission: 'view:dashboard', role: 'all' },
   { icon: Clock, label: 'Novos Chamados', path: '/tickets/pending', permission: 'view:pending:tickets', role: 'technician' },
   { icon: Ticket, label: 'Meus Chamados', path: '/tickets', permission: 'view:tickets', role: 'all' },
-  { icon: List, label: 'Todos Chamados', path: '/tickets/all', permission: 'view:all:tickets', role: 'technician' },
   { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },
   { icon: Wallet, label: 'Gestão Financeira', path: '/financial/management', permission: 'view:all:financial', role: 'all' },
   { icon: Plug, label: 'Integração ERP', path: '/erp-integration', permission: 'view:all:financial', role: 'admin' },
@@ -48,13 +46,16 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { hasPermission, user } = useAuth();
   const { tickets } = useTickets();
 
-  // Contar novos chamados para técnicos (todos com status "aberto")
+  // Contar novos chamados para técnicos
   const getNewTicketsCount = () => {
     if (user?.role !== 'technician') return 0;
 
-    // Contar todos os tickets com status "aberto" (aparecem para todos os técnicos)
     const newTickets = tickets.filter((ticket) => {
-      return ticket.status === 'aberto';
+      const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
+      const isAssignedToMe = ticket.assignedTo?.id === user.id;
+      const isNotAssigned = !ticket.assignedTo;
+
+      return isPending && (isAssignedToMe || isNotAssigned);
     });
 
     return newTickets.length;
@@ -94,7 +95,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           onClick={onClose}
         />
       )}
-
+      
       <aside
         className={`fixed left-0 top-0 h-screen w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -104,7 +105,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <Logo size="md" showText={false} />
         </div>
-
+        
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 lg:hidden">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Menu</h2>
           <button

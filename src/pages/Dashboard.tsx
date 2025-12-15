@@ -45,17 +45,20 @@ export default function Dashboard() {
 
   // Filtrar tickets baseado no role do usuário
   // Usuários veem seus próprios chamados E chamados de melhoria
-  // Técnicos veem TODOS os chamados (podem ver todos para aceitar)
-  // Usuários veem seus próprios chamados E chamados de melhoria
-  // Admins veem todos os chamados
+  // Técnicos veem chamados atribuídos a eles E chamados de melhoria
   let availableTickets = tickets;
-  if (user?.role === 'user') {
+  if (user?.role === 'technician') {
+    // Técnicos veem chamados atribuídos a eles OU chamados de melhoria
+    availableTickets = tickets.filter(ticket =>
+      ticket.assignedTo?.id === user.id || ticket.category === 'melhoria'
+    );
+  } else if (user?.role === 'user') {
     // Usuários veem chamados que eles criaram OU chamados de melhoria
     availableTickets = tickets.filter(ticket =>
       ticket.createdBy.id === user.id || ticket.category === 'melhoria'
     );
   }
-  // Técnicos e Admins veem todos os chamados (availableTickets = tickets)
+  // Admins veem todos os chamados (availableTickets = tickets)
 
   const stats = {
     total: availableTickets.length,
@@ -97,37 +100,24 @@ export default function Dashboard() {
     taxaResolucao: number;
     tempoMedioResolucao: number; // em dias
   }>>({});
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-
-  // Listener para mudanças no token
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const currentToken = localStorage.getItem('token');
-      if (currentToken !== token) {
-        setToken(currentToken);
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [token]);
 
   useEffect(() => {
     const loadTechnicians = async () => {
-      // Verificar se há token antes de carregar
-      const currentToken = localStorage.getItem('token');
-      if (!currentToken) {
-        console.log('⏳ Aguardando autenticação para carregar técnicos...');
-        return;
-      }
-
       try {
-        // SEMPRE usar API para buscar usuários - sem fallback para database local
+        // Usar API se disponível, senão usar database local
+        const apiUrl = import.meta.env.VITE_API_URL;
         let allUsers: UserType[];
-        try {
-          allUsers = await api.getUsers();
-        } catch (error) {
-          console.error('Erro ao buscar usuários da API:', error);
-          throw error; // Propagar o erro ao invés de usar fallback
+        if (apiUrl) {
+          try {
+            allUsers = await api.getUsers();
+          } catch (error) {
+            console.error('Erro ao buscar usuários da API, usando database local:', error);
+            await database.init();
+            allUsers = await database.getUsers();
+          }
+        } else {
+          await database.init();
+          allUsers = await database.getUsers();
         }
 
         // Filtrar apenas técnicos que NÃO são mockados
@@ -149,7 +139,7 @@ export default function Dashboard() {
     };
 
     loadTechnicians();
-  }, [token]);
+  }, []);
 
   // Calcular performance dos técnicos
   useEffect(() => {

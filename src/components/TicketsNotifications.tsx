@@ -26,74 +26,20 @@ export function TicketsNotifications() {
     // Verificar novos tickets
     tickets.forEach(ticket => {
       if (!previousTicketsRef.current.has(ticket.id)) {
-        // Novo ticket criado - notificar TODOS os técnicos se o ticket não estiver atribuído
+        // Novo ticket criado - notificar apenas se for do usuário ou se for técnico e não atribuído
         if (user) {
           const isMyTicket = ticket.createdBy.id === user.id || ticket.client?.id === user.id;
-          // Técnicos devem ser notificados de TODOS os tickets não atribuídos (status aberto)
-          const isTechnicianUnassigned = user.role === 'technician' && !ticket.assignedTo && (ticket.status === 'aberto' || ticket.status === 'pendente');
+          const isTechnicianUnassigned = user.role === 'technician' && !ticket.assignedTo;
           const isAdmin = user.role === 'admin';
 
           if (isMyTicket || isTechnicianUnassigned || isAdmin) {
             addNotification({
               type: 'ticket_created',
               title: 'Novo chamado criado',
-              message: `Chamado "${ticket.title}" foi criado${!ticket.assignedTo ? ' e está aguardando atribuição' : ''}`,
+              message: `Chamado "${ticket.title}" foi criado`,
               ticketId: ticket.id,
               ticketTitle: ticket.title,
             });
-
-            // Tocar som de notificação para técnicos quando um novo ticket não atribuído é criado
-            if (isTechnicianUnassigned) {
-              try {
-                const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-                const oscillator = audioContext.createOscillator();
-                const gainNode = audioContext.createGain();
-
-                oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
-
-                // Som de notificação (dois beeps)
-                oscillator.frequency.value = 800;
-                oscillator.type = 'sine';
-
-                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-
-                oscillator.start(audioContext.currentTime);
-                oscillator.stop(audioContext.currentTime + 0.2);
-
-                // Segundo beep
-                setTimeout(() => {
-                  const oscillator2 = audioContext.createOscillator();
-                  const gainNode2 = audioContext.createGain();
-
-                  oscillator2.connect(gainNode2);
-                  gainNode2.connect(audioContext.destination);
-
-                  oscillator2.frequency.value = 1000;
-                  oscillator2.type = 'sine';
-
-                  gainNode2.gain.setValueAtTime(0.3, audioContext.currentTime);
-                  gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.2);
-
-                  oscillator2.start(audioContext.currentTime);
-                  oscillator2.stop(audioContext.currentTime + 0.2);
-                }, 250);
-              } catch (error) {
-                console.warn('Não foi possível tocar o som de notificação:', error);
-              }
-
-              // Mostrar notificação do navegador (se permitido)
-              if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('Novo Chamado Disponível', {
-                  body: `Chamado "${ticket.title}" está aguardando atribuição`,
-                  icon: '/vite.svg',
-                  tag: `ticket-${ticket.id}`,
-                });
-              } else if ('Notification' in window && Notification.permission === 'default') {
-                Notification.requestPermission();
-              }
-            }
           }
         }
       } else {

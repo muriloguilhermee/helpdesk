@@ -22,7 +22,7 @@ export const initializeDatabase = async (): Promise<void> => {
       console.error('❌ ============================================');
       console.error('');
       console.error('📋 Variáveis de ambiente encontradas relacionadas a banco:');
-      const dbVars = Object.keys(process.env).filter(k =>
+      const dbVars = Object.keys(process.env).filter(k => 
         k.includes('DATABASE') || k.includes('DB') || k.includes('SUPABASE')
       );
       if (dbVars.length > 0) {
@@ -150,10 +150,10 @@ export const initializeDatabase = async (): Promise<void> => {
 
     // Test connection with retry for temporary errors
     console.log('🔄 Testando conexão com o banco de dados...');
-
+    
     let retries = 3;
     let lastError: any = null;
-
+    
     while (retries > 0) {
       try {
         // Tentar conectar com timeout de 30 segundos
@@ -168,9 +168,9 @@ export const initializeDatabase = async (): Promise<void> => {
         break; // Sucesso, sair do loop
       } catch (error: any) {
         lastError = error;
-
+        
         // Se for erro temporário (XX000 - db_termination), tentar novamente
-        if (error.code === 'XX000' ||
+        if (error.code === 'XX000' || 
             (error.message && (error.message.includes('shutdown') || error.message.includes('db_termination') || error.message.includes('termination')))) {
           retries--;
           if (retries > 0) {
@@ -185,7 +185,7 @@ export const initializeDatabase = async (): Promise<void> => {
         }
       }
     }
-
+    
     // Se ainda há erro após retries, mostrar mensagem
     if (lastError) {
       const error = lastError;
@@ -200,11 +200,11 @@ export const initializeDatabase = async (): Promise<void> => {
       console.error(`   Detail: ${error.detail || 'N/A'}`);
       console.error(`   Hint: ${error.hint || 'N/A'}`);
       console.error('');
-
+      
       // Diagnóstico baseado no erro
       console.error('💡 Diagnóstico:');
       console.error('');
-
+      
       if (error.code === 'ECONNREFUSED') {
         console.error('   ❌ Conexão recusada - possíveis causas:');
         console.error('      1. Host ou porta incorretos na connection string');
@@ -240,7 +240,7 @@ export const initializeDatabase = async (): Promise<void> => {
         console.error('      - O banco pode estar sobrecarregado');
         console.error('      - Tente usar Connection Pooler (porta 6543)');
         console.error('      - Verifique se há problemas de rede');
-      } else if (error.code === 'XX000' ||
+      } else if (error.code === 'XX000' || 
                  (error.message && (error.message.includes('shutdown') || error.message.includes('db_termination') || error.message.includes('termination')))) {
         console.error('   ❌ Banco de dados foi encerrado ou está reiniciando');
         console.error('      - Este é geralmente um problema temporário');
@@ -258,11 +258,11 @@ export const initializeDatabase = async (): Promise<void> => {
         console.error('      - Verifique os logs do Supabase');
         console.error('      - Tente usar Connection Pooler (porta 6543)');
       }
-
+      
       console.error('');
       console.error('📖 Para mais ajuda, veja: server/CONFIGURAR_SUPABASE.md');
       console.error('');
-
+      
       throw error;
     }
 
@@ -361,8 +361,6 @@ const runMigrations = async (): Promise<void> => {
         table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
         // CASCADE: quando ticket é excluído, exclui arquivos
         table.string('ticket_id').references('id').inTable('tickets').onDelete('CASCADE');
-        // CASCADE: quando interação é excluída, exclui arquivos associados
-        table.uuid('interaction_id').references('id').inTable('interactions').onDelete('CASCADE').nullable();
         table.string('name').notNullable();
         table.bigInteger('size').notNullable();
         table.string('type').notNullable();
@@ -370,19 +368,6 @@ const runMigrations = async (): Promise<void> => {
         table.timestamps(true, true);
       });
       console.log('✅ Created ticket_files table with CASCADE');
-    } else {
-      // Verificar se interaction_id existe, se não, adicionar
-      const hasInteractionId = await db!.schema.hasColumn('ticket_files', 'interaction_id');
-      if (!hasInteractionId) {
-        // Primeiro garantir que a tabela interactions existe
-        const hasInteractionsTable = await db!.schema.hasTable('interactions');
-        if (hasInteractionsTable) {
-          await db!.schema.alterTable('ticket_files', (table) => {
-            table.uuid('interaction_id').references('id').inTable('interactions').onDelete('CASCADE').nullable();
-          });
-          console.log('✅ Added interaction_id column to ticket_files table');
-        }
-      }
     }
 
     const hasCommentsTable = await db!.schema.hasTable('comments');
@@ -397,22 +382,6 @@ const runMigrations = async (): Promise<void> => {
         table.timestamps(true, true);
       });
       console.log('✅ Created comments table (CASCADE on ticket, SET NULL on author)');
-    }
-
-    const hasInteractionsTable = await db!.schema.hasTable('interactions');
-    if (!hasInteractionsTable) {
-      await db!.schema.createTable('interactions', (table) => {
-        table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
-        // CASCADE: quando ticket é excluído, exclui interações
-        table.string('ticket_id').references('id').inTable('tickets').onDelete('CASCADE');
-        table.string('type').notNullable(); // 'user', 'status_change', 'assignment', etc.
-        table.text('content').notNullable();
-        // SET NULL: quando usuário é excluído, mantém interação mas remove referência ao autor
-        table.uuid('author_id').references('id').inTable('users').onDelete('SET NULL').nullable();
-        table.text('metadata').nullable(); // JSON armazenado como texto
-        table.timestamps(true, true);
-      });
-      console.log('✅ Created interactions table (CASCADE on ticket, SET NULL on author)');
     }
 
     const hasFinancialTicketsTable = await db!.schema.hasTable('financial_tickets');
@@ -459,7 +428,6 @@ const runMigrations = async (): Promise<void> => {
       CREATE INDEX IF NOT EXISTS idx_tickets_assigned_to ON tickets(assigned_to);
       CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at);
       CREATE INDEX IF NOT EXISTS idx_comments_ticket_id ON comments(ticket_id);
-      CREATE INDEX IF NOT EXISTS idx_interactions_ticket_id ON interactions(ticket_id);
       CREATE INDEX IF NOT EXISTS idx_financial_tickets_client_id ON financial_tickets(client_id);
       CREATE INDEX IF NOT EXISTS idx_financial_tickets_created_by ON financial_tickets(created_by);
       CREATE INDEX IF NOT EXISTS idx_financial_tickets_status ON financial_tickets(status);

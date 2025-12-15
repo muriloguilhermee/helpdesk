@@ -126,3 +126,4 @@ console.log('   1. Se encontrou problemas acima, corrija o arquivo .env');
 console.log('   2. Execute: npm run test-connection (para testar conexão)');
 console.log('   3. Execute: npm run dev (para iniciar servidor)\n');
 
+

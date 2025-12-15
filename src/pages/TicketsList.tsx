@@ -78,25 +78,22 @@ export default function TicketsList() {
 
   // Filtrar tickets baseado no role do usuário
   // Usuários veem seus próprios chamados E chamados de melhoria
-  // Técnicos veem apenas tickets ATRIBUÍDOS a eles (Meus Chamados)
-  // Admins veem todos os chamados
+  // Técnicos veem chamados atribuídos a eles E chamados de melhoria
   let availableTickets = tickets;
-  if (user?.role === 'user') {
+  if (user?.role === 'technician') {
+    // Técnicos veem chamados atribuídos a eles OU chamados de melhoria
+    availableTickets = tickets.filter(ticket =>
+      ticket.assignedTo?.id === user.id || ticket.category === 'melhoria'
+    );
+  } else if (user?.role === 'user') {
     // Usuários veem chamados que eles criaram OU chamados de melhoria
     availableTickets = tickets.filter(ticket =>
       ticket.createdBy.id === user.id || ticket.category === 'melhoria'
     );
-  } else if (user?.role === 'technician') {
-    // Técnicos veem apenas tickets atribuídos a eles em "Meus Chamados"
-    availableTickets = tickets.filter(ticket =>
-      ticket.assignedTo?.id === user.id
-    );
   }
   // Admins veem todos os chamados (availableTickets = tickets)
 
-  // Não exibir chamados com status "aberto" aqui (eles devem ficar apenas em "Novos Chamados")
   const filteredTickets = availableTickets
-    .filter((ticket) => ticket.status !== 'aberto')
     .filter((ticket) => {
       if (filters.status && ticket.status !== filters.status) return false;
       if (filters.priority && ticket.priority !== filters.priority) return false;

@@ -64,7 +64,8 @@ export interface Ticket {
   client?: User;
   createdBy: User;
   assignedTo?: User;
-  queue?: string; // Nome da fila do chamado
+  queue?: string | null; // Nome da fila do chamado
+  queueId?: string | null;
   createdAt: Date;
   updatedAt: Date;
   comments?: Comment[];

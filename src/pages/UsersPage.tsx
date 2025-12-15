@@ -29,31 +29,10 @@ export default function UsersPage() {
   const [isCreatingUser, setIsCreatingUser] = useState(false);
   const [isUpdatingUser, setIsUpdatingUser] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-
-  // Listener para mudanças no token
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const currentToken = localStorage.getItem('token');
-      if (currentToken !== token) {
-        setToken(currentToken);
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [token]);
 
   // Carregar usuários APENAS do banco de dados (API)
   useEffect(() => {
     const loadUsers = async () => {
-      // Verificar se há token antes de carregar
-      const currentToken = localStorage.getItem('token');
-      if (!currentToken) {
-        console.log('⏳ Aguardando autenticação para carregar usuários...');
-        setIsLoading(false);
-        return;
-      }
-
       try {
         setIsLoading(true);
         console.log('📡 Carregando usuários da API...');
@@ -84,7 +63,7 @@ export default function UsersPage() {
     };
 
     loadUsers();
-  }, [token]);
+  }, []);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);

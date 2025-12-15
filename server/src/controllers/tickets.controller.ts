@@ -7,7 +7,6 @@ import {
   updateTicket,
   deleteTicket,
   addComment,
-  addInteraction,
 } from '../services/tickets.service.js';
 import { z } from 'zod';
 
@@ -31,14 +30,27 @@ const createTicketSchema = z.object({
 const updateTicketSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().min(1).optional(),
-  status: z.enum(['aberto', 'em_andamento', 'em_atendimento', 'pendente', 'resolvido', 'fechado', 'encerrado', 'em_fase_de_testes', 'homologacao', 'aguardando_cliente']).optional(),
+  status: z
+    .enum([
+      'aberto',
+      'em_andamento',
+      'em_atendimento',
+      'pendente',
+      'resolvido',
+      'fechado',
+      'encerrado',
+      'em_fase_de_testes',
+      'homologacao',
+      'aguardando_cliente',
+    ])
+    .optional(),
   priority: z.enum(['baixa', 'media', 'alta', 'critica']).optional(),
   category: z.enum(['tecnico', 'suporte', 'financeiro', 'outros']).optional(),
   serviceType: z.string().optional(),
   totalValue: z.number().optional(),
   assignedTo: z.string().uuid().nullable().optional(),
   clientId: z.string().uuid().optional(),
-  queueId: z.string().uuid().nullable().optional(),
+  queueId: z.union([z.string().uuid(), z.string().min(1), z.null()]).optional(),
 });
 
 const commentSchema = z.object({
@@ -47,14 +59,6 @@ const commentSchema = z.object({
 
 export const getAllTicketsController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('========================================');
-    console.log('📥 REQUISIÇÃO GET /api/tickets RECEBIDA');
-    console.log('========================================');
-    console.log('👤 Usuário:', req.user?.email);
-    console.log('🔑 Role:', req.user?.role);
-    console.log('🔍 Query params:', req.query);
-    console.log('🆔 User ID:', req.user?.id);
-
     const filters: any = {};
     if (req.query.status) filters.status = req.query.status;
     if (req.query.priority) filters.priority = req.query.priority;
@@ -66,43 +70,13 @@ export const getAllTicketsController = async (req: AuthRequest, res: Response): 
     // If user is not admin, filter by their own tickets
     if (req.user?.role === 'user') {
       filters.createdBy = req.user.id;
-      console.log('👤 Filtro aplicado: apenas tickets do usuário');
     } else if (req.user?.role === 'technician') {
-      // Técnicos devem ver TODOS os tickets (atribuídos a eles OU não atribuídos)
-      // Não aplicar filtro de assignedTo aqui - deixar o frontend filtrar
-      // Isso permite que técnicos vejam tickets novos (não atribuídos) e seus próprios tickets
-      console.log('🔧 Técnico: retornando TODOS os tickets (sem filtro)');
-    } else if (req.user?.role === 'admin') {
-      console.log('👑 Admin: retornando TODOS os tickets');
+      filters.assignedTo = req.user.id;
     }
 
-    console.log('🔄 Chamando getAllTickets com filtros:', filters);
     const tickets = await getAllTickets(filters);
-
-    // Log detalhado dos tickets retornados
-    console.log('========================================');
-    console.log(`✅ RESPOSTA: ${tickets.length} tickets retornados para ${req.user?.role}`);
-    console.log('========================================');
-    console.log('📊 Estatísticas:', {
-      total: tickets.length,
-      abertos: tickets.filter((t: any) => t.status === 'aberto').length,
-      em_atendimento: tickets.filter((t: any) => t.status === 'em_atendimento').length,
-      atribuidos: tickets.filter((t: any) => t.assigned_to_user).length,
-      nao_atribuidos: tickets.filter((t: any) => !t.assigned_to_user).length,
-    });
-    console.log('📋 IDs dos tickets:', tickets.map((t: any) => t.id));
-    console.log('📋 Detalhes:', tickets.map((t: any) => ({
-      id: t.id,
-      status: t.status,
-      assigned: !!t.assigned_to_user,
-      created_by: t.created_by,
-      created_by_user: t.created_by_user ? 'existe' : 'null'
-    })));
-    console.log('========================================');
-
     res.json(tickets);
   } catch (error) {
-    console.error('❌ Erro ao buscar tickets:', error);
     res.status(500).json({ error: (error as Error).message });
   }
 };
@@ -133,21 +107,9 @@ export const createTicketController = async (req: AuthRequest, res: Response): P
     console.log('📥 Recebida requisição para criar ticket:', req.body);
     const validated = createTicketSchema.parse(req.body);
     const ticket = await createTicket({
-      title: validated.title,
-      description: validated.description,
-      priority: validated.priority,
-      category: validated.category,
+      ...validated,
       createdBy: req.user.id,
       clientId: validated.clientId || req.user.id,
-      serviceType: validated.serviceType,
-      totalValue: validated.totalValue,
-      queueId: validated.queueId,
-      files: validated.files ? validated.files.map(file => ({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        dataUrl: file.dataUrl,
-      })) : undefined,
     });
     console.log('✅ Ticket criado, retornando resposta:', ticket.id);
     res.status(201).json(ticket);
@@ -176,15 +138,7 @@ export const updateTicketController = async (req: AuthRequest, res: Response): P
       res.status(400).json({ error: error.errors[0].message });
       return;
     }
-    // Garantir que a mensagem de erro seja uma string válida
-    let errorMessage = 'Erro desconhecido';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    } else if (error && typeof error === 'object' && 'message' in error) {
-      errorMessage = String(error.message);
-    }
+    const errorMessage = (error as Error).message;
     console.error('Mensagem de erro:', errorMessage);
     res.status(400).json({ error: errorMessage });
   }
@@ -205,126 +159,20 @@ export const deleteTicketController = async (req: AuthRequest, res: Response): P
 
 export const addCommentController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('========================================');
-    console.log('📥 REQUISIÇÃO POST /api/tickets/:id/comments RECEBIDA');
-    console.log('========================================');
-    console.log('👤 Usuário:', req.user?.email);
-    console.log('🆔 Ticket ID:', req.params.id);
-    console.log('📝 Body:', req.body);
-
     if (!req.user) {
-      console.log('❌ Usuário não autenticado');
       res.status(401).json({ error: 'Não autenticado' });
       return;
     }
 
     const validated = commentSchema.parse(req.body);
-    console.log('✅ Validação OK, conteúdo:', validated.content);
-
     const comment = await addComment(req.params.id, req.user.id, validated.content);
-    console.log('✅ Comentário criado no banco:', comment.id);
-
     res.status(201).json(comment);
   } catch (error) {
-    console.error('❌ Erro no controller de adicionar comentário:', error);
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: error.errors[0].message });
       return;
     }
     res.status(400).json({ error: (error as Error).message });
-  }
-};
-
-const interactionSchema = z.object({
-  type: z.string().min(1, 'Tipo da interação é obrigatório'),
-  content: z.string().min(1, 'Conteúdo da interação é obrigatório'),
-  metadata: z.any().optional(),
-  files: z.array(z.object({
-    name: z.string(),
-    size: z.number(),
-    type: z.string(),
-    dataUrl: z.string(),
-  })).optional(),
-});
-
-export const addInteractionController = async (req: AuthRequest, res: Response): Promise<void> => {
-  try {
-    console.log('========================================');
-    console.log('📥 REQUISIÇÃO POST /api/tickets/:id/interactions RECEBIDA');
-    console.log('========================================');
-    console.log('👤 Usuário:', req.user?.email);
-    console.log('🆔 Ticket ID:', req.params.id);
-    console.log('📝 Body:', req.body);
-
-    if (!req.user) {
-      console.log('❌ Usuário não autenticado');
-      res.status(401).json({ error: 'Não autenticado' });
-      return;
-    }
-
-    const validated = interactionSchema.parse(req.body);
-    console.log('✅ Validação OK, tipo:', validated.type, 'conteúdo:', validated.content);
-    console.log('📎 Arquivos recebidos no controller:', {
-      hasFiles: !!validated.files && validated.files.length > 0,
-      filesCount: validated.files?.length || 0,
-      files: validated.files?.map((f: any) => ({
-        name: f.name,
-        size: f.size,
-        type: f.type,
-        hasDataUrl: !!f.dataUrl,
-        dataUrlLength: f.dataUrl?.length || 0
-      }))
-    });
-
-    // Filtrar e validar arquivos antes de enviar - garantir que todos os campos obrigatórios estejam presentes
-    const validFiles = validated.files?.filter((f: any) =>
-      f && f.name && typeof f.size === 'number' && f.type && f.dataUrl
-    ).map((f: any) => ({
-      name: f.name as string,
-      size: f.size as number,
-      type: f.type as string,
-      dataUrl: f.dataUrl as string,
-    }));
-
-    const interaction = await addInteraction(
-      req.params.id,
-      req.user.id,
-      validated.type,
-      validated.content,
-      validated.metadata,
-      validFiles && validFiles.length > 0 ? validFiles : undefined
-    );
-    console.log('✅ Interação criada no banco:', interaction.id);
-
-    // Se for cliente (user), reabrir o chamado como "aberto" sem mexer na atribuição
-    if (req.user.role === 'user') {
-      try {
-        console.log('🔄 Cliente adicionou interação -> reabrindo chamado como "aberto"', req.params.id);
-        await updateTicket(req.params.id, { status: 'aberto' });
-      } catch (reopenError) {
-        console.error('❌ Erro ao reabrir chamado após interação do cliente:', reopenError);
-        // Não impede a resposta da interação; apenas loga
-      }
-    }
-
-    res.status(201).json(interaction);
-  } catch (error) {
-    console.error('❌ Erro no controller de adicionar interação:', error);
-    if (error instanceof z.ZodError) {
-      res.status(400).json({ error: error.errors[0].message });
-      return;
-    }
-    // Garantir que a mensagem de erro seja uma string válida
-    let errorMessage = 'Erro desconhecido';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    } else if (error && typeof error === 'object' && 'message' in error) {
-      errorMessage = String(error.message);
-    }
-    console.error('Mensagem de erro:', errorMessage);
-    res.status(400).json({ error: errorMessage });
   }
 };
 

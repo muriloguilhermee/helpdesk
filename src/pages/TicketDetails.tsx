@@ -3,98 +3,14 @@ import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, P
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
-
-// Função helper para transformar interações (copiada do TicketsContext)
-const safeDateParse = (dateValue: any): Date => {
-  if (!dateValue) return new Date();
-  if (dateValue instanceof Date) return dateValue;
-  if (typeof dateValue === 'string') {
-    const parsed = new Date(dateValue);
-    if (isNaN(parsed.getTime())) return new Date();
-    return parsed;
-  }
-  if (typeof dateValue === 'number') return new Date(dateValue);
-  return new Date();
-};
-
-const transformInteractions = (interactions: any[]): Interaction[] => {
-  if (!interactions || !Array.isArray(interactions)) {
-    console.log('⚠️ transformInteractions: interactions não é um array válido', interactions);
-    return [];
-  }
-
-  console.log('🔄 transformInteractions (TicketDetails): processando', interactions.length, 'interações');
-
-  return interactions.map(interaction => {
-    const files = interaction.files || interaction.attachments || [];
-
-    console.log('🔍 Processando interação (TicketDetails):', {
-      interactionId: interaction.id,
-      hasFilesProperty: 'files' in interaction,
-      filesValue: interaction.files,
-      filesType: typeof interaction.files,
-      filesIsArray: Array.isArray(interaction.files),
-      filesLength: Array.isArray(interaction.files) ? interaction.files.length : 0
-    });
-
-    if (files.length > 0) {
-      console.log('📎 Interação com arquivos (TicketDetails):', {
-        interactionId: interaction.id,
-        filesCount: files.length,
-        files: files.map((f: any) => ({
-          id: f.id,
-          name: f.name,
-          type: f.type,
-          hasData: !!f.data,
-          hasDataUrl: !!f.data_url,
-          dataLength: f.data?.length || 0,
-          dataUrlLength: f.data_url?.length || 0
-        }))
-      });
-    }
-
-    const transformedFiles = files.length > 0 ? files.map((f: any) => {
-      const fileData = f.data || f.data_url || null;
-      if (!fileData) {
-        console.warn('⚠️ Arquivo sem dados (TicketDetails):', {
-          fileId: f.id,
-          fileName: f.name,
-          fileKeys: Object.keys(f)
-        });
-      }
-      return {
-        id: f.id || `file-${Date.now()}-${Math.random()}`,
-        name: f.name,
-        size: f.size || 0,
-        type: f.type || 'application/octet-stream',
-        data: fileData,
-      };
-    }).filter((f: any) => f.data) : undefined;
-
-    if (transformedFiles && transformedFiles.length > 0) {
-      console.log('✅ Arquivos transformados (TicketDetails):', {
-        interactionId: interaction.id,
-        filesCount: transformedFiles.length
-      });
-    }
-
-    return {
-      ...interaction,
-      createdAt: safeDateParse(interaction.createdAt || interaction.created_at),
-      author: interaction.author || null,
-      files: transformedFiles,
-    };
-  });
-};
 import { getStatusColor, getPriorityColor, getStatusLabel } from '../utils/statusColors';
 import { formatDate } from '../utils/formatDate';
 import { formatFileSize } from '../utils/formatFileSize';
 import { formatCurrency } from '../utils/formatCurrency';
 import { UserAvatar } from '../utils/userAvatar';
-import { Ticket, TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType, Queue, TicketFile } from '../types';
+import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType, Queue, TicketFile } from '../types';
 import { mockUsers } from '../data/mockData';
 import { database } from '../services/database';
-import { api } from '../services/api';
 
 export default function TicketDetails() {
   const { hasPermission, user } = useAuth();
@@ -127,213 +43,21 @@ export default function TicketDetails() {
   const [showFileViewer, setShowFileViewer] = useState(false);
   const [selectedFile, setSelectedFile] = useState<TicketFile | null>(null);
 
-  // Estado para armazenar ticket completo com arquivos
-  const [fullTicket, setFullTicket] = useState<Ticket | null>(null);
-
-  // Carregar ticket completo da API quando o ID mudar
-  useEffect(() => {
-    const loadFullTicket = async () => {
-      if (!id) return;
-
-      try {
-        console.log('🔄 Carregando ticket completo da API:', id);
-        const ticketData = await api.getTicketById(id);
-
-        console.log('📦 Ticket completo recebido da API (RAW):', {
-          id: ticketData.id,
-          interactions_count: ticketData.interactions?.length || 0,
-          interactions_with_files: ticketData.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0,
-          all_interactions: ticketData.interactions?.map((i: any) => ({
-            id: i.id,
-            type: i.type,
-            content: i.content?.substring(0, 50),
-            hasFiles: !!i.files && i.files.length > 0,
-            filesCount: i.files?.length || 0,
-            filesIsArray: Array.isArray(i.files),
-            filesType: typeof i.files,
-            files: i.files?.map((f: any) => ({
-              id: f.id,
-              name: f.name,
-              type: f.type,
-              hasData: !!f.data,
-              hasDataUrl: !!f.data_url,
-              dataLength: f.data?.length || 0,
-              dataUrlLength: f.data_url?.length || 0,
-              allKeys: Object.keys(f)
-            })) || [],
-            allKeys: Object.keys(i)
-          })) || []
-        });
-
-        // Log detalhado de cada interação
-        if (ticketData.interactions && ticketData.interactions.length > 0) {
-          ticketData.interactions.forEach((interaction: any, index: number) => {
-            console.log(`📋 Interação ${index + 1}/${ticketData.interactions.length}:`, {
-              id: interaction.id,
-              type: interaction.type,
-              content: interaction.content?.substring(0, 50),
-              hasFilesProperty: 'files' in interaction,
-              filesValue: interaction.files,
-              filesType: typeof interaction.files,
-              filesIsArray: Array.isArray(interaction.files),
-              filesLength: Array.isArray(interaction.files) ? interaction.files.length : 'N/A',
-              rawInteraction: interaction
-            });
-          });
-        }
-
-        // Transformar resposta da API para formato Ticket
-        const rawInteractions = transformInteractions(ticketData.interactions || []);
-
-        // Se alguma interação veio sem arquivos, tentar associar a partir de ticket.files via interactionId
-        const filesByInteraction: Record<string, any[]> = {};
-        if (ticketData.files && Array.isArray(ticketData.files)) {
-          ticketData.files.forEach((f: any) => {
-            const key = f.interactionId || f.interaction_id;
-            if (key) {
-              if (!filesByInteraction[key]) filesByInteraction[key] = [];
-              filesByInteraction[key].push({
-                id: f.id,
-                name: f.name,
-                size: f.size,
-                type: f.type,
-                data: f.data || f.data_url, // garantir data para fallback
-              });
-            }
-          });
-        }
-
-        const mergedInteractions = rawInteractions.map((i) => {
-          if (i.files && i.files.length > 0) return i;
-          const fallback = filesByInteraction[i.id];
-          if (fallback && fallback.length > 0) {
-            return {
-              ...i,
-              files: fallback,
-            };
-          }
-          return i;
-        });
-
-        const transformedTicket: Ticket = {
-          id: ticketData.id,
-          title: ticketData.title,
-          description: ticketData.description,
-          status: ticketData.status,
-          priority: ticketData.priority,
-          category: ticketData.category,
-          serviceType: ticketData.service_type,
-          totalValue: ticketData.total_value ? parseFloat(ticketData.total_value) : undefined,
-          createdBy: ticketData.created_by_user || { id: ticketData.created_by, name: '', email: '', role: 'user' },
-          assignedTo: ticketData.assigned_to_user,
-          client: ticketData.client_user,
-          files: ticketData.files || [],
-          comments: ticketData.comments || [],
-          interactions: mergedInteractions, // Transformadas + merge de arquivos
-          createdAt: new Date(ticketData.created_at),
-          updatedAt: new Date(ticketData.updated_at),
-        };
-
-        setFullTicket(transformedTicket);
-      } catch (error) {
-        console.error('❌ Erro ao carregar ticket completo:', error);
-        // Fallback para ticket do contexto
-        const found = tickets.find(t => t.id === id);
-        setFullTicket(found || null);
-      }
-    };
-
-    loadFullTicket();
-  }, [id, tickets]);
-
-  const ticket = useMemo(() => {
-    // Usar ticket completo da API se disponível, senão usar do contexto
-    if (fullTicket) {
-      const interactionsWithFiles = fullTicket.interactions?.filter((i: any) => i.files && i.files.length > 0) || [];
-      console.log('✅ Usando ticket completo da API:', {
-        id: fullTicket.id,
-        interactions_count: fullTicket.interactions?.length || 0,
-        interactions_with_files: interactionsWithFiles.length,
-        interactions_with_files_details: interactionsWithFiles.map((i: any) => ({
-          id: i.id,
-          type: i.type,
-          content: i.content?.substring(0, 50),
-          filesCount: i.files?.length || 0,
-          files: i.files?.map((f: any) => ({
-            id: f.id,
-            name: f.name,
-            hasData: !!f.data,
-            dataLength: f.data?.length || 0
-          })) || []
-        }))
-      });
-
-      // Log de todas as interações para debug
-      if (fullTicket.interactions && fullTicket.interactions.length > 0) {
-        fullTicket.interactions.forEach((interaction: any, index: number) => {
-          console.log(`🎯 Interação ${index + 1} no ticket usado:`, {
-            id: interaction.id,
-            type: interaction.type,
-            content: interaction.content?.substring(0, 50),
-            hasFiles: !!interaction.files && interaction.files.length > 0,
-            filesCount: interaction.files?.length || 0,
-            files: interaction.files?.map((f: any) => ({
-              id: f.id,
-              name: f.name,
-              hasData: !!f.data,
-              dataLength: f.data?.length || 0
-            })) || []
-          });
-        });
-      }
-
-      return fullTicket;
-    }
-
-    if (!id) return undefined;
-    const found = tickets.find(t => t.id === id);
-    console.log('🔍 Buscando ticket do contexto:', {
-      id,
-      encontrado: !!found,
-      total_tickets: tickets.length,
-      ticket_ids: tickets.map(t => t.id)
-    });
-    return found;
-  }, [fullTicket, tickets, id]);
-
+  const ticket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
+  
   // Verificar se o chamado está fechado (fechado ou resolvido)
   const isClosed = ticket?.status === 'fechado' || ticket?.status === 'resolvido';
   // Verificar se o usuário é admin
   const isAdmin = user?.role === 'admin';
   // Verificar se o usuário é técnico
   const isTechnician = user?.role === 'technician';
-  // Verificar se o ticket está atribuído a outro técnico (para técnicos)
-  const isAssignedToOtherTechnician = isTechnician && ticket?.assignedTo && ticket.assignedTo.id !== user?.id;
   // Verificar se pode alterar status (admin sempre pode, outros só se não estiver fechado)
-  // Técnicos não podem alterar status de tickets atribuídos a outros técnicos
-  const canChangeStatus = hasPermission('edit:ticket') && (isAdmin || !isClosed) && !isAssignedToOtherTechnician;
-  // Verificar se pode editar o ticket (técnicos só podem adicionar comentários em tickets de outros)
-  const canEditTicket = isAdmin || !isAssignedToOtherTechnician;
-
-  // Tratamento de erro para evitar tela branca
-  if (!id) {
-    console.error('❌ ID do ticket não fornecido');
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-500 dark:text-gray-400">ID do chamado não fornecido</p>
-        <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
-          Voltar para lista
-        </button>
-      </div>
-    );
-  }
+  const canChangeStatus = hasPermission('edit:ticket') && (isAdmin || !isClosed);
 
   if (!ticket) {
-    console.log('⏳ Ticket não encontrado ainda, aguardando carregamento...');
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
-        <p className="text-gray-500 dark:text-gray-400">Carregando chamado...</p>
+        <p className="text-gray-500 dark:text-gray-400">Chamado não encontrado</p>
         <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
           Voltar para lista
         </button>
@@ -343,8 +67,7 @@ export default function TicketDetails() {
 
   // Verificar se o usuário tem permissão para ver este chamado
   // Usuários podem ver seus próprios chamados OU chamados de melhoria
-  // Técnicos podem ver TODOS os chamados (para poder aceitar novos)
-  // Admins podem ver todos os chamados
+  // Técnicos podem ver chamados atribuídos a eles OU chamados de melhoria
   if (user?.role === 'user') {
     const isOwnTicket = ticket.createdBy.id === user.id;
     const isMelhoria = ticket.category === 'melhoria';
@@ -359,31 +82,32 @@ export default function TicketDetails() {
       );
     }
   }
-  // Técnicos e Admins podem ver todos os chamados (sem restrição)
+  
+  if (user?.role === 'technician') {
+    const isAssignedToMe = ticket.assignedTo?.id === user.id;
+    const isMelhoria = ticket.category === 'melhoria';
+    if (!isAssignedToMe && !isMelhoria) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">Você não tem permissão para ver este chamado</p>
+          <button onClick={() => navigate('/tickets')} className="btn-primary mt-4">
+            Voltar para lista
+          </button>
+        </div>
+      );
+    }
+  }
 
-  const handleAddComment = async () => {
+  const handleAddComment = () => {
     if (comment.trim() && user && ticket) {
-      try {
-        const newComment: Comment = {
-          id: `comment-${Date.now()}`,
-          content: comment.trim(),
-          author: user,
-          createdAt: new Date(),
-        };
-        console.log('📤 Enviando comentário:', {
-          ticketId: ticket.id,
-          content: newComment.content
-        });
-        await addComment(ticket.id, newComment);
-        setComment('');
-        setSuccessMessage('Comentário adicionado com sucesso!');
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } catch (error: any) {
-        console.error('❌ Erro ao adicionar comentário:', error);
-        const errorMessage = error.message || 'Erro ao adicionar comentário. Tente novamente.';
-        alert(`Erro: ${errorMessage}`);
-        setSuccessMessage('');
-      }
+      const newComment: Comment = {
+        id: `comment-${Date.now()}`,
+        content: comment.trim(),
+        author: user,
+        createdAt: new Date(),
+      };
+      addComment(ticket.id, newComment);
+      setComment('');
     }
   };
 
@@ -423,154 +147,34 @@ export default function TicketDetails() {
 
   const handleAddInteraction = async () => {
     if ((replyText.trim() || replyFiles.length > 0) && user && ticket) {
-      try {
-        // Verificar se há token antes de continuar
-        const token = localStorage.getItem('token');
-        if (!token) {
-          console.error('❌ Token não encontrado no localStorage!');
-          alert('Sessão expirada. Por favor, faça login novamente.');
-          // Redirecionar para login se necessário
-          window.location.href = '/login';
-          return;
-        }
-
-        console.log('🔑 Token verificado:', {
-          hasToken: !!token,
-          tokenPreview: token.substring(0, 20) + '...',
-          tokenLength: token.length
-        });
-
-        // Converter arquivos
-        const interactionFiles: TicketFile[] = [];
-        for (let i = 0; i < replyFiles.length; i++) {
-          const ticketFile = await convertFileToTicketFile(replyFiles[i], i);
-          interactionFiles.push(ticketFile);
-        }
-
-        const newInteraction: Interaction = {
-          id: `interaction-${Date.now()}`,
-          type: 'user',
-          content: replyText.trim() || '(Sem texto)',
-          author: user,
-          createdAt: new Date(),
-          files: interactionFiles.length > 0 ? interactionFiles : undefined,
-        };
-
-        console.log('📤 Enviando interação:', {
-          ticketId: ticket.id,
-          type: newInteraction.type,
-          content: newInteraction.content,
-          hasFiles: !!newInteraction.files && newInteraction.files.length > 0,
-          filesCount: newInteraction.files?.length || 0,
-          files: newInteraction.files?.map(f => ({
-            name: f.name,
-            size: f.size,
-            type: f.type,
-            hasData: !!f.data,
-            dataLength: f.data?.length || 0
-          }))
-        });
-
-          await addInteraction(ticket.id, newInteraction);
-
-          // Recarregar ticket completo da API para garantir que os arquivos apareçam
-          console.log('🔄 Recarregando ticket completo após adicionar interação...');
-          try {
-            const updatedTicketData = await api.getTicketById(ticket.id);
-            console.log('📦 Ticket recarregado após interação (RAW):', {
-              id: updatedTicketData.id,
-              interactions_count: updatedTicketData.interactions?.length || 0,
-              interactions_with_files: updatedTicketData.interactions?.filter((i: any) => i.files && i.files.length > 0).length || 0,
-              all_interactions: updatedTicketData.interactions?.map((i: any) => ({
-                id: i.id,
-                type: i.type,
-                content: i.content?.substring(0, 50),
-                hasFiles: !!i.files && i.files.length > 0,
-                filesCount: i.files?.length || 0,
-                filesIsArray: Array.isArray(i.files),
-                files: i.files?.map((f: any) => ({
-                  id: f.id,
-                  name: f.name,
-                  type: f.type,
-                  hasData: !!f.data,
-                  hasDataUrl: !!f.data_url,
-                  dataLength: f.data?.length || 0,
-                  dataUrlLength: f.data_url?.length || 0
-                })) || [],
-                allKeys: Object.keys(i)
-              })) || []
-            });
-
-            // Log detalhado de cada interação após recarregar
-            if (updatedTicketData.interactions && updatedTicketData.interactions.length > 0) {
-              updatedTicketData.interactions.forEach((interaction: any, index: number) => {
-                console.log(`📋 Interação ${index + 1}/${updatedTicketData.interactions.length} (após recarregar):`, {
-                  id: interaction.id,
-                  type: interaction.type,
-                  content: interaction.content?.substring(0, 50),
-                  hasFilesProperty: 'files' in interaction,
-                  filesValue: interaction.files,
-                  filesType: typeof interaction.files,
-                  filesIsArray: Array.isArray(interaction.files),
-                  filesLength: Array.isArray(interaction.files) ? interaction.files.length : 'N/A'
-                });
-              });
-            }
-
-            // Transformar resposta da API para formato Ticket
-            const transformedTicket: Ticket = {
-              id: updatedTicketData.id,
-              title: updatedTicketData.title,
-              description: updatedTicketData.description,
-              status: updatedTicketData.status,
-              priority: updatedTicketData.priority,
-              category: updatedTicketData.category,
-              serviceType: updatedTicketData.service_type,
-              totalValue: updatedTicketData.total_value ? parseFloat(updatedTicketData.total_value) : undefined,
-              createdBy: updatedTicketData.created_by_user || { id: updatedTicketData.created_by, name: '', email: '', role: 'user' },
-              assignedTo: updatedTicketData.assigned_to_user,
-              client: updatedTicketData.client_user,
-              files: updatedTicketData.files || [],
-              comments: updatedTicketData.comments || [],
-              interactions: transformInteractions(updatedTicketData.interactions || []), // IMPORTANTE: transformar interações
-              createdAt: new Date(updatedTicketData.created_at),
-              updatedAt: new Date(updatedTicketData.updated_at),
-            };
-
-            setFullTicket(transformedTicket);
-          } catch (reloadError) {
-            console.error('❌ Erro ao recarregar ticket:', reloadError);
-          }
-
-          setReplyText('');
-          setReplyFiles([]);
-          setShowReplyBox(false);
-          setSuccessMessage('Resposta enviada com sucesso!');
-          setTimeout(() => setSuccessMessage(''), 3000);
-      } catch (error: any) {
-        console.error('❌ Erro ao adicionar interação:', error);
-
-        // Tratamento específico para erro 401
-        if (error.status === 401 || error.message?.includes('Token não fornecido') || error.message?.includes('Unauthorized')) {
-          alert('Sessão expirada. Por favor, faça login novamente.');
-          // Limpar token e redirecionar
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-          window.location.href = '/login';
-          return;
-        }
-
-        const errorMessage = error.message || 'Erro ao enviar resposta. Tente novamente.';
-        alert(`Erro: ${errorMessage}`);
-        setSuccessMessage('');
+      // Converter arquivos
+      const interactionFiles: TicketFile[] = [];
+      for (let i = 0; i < replyFiles.length; i++) {
+        const ticketFile = await convertFileToTicketFile(replyFiles[i], i);
+        interactionFiles.push(ticketFile);
       }
+
+      const newInteraction: Interaction = {
+        id: `interaction-${Date.now()}`,
+        type: 'user',
+        content: replyText.trim() || '(Sem texto)',
+        author: user,
+        createdAt: new Date(),
+        files: interactionFiles.length > 0 ? interactionFiles : undefined,
+      };
+      await addInteraction(ticket.id, newInteraction);
+      setReplyText('');
+      setReplyFiles([]);
+      setShowReplyBox(false);
+      setSuccessMessage('Resposta enviada com sucesso!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
   // Combinar comentários antigos com interações e criar interações iniciais se necessário
   const allInteractions = useMemo(() => {
     const interactions: Interaction[] = [];
-
+    
     // Adicionar interação inicial do criador do chamado
     if (ticket) {
       interactions.push({
@@ -584,68 +188,19 @@ export default function TicketDetails() {
       // Converter comentários antigos para interações
       if (ticket.comments && ticket.comments.length > 0) {
         ticket.comments.forEach(comment => {
-          // Garantir que createdAt seja um Date válido
-          let createdAt: Date;
-          if (comment.createdAt instanceof Date) {
-            createdAt = comment.createdAt;
-          } else if (typeof comment.createdAt === 'string') {
-            createdAt = new Date(comment.createdAt);
-            if (isNaN(createdAt.getTime())) {
-              console.warn('⚠️ Data inválida em comentário:', comment.id, comment.createdAt);
-              createdAt = new Date();
-            }
-          } else {
-            createdAt = new Date();
-          }
-
           interactions.push({
             id: comment.id,
             type: 'user',
             content: comment.content,
             author: comment.author,
-            createdAt,
+            createdAt: comment.createdAt,
           });
         });
       }
 
       // Adicionar interações do sistema
       if (ticket.interactions && ticket.interactions.length > 0) {
-        ticket.interactions.forEach(interaction => {
-          // Garantir que createdAt seja um Date válido
-          let createdAt: Date;
-          if (interaction.createdAt instanceof Date) {
-            createdAt = interaction.createdAt;
-          } else if (typeof interaction.createdAt === 'string') {
-            createdAt = new Date(interaction.createdAt);
-            if (isNaN(createdAt.getTime())) {
-              console.warn('⚠️ Data inválida em interação:', interaction.id, interaction.createdAt);
-              createdAt = new Date();
-            }
-          } else {
-            createdAt = new Date();
-          }
-
-          // Log para debug de arquivos
-          if (interaction.files && interaction.files.length > 0) {
-            console.log('📎 Interação com arquivos (allInteractions):', {
-              interactionId: interaction.id,
-              filesCount: interaction.files.length,
-              files: interaction.files.map((f: any) => ({
-                id: f.id,
-                name: f.name,
-                type: f.type,
-                hasData: !!f.data
-              }))
-            });
-          }
-
-          interactions.push({
-            ...interaction,
-            createdAt,
-            // Garantir que os arquivos sejam preservados
-            files: interaction.files || undefined,
-          });
-        });
+        interactions.push(...ticket.interactions);
       }
 
       // Adicionar interação do sistema quando status muda
@@ -654,21 +209,8 @@ export default function TicketDetails() {
 
     // Ordenar por data
     return interactions.sort((a, b) => {
-      // Garantir que as datas sejam válidas
-      const dateA = a.createdAt instanceof Date
-        ? a.createdAt.getTime()
-        : (typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : 0);
-      const dateB = b.createdAt instanceof Date
-        ? b.createdAt.getTime()
-        : (typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : 0);
-
-      // Se alguma data for inválida, colocar no final
-      if (isNaN(dateA) || isNaN(dateB)) {
-        if (isNaN(dateA) && !isNaN(dateB)) return 1;
-        if (!isNaN(dateA) && isNaN(dateB)) return -1;
-        return 0;
-      }
-
+      const dateA = new Date(a.createdAt).getTime();
+      const dateB = new Date(b.createdAt).getTime();
       return interactionOrder === 'asc' ? dateA - dateB : dateB - dateA;
     });
   }, [ticket, ticket?.interactions, ticket?.comments, interactionOrder]);
@@ -681,7 +223,7 @@ export default function TicketDetails() {
     return allInteractions.filter(i => i.type === interactionFilter);
   }, [allInteractions, interactionFilter]);
 
-  const handleUpdateStatus = async () => {
+  const handleUpdateStatus = () => {
     if (ticket && selectedStatus) {
       // Se o chamado está fechado/resolvido e o usuário está tentando reabrir, verificar se é admin
       if (isClosed && selectedStatus !== 'fechado' && selectedStatus !== 'resolvido') {
@@ -690,39 +232,26 @@ export default function TicketDetails() {
           return;
         }
       }
-
-      try {
-        console.log('🔄 Atualizando status do ticket:', ticket.id, 'de', ticket.status, 'para', selectedStatus);
-
-        // Criar interação do sistema para mudança de status ANTES de atualizar
-        if (ticket.status !== selectedStatus && user) {
-          const statusInteraction: Interaction = {
-            id: `status-${Date.now()}`,
-            type: 'status_change',
-            content: `Status alterado de "${getStatusLabel(ticket.status)}" para "${getStatusLabel(selectedStatus)}"`,
-            author: user,
-            createdAt: new Date(),
-            metadata: {
-              oldStatus: ticket.status,
-              newStatus: selectedStatus,
-            },
-          };
-          addInteraction(ticket.id, statusInteraction);
-        }
-
-        // Atualizar status no backend
-        await updateTicket(ticket.id, { status: selectedStatus });
-
-        setShowStatusModal(false);
-        setSuccessMessage('Status atualizado com sucesso!');
-        setTimeout(() => setSuccessMessage(''), 3000);
-
-        console.log('✅ Status atualizado com sucesso');
-      } catch (error: any) {
-        console.error('❌ Erro ao atualizar status:', error);
-        setSuccessMessage('');
-        alert(`Erro ao atualizar status: ${error.message || 'Erro desconhecido'}`);
+      // Criar interação do sistema para mudança de status
+      if (ticket.status !== selectedStatus && user) {
+        const statusInteraction: Interaction = {
+          id: `status-${Date.now()}`,
+          type: 'status_change',
+          content: `Status alterado de "${getStatusLabel(ticket.status)}" para "${getStatusLabel(selectedStatus)}"`,
+          author: user,
+          createdAt: new Date(),
+          metadata: {
+            oldStatus: ticket.status,
+            newStatus: selectedStatus,
+          },
+        };
+        addInteraction(ticket.id, statusInteraction);
       }
+      // Manter o status como "resolvido" se selecionado (não mudar para "fechado")
+      updateTicket(ticket.id, { status: selectedStatus });
+      setShowStatusModal(false);
+      setSuccessMessage('Status atualizado com sucesso!');
+      setTimeout(() => setSuccessMessage(''), 3000);
     }
   };
 
@@ -731,36 +260,21 @@ export default function TicketDetails() {
 
   // Função para carregar técnicos do banco de dados
   const loadTechnicians = async () => {
-    // Verificar se há token antes de carregar
-    const token = localStorage.getItem('token');
-    if (!token) {
-      console.log('⏳ Aguardando autenticação para carregar técnicos...');
-      return;
-    }
-
     try {
-      const apiUrl = import.meta.env.VITE_API_URL;
-      let allUsers: any[] = [];
-
-      // SEMPRE usar API para buscar usuários - sem fallback para database local
-      try {
-        allUsers = await api.getUsers();
-      } catch (error) {
-        console.error('Erro ao buscar usuários da API:', error);
-        throw error; // Propagar o erro ao invés de usar fallback
-      }
-
+      await database.init();
+      const allUsers = await database.getUsers();
+      
       // Filtrar apenas técnicos que NÃO são mockados
       const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-      const customTechnicians = allUsers.filter((u: any) =>
+      const customTechnicians = allUsers.filter((u: any) => 
         u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
       );
-
+      
       // Ordenar técnicos alfabeticamente
-      const sortedTechnicians = [...customTechnicians].sort((a: any, b: any) =>
+      const sortedTechnicians = [...customTechnicians].sort((a: any, b: any) => 
         a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
       );
-
+      
       setAllTechnicians(sortedTechnicians);
     } catch (error) {
       console.error('Erro ao carregar técnicos:', error);
@@ -768,35 +282,10 @@ export default function TicketDetails() {
     }
   };
 
-  // Carregar técnicos quando o componente é montado e quando o token muda
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
-
-  // Listener para mudanças no token
-  // Log quando o ticket não é encontrado para debug
-  useEffect(() => {
-    if (id && !ticket) {
-      console.log('⚠️ Ticket não encontrado:', {
-        id,
-        total_tickets: tickets.length,
-        ticket_ids: tickets.map(t => t.id)
-      });
-    }
-  }, [id, ticket, tickets]);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const currentToken = localStorage.getItem('token');
-      if (currentToken !== token) {
-        setToken(currentToken);
-      }
-    }, 500);
-
-    return () => clearInterval(interval);
-  }, [token]);
-
+  // Carregar técnicos quando o componente é montado
   useEffect(() => {
     loadTechnicians();
-  }, [token]);
+  }, []);
 
   // Estado para armazenar filas
   const [queues, setQueues] = useState<Queue[]>([]);
@@ -808,7 +297,7 @@ export default function TicketDetails() {
         await database.init();
         const allQueues = await database.getQueues();
         setQueues(allQueues);
-
+        
         // Se não houver filas, garantir que as filas padrão existem
         if (allQueues.length === 0) {
           const suporteN1: Queue = {
@@ -832,7 +321,7 @@ export default function TicketDetails() {
           // Verificar se as filas padrão existem e criar se necessário
           const queueNames = allQueues.map(q => q.name);
           const queuesToCreate: Queue[] = [];
-
+          
           if (!queueNames.includes('Suporte N1')) {
             queuesToCreate.push({
               id: `queue-n1-${Date.now()}`,
@@ -842,7 +331,7 @@ export default function TicketDetails() {
               updatedAt: new Date(),
             });
           }
-
+          
           if (!queueNames.includes('Suporte N2')) {
             queuesToCreate.push({
               id: `queue-n2-${Date.now()}`,
@@ -852,7 +341,7 @@ export default function TicketDetails() {
               updatedAt: new Date(),
             });
           }
-
+          
           if (queuesToCreate.length > 0) {
             for (const queue of queuesToCreate) {
               await database.saveQueue(queue);
@@ -911,7 +400,7 @@ export default function TicketDetails() {
           const assignmentInteraction: Interaction = {
             id: `assignment-${Date.now()}`,
             type: 'assignment',
-            content: ticket.assignedTo
+            content: ticket.assignedTo 
               ? `Chamado atribuído de "${ticket.assignedTo.name}" para "${technician.name}"`
               : `Chamado atribuído para "${technician.name}"`,
             author: user,
@@ -953,8 +442,10 @@ export default function TicketDetails() {
   const handleTransferToQueue = async () => {
     if (ticket && user && selectedQueue) {
       const currentQueue = ticket.queue || 'Sem atribuição';
-      const queueName = selectedQueue;
-
+      const targetQueue = queues.find((q) => q.id === selectedQueue || q.name === selectedQueue);
+      const queueName = targetQueue?.name || selectedQueue;
+      const queueId = targetQueue?.id || selectedQueue;
+      
       // Criar interação de transferência
       const transferInteraction: Interaction = {
         id: `transfer-${Date.now()}`,
@@ -967,17 +458,16 @@ export default function TicketDetails() {
           toQueue: queueName,
         },
       };
-
-      // Adicionar interação e atualizar fila em uma única operação
-      // Primeiro adicionamos a interação ao array existente
-      const updatedInteractions = [...(ticket.interactions || []), transferInteraction];
-
-      // Atualizar o ticket com a nova interação e a nova fila
-      await updateTicket(ticket.id, {
+      
+      // Atualizar o ticket com a nova fila (API) e registrar interação local
+      await updateTicket(ticket.id, { 
         queue: queueName,
-        interactions: updatedInteractions
+        queueId,
       });
 
+      // Adicionar interação localmente para manter o histórico na UI
+      addInteraction(ticket.id, transferInteraction);
+      
       setShowTransferModal(false);
       setSelectedQueue('');
       setSuccessMessage('Chamado transferido com sucesso!');
@@ -998,7 +488,7 @@ export default function TicketDetails() {
       const updates: any = {
         serviceType: serviceType || undefined,
       };
-
+      
       // Se for categoria integração, usar integrationValue, senão usar totalValue
       if (ticket.category === 'integracao') {
         updates.integrationValue = integrationValue ? parseFloat(integrationValue) : undefined;
@@ -1007,7 +497,7 @@ export default function TicketDetails() {
         updates.totalValue = totalValue ? parseFloat(totalValue) : undefined;
         updates.integrationValue = undefined; // Limpar integrationValue se não for integração
       }
-
+      
       updateTicket(ticket.id, updates);
       setShowServiceModal(false);
       setServiceType('');
@@ -1145,7 +635,7 @@ export default function TicketDetails() {
                   const isImage = file.type?.startsWith('image/');
                   const isPdf = file.type === 'application/pdf';
                   const canPreview = isImage || isPdf;
-
+                  
                   return (
                     <div
                       key={file.id}
@@ -1153,8 +643,8 @@ export default function TicketDetails() {
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {isImage ? (
-                          <img
-                            src={file.data}
+                          <img 
+                            src={file.data} 
                             alt={file.name}
                             className="w-10 h-10 object-cover rounded flex-shrink-0 cursor-pointer"
                             loading="lazy"
@@ -1234,8 +724,15 @@ export default function TicketDetails() {
 
             {activeTab === 'interactions' ? (
               <div className="space-y-4">
-                {/* Barra de Ferramentas (sem botão Responder) */}
+                {/* Barra de Ferramentas */}
                 <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-gray-200 dark:border-gray-700">
+                  <button
+                    onClick={() => setShowReplyBox(!showReplyBox)}
+                    className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 text-sm font-medium"
+                  >
+                    <Send className="w-4 h-4" />
+                    Responder
+                  </button>
                   <select
                     value={interactionOrder}
                     onChange={(e) => setInteractionOrder(e.target.value as 'asc' | 'desc')}
@@ -1273,11 +770,11 @@ export default function TicketDetails() {
                       const isSystem = interaction.type === 'system' || interaction.type === 'status_change' || interaction.type === 'assignment';
                       const isTransfer = interaction.type === 'queue_transfer';
                       const isCreator = interaction.type === 'user' && interaction.author?.id === ticket.createdBy.id;
-
+                      
                       // Extrair nome da fila do conteúdo da transferência
                       const queueNameMatch = isTransfer ? interaction.content.match(/fila de (.+)/i) : null;
                       const queueName = queueNameMatch ? queueNameMatch[1] : null;
-
+                      
                       return (
                         <div key={interaction.id} className="flex gap-4">
                           <div className="flex-shrink-0">
@@ -1302,10 +799,10 @@ export default function TicketDetails() {
                               <span className="font-medium text-gray-900 dark:text-gray-100">
                                 {isTransfer
                                   ? interaction.author ? interaction.author.name : 'Analista'
-                                  : isSystem
-                                    ? 'Sistema'
-                                    : interaction.author
-                                      ? interaction.author.name
+                                  : isSystem 
+                                    ? 'Sistema' 
+                                    : interaction.author 
+                                      ? interaction.author.name 
                                       : 'Usuário'}
                               </span>
                               {interaction.author && !isSystem && (
@@ -1330,143 +827,72 @@ export default function TicketDetails() {
                                 <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                                   {interaction.content.replace(queueName, '').trim()}{' '}
                                   <span className="text-purple-600 dark:text-purple-400 font-semibold">{queueName}</span>
-                                  {/* Indicador visual se houver anexos */}
-                                  {interaction.files && interaction.files.length > 0 && (
-                                    <span className="ml-2 inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
-                                      <Paperclip className="w-3 h-3" />
-                                      {interaction.files.length} {interaction.files.length === 1 ? 'anexo' : 'anexos'}
-                                    </span>
-                                  )}
                                 </p>
                               ) : (
-                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                  {interaction.content}
-                                  {/* Indicador visual se houver anexos */}
-                                  {interaction.files && interaction.files.length > 0 && (
-                                    <span className="ml-2 inline-flex items-center gap-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium">
-                                      <Paperclip className="w-3 h-3" />
-                                      {interaction.files.length} {interaction.files.length === 1 ? 'anexo' : 'anexos'}
-                                    </span>
-                                  )}
-                                </p>
+                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>
                               )}
-
+                              
                               {/* Exibir arquivos anexados */}
-                              {/* Anexos - Exibir de forma mais visível */}
-                              {(() => {
-                                const interactionFiles = interaction.files ?? [];
-                                // Verificar se há arquivos de forma mais robusta
-                                const hasFiles = Array.isArray(interactionFiles) &&
-                                                 interactionFiles.length > 0 &&
-                                                 interactionFiles.some((f: any) => f && f.data); // Garantir que pelo menos um arquivo tenha dados
-
-                                if (hasFiles) {
-                                  console.log('🎨 Renderizando interação COM arquivos:', {
-                                    interactionId: interaction.id,
-                                    filesCount: interactionFiles.length,
-                                    filesWithData: interactionFiles.filter((f: any) => f && f.data).length,
-                                    files: interactionFiles.map((f: any) => ({
-                                      id: f.id,
-                                      name: f.name,
-                                      type: f.type,
-                                      hasData: !!f.data,
-                                      dataLength: f.data?.length || 0
-                                    }))
-                                  });
-                                } else if (interactionFiles.length > 0) {
-                                  console.warn('⚠️ Interação tem arquivos mas sem dados válidos:', {
-                                    interactionId: interaction.id,
-                                    filesCount: interactionFiles.length,
-                                    files: interactionFiles.map((f: any) => ({
-                                      id: f.id,
-                                      name: f.name,
-                                      hasData: !!f.data
-                                    }))
-                                  });
-                                }
-                                return hasFiles;
-                              })() && interaction.files && (
-                                <div className="mt-3 pt-3 border-t-2 border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                                  <div className="flex items-center gap-2 mb-3">
-                                    <Paperclip className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                    <span className="text-sm font-semibold text-blue-700 dark:text-blue-300">
-                                      📎 {interaction.files.length} {interaction.files.length === 1 ? 'arquivo anexado' : 'arquivos anexados'}
+                              {interaction.files && interaction.files.length > 0 && (
+                                <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <Paperclip className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                    <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                                      Arquivos anexados ({interaction.files.length})
                                     </span>
                                   </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    {(interaction.files ?? [])
-                                      .filter((file: any) => file && file.data) // Filtrar apenas arquivos com dados válidos
-                                      .map((file) => {
+                                  <div className="space-y-2">
+                                    {interaction.files.map((file) => {
                                       const isImage = file.type?.startsWith('image/');
                                       const isPdf = file.type === 'application/pdf';
                                       const canPreview = isImage || isPdf;
-
+                                      
                                       return (
                                         <div
                                           key={file.id}
-                                          className="bg-white dark:bg-gray-800 rounded-lg border-2 border-blue-200 dark:border-blue-700 p-3 hover:border-blue-400 dark:hover:border-blue-500 transition-all shadow-sm"
+                                          className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
                                         >
-                                          {/* Preview de imagem maior */}
-                                          {isImage && (
-                                            <div className="mb-2">
-                                              <img
-                                                src={file.data}
+                                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                                            {isImage ? (
+                                              <img 
+                                                src={file.data} 
                                                 alt={file.name}
-                                                className="w-full h-32 object-cover rounded-lg cursor-pointer border border-gray-200 dark:border-gray-700 hover:opacity-90 transition-opacity"
+                                                className="w-8 h-8 object-cover rounded flex-shrink-0 cursor-pointer"
                                                 loading="lazy"
                                                 onClick={() => {
                                                   setSelectedFile(file);
                                                   setShowFileViewer(true);
                                                 }}
                                               />
-                                            </div>
-                                          )}
-
-                                          {/* Preview de PDF */}
-                                          {isPdf && (
-                                            <div className="mb-2 bg-red-50 dark:bg-red-900/20 rounded-lg p-4 text-center border border-red-200 dark:border-red-800">
-                                              <File className="w-8 h-8 text-red-600 dark:text-red-400 mx-auto mb-2" />
-                                              <span className="text-xs text-red-700 dark:text-red-300 font-medium">PDF</span>
-                                            </div>
-                                          )}
-
-                                          {/* Informações do arquivo */}
-                                          <div className="flex items-start justify-between gap-2">
+                                            ) : (
+                                              <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                            )}
                                             <div className="flex-1 min-w-0">
-                                              <div className="flex items-center gap-2 mb-1">
-                                                {!isImage && !isPdf && (
-                                                  <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                                )}
-                                                <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate block" title={file.name}>
-                                                  {file.name}
-                                                </span>
-                                              </div>
+                                              <span className="text-sm text-gray-700 dark:text-gray-300 truncate block">{file.name}</span>
                                               <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
                                             </div>
-
-                                            {/* Botões de ação */}
-                                            <div className="flex items-center gap-1 flex-shrink-0">
-                                              {canPreview && (
-                                                <button
-                                                  onClick={() => {
-                                                    setSelectedFile(file);
-                                                    setShowFileViewer(true);
-                                                  }}
-                                                  className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 dark:hover:bg-blue-900/50 rounded-lg transition-colors"
-                                                  title="Visualizar arquivo"
-                                                >
-                                                  <Eye className="w-4 h-4" />
-                                                </button>
-                                              )}
-                                              <a
-                                                href={file.data}
-                                                download={file.name}
-                                                className="p-2 bg-primary-100 dark:bg-primary-900/30 text-primary-600 dark:text-primary-400 hover:bg-primary-200 dark:hover:bg-primary-900/50 rounded-lg transition-colors"
-                                                title="Baixar arquivo"
+                                          </div>
+                                          <div className="flex items-center gap-1">
+                                            {canPreview && (
+                                              <button
+                                                onClick={() => {
+                                                  setSelectedFile(file);
+                                                  setShowFileViewer(true);
+                                                }}
+                                                className="p-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                                                title="Visualizar arquivo"
                                               >
-                                                <Download className="w-4 h-4" />
-                                              </a>
-                                            </div>
+                                                <Eye className="w-4 h-4" />
+                                              </button>
+                                            )}
+                                            <a
+                                              href={file.data}
+                                              download={file.name}
+                                              className="p-1 text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 transition-colors"
+                                              title="Baixar arquivo"
+                                            >
+                                              <Download className="w-4 h-4" />
+                                            </a>
                                           </div>
                                         </div>
                                       );
@@ -1484,19 +910,6 @@ export default function TicketDetails() {
                   )}
                 </div>
 
-                {/* Botão Responder - Aparece abaixo da lista de interações */}
-                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-                  {!showReplyBox ? (
-                    <button
-                      onClick={() => setShowReplyBox(true)}
-                      className="w-full px-4 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium"
-                    >
-                      <Send className="w-4 h-4" />
-                      Responder
-                    </button>
-                  ) : null}
-                </div>
-
                 {/* Caixa de Resposta */}
                 {showReplyBox && (
                   <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
@@ -1507,7 +920,7 @@ export default function TicketDetails() {
                       rows={4}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                     />
-
+                    
                     {/* Upload de Arquivos */}
                     <div className="mb-3">
                       <input
@@ -1525,7 +938,7 @@ export default function TicketDetails() {
                         <Paperclip className="w-4 h-4" />
                         Anexar Arquivos
                       </label>
-
+                      
                       {replyFiles.length > 0 && (
                         <div className="mt-2 space-y-2">
                           {replyFiles.map((file, index) => (
@@ -1672,7 +1085,7 @@ export default function TicketDetails() {
                       {ticket.category === 'integracao' ? 'Valor da Integração' : 'Valor Total'}
                     </p>
                     <p className="font-medium text-gray-900 dark:text-gray-100">
-                      {ticket.category === 'integracao'
+                      {ticket.category === 'integracao' 
                         ? (ticket.integrationValue ? formatCurrency(ticket.integrationValue) : '-')
                         : (ticket.totalValue ? formatCurrency(ticket.totalValue) : '-')
                       }
@@ -1696,15 +1109,8 @@ export default function TicketDetails() {
           <div className="card dark:bg-gray-800 dark:border-gray-700">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Ações</h2>
             <div className="space-y-2">
-              {/* Aviso para técnicos quando o ticket está atribuído a outro técnico */}
-              {isAssignedToOtherTechnician && (
-                <div className="w-full p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-400 mb-2">
-                  <p className="font-medium mb-1">Permissões Limitadas</p>
-                  <p>Este chamado está atribuído a outro técnico. Você pode apenas adicionar comentários e interações para informar sobre contatos de clientes.</p>
-                </div>
-              )}
-              {ticket?.category === 'integracao' && hasPermission('edit:ticket') && !isClosed && canEditTicket && (
-                <button
+              {ticket?.category === 'integracao' && hasPermission('edit:ticket') && !isClosed && (
+                <button 
                   onClick={handleOpenAddValueModal}
                   className="w-full btn-primary flex items-center justify-center gap-2"
                 >
@@ -1712,8 +1118,8 @@ export default function TicketDetails() {
                   Adicionar Valor
                 </button>
               )}
-              {canChangeStatus && canEditTicket && (
-                <button
+              {canChangeStatus && (
+                <button 
                   onClick={() => {
                     if (ticket) {
                       setSelectedStatus(ticket.status);
@@ -1730,8 +1136,8 @@ export default function TicketDetails() {
                   Este chamado está fechado. Apenas administradores podem reabri-lo.
                 </div>
               )}
-              {isTechnician && hasPermission('edit:ticket') && canEditTicket && (
-                <button
+              {isTechnician && hasPermission('edit:ticket') && (
+                <button 
                   onClick={handleOpenServiceModal}
                   className="w-full btn-secondary flex items-center justify-center gap-2"
                 >
@@ -1739,8 +1145,8 @@ export default function TicketDetails() {
                   Informar Serviço e Valor
                 </button>
               )}
-              {hasPermission('assign:ticket') && canEditTicket && (
-                <button
+              {hasPermission('assign:ticket') && (
+                <button 
                   onClick={async () => {
                     if (ticket) {
                       // Recarregar técnicos antes de abrir o modal
@@ -1754,8 +1160,8 @@ export default function TicketDetails() {
                   Atribuir Técnico
                 </button>
               )}
-              {hasPermission('edit:ticket') && canEditTicket && (
-                <button
+              {hasPermission('edit:ticket') && (
+                <button 
                   onClick={() => setShowTransferModal(true)}
                   className="w-full btn-secondary flex items-center justify-center gap-2"
                 >
@@ -1763,15 +1169,15 @@ export default function TicketDetails() {
                   Transferir para Fila
                 </button>
               )}
-              {hasPermission('edit:ticket') && !isClosed && canEditTicket && (
-                <button
+              {hasPermission('edit:ticket') && !isClosed && (
+                <button 
                   onClick={handleCloseTicket}
                   className="w-full btn-secondary"
                 >
                   Fechar Chamado
                 </button>
               )}
-              {hasPermission('delete:ticket') && canEditTicket && (
+              {hasPermission('delete:ticket') && (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2"
@@ -2023,14 +1429,14 @@ export default function TicketDetails() {
 
       {/* Modal de Adicionar Valor (apenas para integração) */}
       {showAddValueModal && ticket && ticket.category === 'integracao' && (
-        <div
+        <div 
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4 overflow-y-auto"
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
+          style={{ 
+            position: 'fixed', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0, 
             zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
@@ -2042,12 +1448,12 @@ export default function TicketDetails() {
             }
           }}
         >
-          <div
+          <div 
             className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-6 my-4 relative border-2 border-gray-300 dark:border-gray-600"
-            style={{
-              position: 'relative',
-              zIndex: 10000,
-              maxHeight: '90vh',
+            style={{ 
+              position: 'relative', 
+              zIndex: 10000, 
+              maxHeight: '90vh', 
               overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
@@ -2139,7 +1545,7 @@ export default function TicketDetails() {
               >
                 <option value="">Selecione uma fila</option>
                 {queues.map((queue) => (
-                  <option key={queue.id} value={queue.name}>
+                  <option key={queue.id} value={queue.id || queue.name}>
                     {queue.name}
                   </option>
                 ))}
@@ -2203,8 +1609,8 @@ export default function TicketDetails() {
             </div>
             <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
               {selectedFile.type?.startsWith('image/') ? (
-                <img
-                  src={selectedFile.data}
+                <img 
+                  src={selectedFile.data} 
                   alt={selectedFile.name}
                   className="max-w-full max-h-full object-contain rounded-lg"
                   loading="eager"

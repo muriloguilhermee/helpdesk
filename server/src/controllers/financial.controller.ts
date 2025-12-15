@@ -104,37 +104,10 @@ export const createFinancialTicketController = async (req: AuthRequest, res: Res
     const validated = createFinancialTicketSchema.parse(req.body);
 
     const ticket = await createFinancialTicket({
-      title: validated.title,
-      description: validated.description,
-      amount: validated.amount,
-      dueDate: validated.dueDate instanceof Date ? validated.dueDate : new Date(validated.dueDate as string),
-      paymentDate: validated.paymentDate ? (validated.paymentDate instanceof Date ? validated.paymentDate : new Date(validated.paymentDate as string)) : undefined,
-      status: validated.status,
-      clientId: validated.clientId,
+      ...validated,
+      dueDate: validated.dueDate instanceof Date ? validated.dueDate : new Date(validated.dueDate),
+      paymentDate: validated.paymentDate ? (validated.paymentDate instanceof Date ? validated.paymentDate : new Date(validated.paymentDate)) : undefined,
       createdBy: req.user.id,
-      invoiceFile: validated.invoiceFile ? {
-        name: validated.invoiceFile.name,
-        size: validated.invoiceFile.size,
-        type: validated.invoiceFile.type,
-        data: validated.invoiceFile.data,
-      } : undefined,
-      receiptFile: validated.receiptFile ? {
-        name: validated.receiptFile.name,
-        size: validated.receiptFile.size,
-        type: validated.receiptFile.type,
-        data: validated.receiptFile.data,
-      } : undefined,
-      notes: validated.notes,
-      erpId: validated.erpId,
-      erpType: validated.erpType,
-      invoiceNumber: validated.invoiceNumber,
-      barcode: validated.barcode,
-      ourNumber: validated.ourNumber,
-      paymentErpId: validated.paymentErpId,
-      paymentMethod: validated.paymentMethod,
-      transactionId: validated.transactionId,
-      erpMetadata: validated.erpMetadata,
-      paymentMetadata: validated.paymentMetadata,
     });
 
     console.log('✅ Ticket financeiro criado, retornando resposta:', ticket.id);

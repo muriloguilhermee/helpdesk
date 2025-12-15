@@ -120,6 +120,14 @@ export default function NewTicket() {
     setSuccessMessage('');
 
     try {
+      // Gerar ID no formato 00001, 00002, etc.
+      const existingIds = tickets.map(t => {
+        const numId = parseInt(t.id.replace(/^0+/, '') || '0');
+        return isNaN(numId) ? 0 : numId;
+      });
+      const maxId = existingIds.length > 0 ? Math.max(...existingIds) : 0;
+      const ticketId = String(maxId + 1).padStart(5, '0');
+
       // Converter arquivos
       const ticketFiles: TicketFile[] = [];
       for (let i = 0; i < selectedFiles.length; i++) {
@@ -127,9 +135,8 @@ export default function NewTicket() {
         ticketFiles.push(ticketFile);
       }
 
-      // O backend vai gerar o ID automaticamente
       const newTicket: Ticket = {
-        id: '', // ID será gerado pelo backend
+        id: ticketId,
         title: formData.title,
         system: formData.system,
         description: formData.description,
@@ -144,7 +151,7 @@ export default function NewTicket() {
         files: ticketFiles.length > 0 ? ticketFiles : undefined,
       };
 
-      // Adicionar o ticket (backend vai gerar o ID)
+      // Adicionar o ticket
       await addTicket(newTicket);
 
       setIsCreatingTicket(false);

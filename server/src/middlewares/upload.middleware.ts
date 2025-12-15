@@ -1,9 +1,10 @@
 import multer from 'multer';
+import path from 'path';
 import { Request } from 'express';
 
 const storage = multer.memoryStorage();
 
-const fileFilter = (req: Request, file: Express.Multer.File, cb: (error: Error | null, acceptFile: boolean) => void) => {
+const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
   // Allow images and common document types
   const allowedMimes = [
     'image/jpeg',
@@ -19,7 +20,7 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: (error: Error |
   if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error('Tipo de arquivo não permitido'), false);
+    cb(new Error('Tipo de arquivo não permitido'));
   }
 };
 

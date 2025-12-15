@@ -4,140 +4,6 @@ import { mockTickets } from '../data/mockData';
 import { dbAdapter as database } from '../services/dbAdapter';
 import { api } from '../services/api';
 
-// Função helper para converter datas de forma segura
-const safeDateParse = (dateValue: any): Date => {
-  if (!dateValue) {
-    return new Date();
-  }
-
-  // Se já é uma Date, retornar
-  if (dateValue instanceof Date) {
-    return dateValue;
-  }
-
-  // Se é string, tentar converter
-  if (typeof dateValue === 'string') {
-    const parsed = new Date(dateValue);
-    // Verificar se a data é válida
-    if (isNaN(parsed.getTime())) {
-      console.warn('⚠️ Data inválida recebida:', dateValue, 'usando data atual');
-      return new Date();
-    }
-    return parsed;
-  }
-
-  // Se é número (timestamp), converter
-  if (typeof dateValue === 'number') {
-    return new Date(dateValue);
-  }
-
-  // Fallback para data atual
-  console.warn('⚠️ Tipo de data desconhecido:', typeof dateValue, dateValue);
-  return new Date();
-};
-
-// Função helper para converter arrays de comentários/interações com datas
-const transformComments = (comments: any[]): Comment[] => {
-  if (!comments || !Array.isArray(comments)) return [];
-  return comments.map(comment => ({
-    ...comment,
-    createdAt: safeDateParse(comment.createdAt || comment.created_at),
-    author: comment.author || null,
-  }));
-};
-
-const transformInteractions = (interactions: any[]): Interaction[] => {
-  if (!interactions || !Array.isArray(interactions)) {
-    console.log('⚠️ transformInteractions: interactions não é um array válido', interactions);
-    return [];
-  }
-
-  console.log('🔄 transformInteractions: processando', interactions.length, 'interações');
-
-  return interactions.map(interaction => {
-    // Verificar múltiplas possibilidades de onde os arquivos podem estar
-    const files = interaction.files || interaction.attachments || [];
-
-    // Log detalhado para TODAS as interações
-    console.log('🔍 Processando interação:', {
-      interactionId: interaction.id,
-      hasFilesProperty: 'files' in interaction,
-      hasAttachmentsProperty: 'attachments' in interaction,
-      filesValue: interaction.files,
-      filesType: typeof interaction.files,
-      filesIsArray: Array.isArray(interaction.files),
-      filesLength: Array.isArray(interaction.files) ? interaction.files.length : 0,
-      rawInteraction: interaction
-    });
-
-    // Log detalhado para debug
-    if (files.length > 0) {
-      console.log('📎 Interação com arquivos (transformInteractions):', {
-        interactionId: interaction.id,
-        filesCount: files.length,
-        files: files.map((f: any) => ({
-          id: f.id,
-          name: f.name,
-          type: f.type,
-          size: f.size,
-          hasData: !!f.data,
-          hasDataUrl: !!f.data_url,
-          dataLength: f.data?.length || 0,
-          dataUrlLength: f.data_url?.length || 0,
-          dataPreview: f.data?.substring(0, 50) || f.data_url?.substring(0, 50) || 'sem dados'
-        }))
-      });
-    } else if (interaction.id) {
-      // Log quando não há arquivos mas a interação existe
-      console.log('⚠️ Interação sem arquivos:', {
-        interactionId: interaction.id,
-        hasFilesProperty: 'files' in interaction,
-        filesValue: interaction.files,
-        allKeys: Object.keys(interaction)
-      });
-    }
-
-    // Garantir que os arquivos tenham a estrutura correta
-    const transformedFiles = files.length > 0 ? files.map((f: any) => {
-      const fileData = f.data || f.data_url || null;
-      if (!fileData) {
-        console.warn('⚠️ Arquivo sem dados:', {
-          fileId: f.id,
-          fileName: f.name,
-          fileKeys: Object.keys(f)
-        });
-      }
-      return {
-        id: f.id || `file-${Date.now()}-${Math.random()}`,
-        name: f.name,
-        size: f.size || 0,
-        type: f.type || 'application/octet-stream',
-        data: fileData, // Aceitar tanto 'data' quanto 'data_url'
-      };
-    }).filter((f: any) => f.data) : undefined; // Filtrar arquivos sem dados
-
-    if (transformedFiles && transformedFiles.length > 0) {
-      console.log('✅ Arquivos transformados:', {
-        interactionId: interaction.id,
-        filesCount: transformedFiles.length,
-        files: transformedFiles.map((f: any) => ({
-          id: f.id,
-          name: f.name,
-          hasData: !!f.data,
-          dataLength: f.data?.length || 0
-        }))
-      });
-    }
-
-    return {
-      ...interaction,
-      createdAt: safeDateParse(interaction.createdAt || interaction.created_at),
-      author: interaction.author || null,
-      files: transformedFiles, // Preservar arquivos se existirem
-    };
-  });
-};
-
 interface TicketsContextType {
   tickets: Ticket[];
   deleteTicket: (id: string) => void;
@@ -167,214 +33,51 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
 
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
 
-  // Listener para mudanças no token
+  // Carregar tickets APENAS do banco de dados (API)
   useEffect(() => {
-    const handleStorageChange = () => {
-      const newToken = localStorage.getItem('token');
-      if (newToken !== token) {
-        setToken(newToken);
-      }
-    };
+    const loadTickets = async () => {
+      try {
+        console.log('📡 Carregando tickets da API...');
+        // SEMPRE usar API - sem fallback para dados locais
+        const apiTickets = await api.getTickets();
 
-    // Verificar mudanças no localStorage
-    window.addEventListener('storage', handleStorageChange);
-
-    // Verificar periodicamente (para mudanças na mesma aba)
-    const interval = setInterval(() => {
-      const currentToken = localStorage.getItem('token');
-      if (currentToken !== token) {
-        setToken(currentToken);
-      }
-    }, 500);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      clearInterval(interval);
-    };
-  }, [token]);
-
-  // Função para carregar tickets (reutilizável)
-  const loadTickets = async () => {
-    // Verificar se há token antes de carregar
-    const currentToken = localStorage.getItem('token');
-    if (!currentToken) {
-      console.log('⏳ Aguardando autenticação para carregar tickets...');
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      console.log('📡 Carregando tickets da API...');
-      // SEMPRE usar API - sem fallback para dados locais
-      const apiTickets = await api.getTickets();
-
-      // Transform API response to Ticket format
-      const transformedTickets = apiTickets.map((t: any) => {
-        // Log detalhado de cada ticket recebido da API
-        console.log('🔄 Transformando ticket da API:', {
-          id: t.id,
-          status_original: t.status,
-          status_tipo: typeof t.status,
-          assigned_to_user: t.assigned_to_user,
-          assigned_to_id: t.assigned_to,
-          title: t.title,
-          interactions_count: t.interactions?.length || 0
-        });
-
-        const transformed = {
+        // Transform API response to Ticket format
+        const transformedTickets = apiTickets.map((t: any) => ({
           id: t.id,
           title: t.title,
           description: t.description,
-          status: t.status, // Preservar status exatamente como vem da API
+          status: t.status,
           priority: t.priority,
           category: t.category,
           serviceType: t.service_type,
           totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
           createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
-          assignedTo: t.assigned_to_user, // Pode ser null, undefined ou objeto
+          assignedTo: t.assigned_to_user,
           client: t.client_user,
+        queue: t.queue?.name || t.queue_name || null,
+        queueId: t.queue?.id || t.queue_id || null,
           files: t.files || [],
-          comments: transformComments(t.comments || []),
-          interactions: transformInteractions(t.interactions || []),
-          createdAt: safeDateParse(t.created_at),
-          updatedAt: safeDateParse(t.updated_at),
-        };
+          comments: t.comments || [],
+          createdAt: new Date(t.created_at),
+          updatedAt: new Date(t.updated_at),
+        }));
 
-        // Log do ticket transformado
-        console.log('✅ Ticket transformado:', {
-          id: transformed.id,
-          status: transformed.status,
-          status_normalizado: String(transformed.status || '').toLowerCase().trim(),
-          é_aberto: String(transformed.status || '').toLowerCase().trim() === 'aberto',
-          assignedTo: transformed.assignedTo ? transformed.assignedTo.name : 'Não atribuído',
-          assignedToId: transformed.assignedTo?.id || null,
-          title: transformed.title
-        });
-
-        return transformed;
-      });
-
-      console.log('✅ Tickets carregados da API:', transformedTickets.length);
-
-      // Filtrar tickets "aberto" para debug
-      const ticketsAberto = transformedTickets.filter(t => {
-        const statusNormalized = String(t.status || '').toLowerCase().trim();
-        return statusNormalized === 'aberto';
-      });
-
-      console.log('📊 Estatísticas dos tickets:', {
-        total: transformedTickets.length,
-        abertos: ticketsAberto.length,
-        em_atendimento: transformedTickets.filter(t => t.status === 'em_atendimento').length,
-        atribuidos: transformedTickets.filter(t => t.assignedTo).length,
-        nao_atribuidos: transformedTickets.filter(t => !t.assignedTo).length,
-        detalhes: transformedTickets.map(t => ({
-          id: t.id,
-          status: t.status,
-          status_normalizado: String(t.status || '').toLowerCase().trim(),
-          é_aberto: String(t.status || '').toLowerCase().trim() === 'aberto',
-          assignedTo: t.assignedTo?.name || 'Não atribuído',
-          assignedToId: t.assignedTo?.id || null,
-          title: t.title
-        })),
-        tickets_aberto_detalhados: ticketsAberto.map(t => ({
-          id: t.id,
-          status: t.status,
-          assignedTo: t.assignedTo?.name || 'Não atribuído',
-          assignedToId: t.assignedTo?.id || null,
-          title: t.title
-        }))
-      });
-
-      // Verificar se há tickets locais que não estão na resposta da API
-      // (pode acontecer se um ticket foi criado recentemente e a API ainda não o retornou)
-      setTickets((prevTickets) => {
-        const apiTicketIds = new Set(transformedTickets.map(t => t.id));
-        const missingTickets = prevTickets.filter(t => !apiTicketIds.has(t.id));
-
-        if (missingTickets.length > 0) {
-          console.log('⚠️ Tickets locais não encontrados na API (podem ser recém-criados):', missingTickets.map(t => ({
-            id: t.id,
-            status: t.status,
-            title: t.title,
-            criado_em: t.createdAt
-          })));
-
-          // Se o ticket foi criado há menos de 5 segundos, mantê-lo na lista
-          const now = Date.now();
-          const recentTickets = missingTickets.filter(t => {
-            const age = now - t.createdAt.getTime();
-            const isRecent = age < 5000; // 5 segundos
-            console.log(`📋 Ticket ${t.id}: idade ${age}ms, ${isRecent ? 'MANTENDO' : 'REMOVENDO'}`);
-            return isRecent;
-          });
-
-          if (recentTickets.length > 0) {
-            console.log('✅ Mantendo tickets recém-criados na lista:', recentTickets.map(t => t.id));
-            const merged = [...transformedTickets, ...recentTickets];
-            previousTicketsCountRef.current = merged.length;
-            return merged;
-          }
-        }
-
+        console.log('✅ Tickets carregados da API:', transformedTickets.length);
         previousTicketsCountRef.current = transformedTickets.length;
-        return transformedTickets;
-      });
-      setIsLoading(false);
-    } catch (apiError: any) {
-      console.error('❌ Erro ao carregar tickets da API:', apiError);
-      // Se for rate limit (429), não tentar novamente e mostrar mensagem
-      if (apiError.status === 429) {
-        console.warn('⚠️ Rate limit atingido. Aguardando antes de tentar novamente...');
-        // Salvar timestamp do erro para pausar polling
-        localStorage.setItem('lastRateLimitError', Date.now().toString());
+        setTickets(transformedTickets);
         setIsLoading(false);
-        // Não atualizar tickets, manter os que já estão carregados
-        return;
+      } catch (apiError: any) {
+        console.error('❌ Erro ao carregar tickets da API:', apiError);
+        // Se a API falhar, mostrar lista vazia ao invés de dados locais
+        setTickets([]);
+        setIsLoading(false);
+        alert('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
       }
-      // Se a API falhar, mostrar lista vazia ao invés de dados locais
-      setTickets([]);
-      setIsLoading(false);
-      // Não mostrar alerta a cada erro para não incomodar o usuário
-      if (apiError.status !== 401) {
-        console.warn('Erro ao conectar com o servidor. Tentando novamente...');
-      }
-    }
-  };
-
-  // Carregar tickets APENAS do banco de dados (API)
-  useEffect(() => {
+    };
 
     loadTickets();
-
-    // Adicionar polling automático para recarregar tickets a cada 30 segundos
-    // Intervalo maior para evitar rate limiting (429)
-    const interval = setInterval(() => {
-      const currentToken = localStorage.getItem('token');
-      // Não fazer polling se não houver token ou se estiver carregando
-      if (currentToken && !isLoading) {
-        // Verificar se há erro de rate limit recente (últimos 2 minutos)
-        const lastError = localStorage.getItem('lastRateLimitError');
-        if (lastError) {
-          const errorTime = parseInt(lastError);
-          const timeSinceError = Date.now() - errorTime;
-          // Se foi há menos de 2 minutos, não fazer polling
-          if (timeSinceError < 120000) {
-            console.log('⏸️ Polling pausado devido a rate limit recente');
-            return;
-          } else {
-            // Limpar erro antigo
-            localStorage.removeItem('lastRateLimitError');
-          }
-        }
-        loadTickets();
-      }
-    }, 30000); // 30 segundos (reduzido de 10 para evitar rate limiting)
-
-    return () => clearInterval(interval);
-  }, [token, isLoading]);
+  }, []);
 
 
   // Detectar quando um novo chamado é criado e notificar técnicos
@@ -476,34 +179,27 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const updateTicket = async (id: string, updates: Partial<Ticket>) => {
+  const updateTicket = async (id: string, updates: Partial<Ticket> & { queueId?: string | null }) => {
     try {
       // SEMPRE usar API - sem fallback para dados locais
       console.log('📝 Atualizando ticket via API:', id, updates);
-
-      // Preparar dados para envio - só incluir campos que foram explicitamente atualizados
-      const updateData: any = {};
-      if (updates.title !== undefined) updateData.title = updates.title;
-      if (updates.description !== undefined) updateData.description = updates.description;
-      if (updates.status !== undefined) updateData.status = updates.status as any;
-      if (updates.priority !== undefined) updateData.priority = updates.priority as any;
-      if (updates.category !== undefined) updateData.category = updates.category as any;
-      if (updates.serviceType !== undefined) updateData.serviceType = updates.serviceType;
-      if (updates.totalValue !== undefined) updateData.totalValue = updates.totalValue;
-      // Só enviar assignedTo se foi explicitamente fornecido (não remover atribuição ao mudar status)
-      if ('assignedTo' in updates) {
-        updateData.assignedTo = updates.assignedTo?.id || null;
-      }
-      if (updates.client?.id !== undefined) updateData.clientId = updates.client.id;
-      if (updates.queue !== undefined) {
-        updateData.queueId = (updates.queue && typeof updates.queue === 'object' && 'id' in updates.queue)
-          ? (updates.queue as any).id
-          : (typeof updates.queue === 'string' ? updates.queue : null);
-      }
-
-      console.log('📤 Enviando dados para API:', updateData);
-      const updatedTicket = await api.updateTicket(id, updateData);
-      console.log('📥 Resposta da API:', updatedTicket);
+      const updatedTicket = await api.updateTicket(id, {
+        title: updates.title,
+        description: updates.description,
+        status: updates.status as any,
+        priority: updates.priority as any,
+        category: updates.category as any,
+        serviceType: updates.serviceType,
+        totalValue: updates.totalValue,
+        assignedTo: updates.assignedTo?.id || null,
+        clientId: updates.client?.id,
+        queueId:
+          updates.queueId !== undefined
+            ? updates.queueId
+            : (updates.queue && typeof updates.queue === 'object' && 'id' in updates.queue)
+              ? (updates.queue as any).id
+              : (typeof updates.queue === 'string' ? updates.queue : null),
+      });
 
       // Transform API response to Ticket format
       const transformedTicket = {
@@ -518,39 +214,19 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         createdBy: updatedTicket.created_by_user || { id: updatedTicket.created_by, name: '', email: '', role: 'user' },
         assignedTo: updatedTicket.assigned_to_user,
         client: updatedTicket.client_user,
+        queue: updatedTicket.queue?.name || updatedTicket.queue_name || null,
+        queueId: updatedTicket.queue?.id || updatedTicket.queue_id || null,
         files: updatedTicket.files || [],
-        comments: transformComments(updatedTicket.comments || []),
-        interactions: transformInteractions(updatedTicket.interactions || []),
-        createdAt: safeDateParse(updatedTicket.created_at),
-        updatedAt: safeDateParse(updatedTicket.updated_at),
+        comments: updatedTicket.comments || [],
+        createdAt: new Date(updatedTicket.created_at),
+        updatedAt: new Date(updatedTicket.updated_at),
       };
 
-      console.log('🔄 Ticket transformado:', {
-        id: transformedTicket.id,
-        status: transformedTicket.status,
-        assignedTo: transformedTicket.assignedTo?.name || 'Não atribuído'
-      });
-
       // Atualizar lista local com dados do banco
-      // Se assignedTo não foi explicitamente atualizado, preservar o valor atual se existir
       setTickets((prev) =>
-        prev.map((ticket) => {
-          if (ticket.id === id) {
-            // Se assignedTo não foi enviado na atualização (ex: apenas status foi atualizado),
-            // preservar o valor atual se existir (evita perder atribuição ao mudar apenas status)
-            if (!('assignedTo' in updates)) {
-              // Se o ticket atual tinha assignedTo, preservar
-              if (ticket.assignedTo) {
-                console.log('🔒 Preservando atribuição ao atualizar status:', ticket.assignedTo.name);
-                transformedTicket.assignedTo = ticket.assignedTo;
-              }
-              // Se não tinha assignedTo antes, usar o valor da API (pode ser null)
-            }
-            // Se assignedTo foi explicitamente enviado na atualização, usar o valor da API
-            return transformedTicket;
-          }
-          return ticket;
-        })
+        prev.map((ticket) =>
+          ticket.id === id ? transformedTicket : ticket
+        )
       );
 
       console.log('✅ Ticket atualizado com sucesso');
@@ -581,23 +257,6 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       });
 
       // Transform API response to Ticket format
-      console.log('🔄 Transformando resposta da API:', {
-        id: createdTicket.id,
-        status: createdTicket.status,
-        status_verificado: createdTicket.status === 'aberto' ? '✅ CORRETO' : `❌ ERRADO - Status: "${createdTicket.status}"`,
-        assigned_to_user: createdTicket.assigned_to_user,
-        created_by_user: createdTicket.created_by_user
-      });
-
-      // Verificar se o status está correto
-      if (createdTicket.status !== 'aberto') {
-        console.error('⚠️ ATENÇÃO: Ticket criado mas status não é "aberto"!', {
-          id: createdTicket.id,
-          status_esperado: 'aberto',
-          status_atual: createdTicket.status
-        });
-      }
-
       const transformedTicket = {
         id: createdTicket.id,
         title: createdTicket.title,
@@ -611,53 +270,14 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         assignedTo: createdTicket.assigned_to_user,
         client: createdTicket.client_user,
         files: createdTicket.files || [],
-        comments: transformComments(createdTicket.comments || []),
-        interactions: transformInteractions(createdTicket.interactions || []),
-        createdAt: safeDateParse(createdTicket.created_at),
-        updatedAt: safeDateParse(createdTicket.updated_at),
+        comments: createdTicket.comments || [],
+        createdAt: new Date(createdTicket.created_at),
+        updatedAt: new Date(createdTicket.updated_at),
       };
 
-      console.log('🔄 Ticket transformado após criação:', {
-        id: transformedTicket.id,
-        status: transformedTicket.status,
-        status_normalizado: String(transformedTicket.status || '').toLowerCase().trim(),
-        é_aberto: String(transformedTicket.status || '').toLowerCase().trim() === 'aberto',
-        assignedTo: transformedTicket.assignedTo ? transformedTicket.assignedTo.name : 'Não atribuído',
-        assignedToId: transformedTicket.assignedTo?.id || null,
-        createdBy: transformedTicket.createdBy?.name || 'Desconhecido'
-      });
-
       // Adicionar ticket criado à lista (dados do banco)
-      setTickets((prev) => {
-        const updated = [...prev, transformedTicket];
-        previousTicketsCountRef.current = updated.length;
-        console.log('✅ Ticket adicionado à lista local:', {
-          id: transformedTicket.id,
-          status: transformedTicket.status,
-          assignedTo: transformedTicket.assignedTo?.name || 'Não atribuído',
-          totalTickets: updated.length
-        });
-        return updated;
-      });
-
-      // Forçar reload imediato para garantir que todos vejam o novo ticket
-      // Aguardar um pouco para garantir que o backend salvou completamente
-      console.log('🔄 Forçando reload de tickets após criação...');
-      console.log('📋 Estado ANTES do reload:', {
-        ticket_criado_id: transformedTicket.id,
-        ticket_criado_status: transformedTicket.status,
-        ticket_criado_assignedTo: transformedTicket.assignedTo?.name || 'Não atribuído',
-        total_tickets_antes: tickets.length + 1
-      });
-      setTimeout(() => {
-        console.log('🔄 Executando loadTickets após criação do ticket...');
-        loadTickets().then(() => {
-          console.log('✅ loadTickets concluído após criação');
-        }).catch((error) => {
-          console.error('❌ Erro no loadTickets após criação:', error);
-        });
-      }, 1500); // Aguardar 1.5 segundos para garantir que o backend salvou
-
+      setTickets((prev) => [...prev, transformedTicket]);
+      previousTicketsCountRef.current = tickets.length + 1;
       console.log('✅ Ticket criado com sucesso');
     } catch (apiError: any) {
       console.error('❌ Erro ao criar ticket:', apiError);
@@ -671,80 +291,24 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       console.log('💬 Adicionando comentário via API:', ticketId);
       const createdComment = await api.addComment(ticketId, comment.content);
 
-      console.log('✅ Comentário criado no backend:', createdComment);
-
-      // Recarregar o ticket completo do backend para garantir que todos vejam o comentário
-      // Isso é importante para que outros usuários vejam os comentários imediatamente
-      console.log('🔄 Recarregando ticket do backend para atualizar comentários...');
-      const updatedTicket = await api.getTicketById(ticketId);
-
-      console.log('📦 Ticket recarregado:', {
-        id: updatedTicket.id,
-        interactions_count: updatedTicket.interactions?.length || 0,
-        comments_count: updatedTicket.comments?.length || 0
-      });
-
-      // Transformar resposta da API
-      const rawInteractions = transformInteractions(updatedTicket.interactions || []);
-
-      // Se alguma interação veio sem arquivos, tentar associar a partir de ticket.files via interactionId
-      const filesByInteraction: Record<string, any[]> = {};
-      if (updatedTicket.files && Array.isArray(updatedTicket.files)) {
-        updatedTicket.files.forEach((f: any) => {
-          const key = f.interactionId || f.interaction_id;
-          if (key) {
-            if (!filesByInteraction[key]) filesByInteraction[key] = [];
-            filesByInteraction[key].push({
-              id: f.id,
-              name: f.name,
-              size: f.size,
-              type: f.type,
-              data: f.data || f.data_url, // garantir data para fallback
-            });
-          }
-        });
-      }
-
-      const mergedInteractions = rawInteractions.map((i) => {
-        if (i.files && i.files.length > 0) return i;
-        const fallback = filesByInteraction[i.id];
-        if (fallback && fallback.length > 0) {
-          return {
-            ...i,
-            files: fallback,
-          };
-        }
-        return i;
-      });
-
-      const transformedTicket = {
-        id: updatedTicket.id,
-        title: updatedTicket.title,
-        description: updatedTicket.description,
-        status: updatedTicket.status,
-        priority: updatedTicket.priority,
-        category: updatedTicket.category,
-        serviceType: updatedTicket.service_type,
-        totalValue: updatedTicket.total_value ? parseFloat(updatedTicket.total_value) : undefined,
-        createdBy: updatedTicket.created_by_user || { id: updatedTicket.created_by, name: '', email: '', role: 'user' },
-        assignedTo: updatedTicket.assigned_to_user,
-        client: updatedTicket.client_user,
-        files: updatedTicket.files || [],
-        comments: transformComments(updatedTicket.comments || []),
-        interactions: mergedInteractions,
-        createdAt: safeDateParse(updatedTicket.created_at),
-        updatedAt: safeDateParse(updatedTicket.updated_at),
-      };
-
-      // Atualizar ticket com dados completos do banco
+      // Atualizar ticket com comentário do banco
       setTickets((prev) =>
         prev.map((ticket) =>
           ticket.id === ticketId
-            ? transformedTicket
+            ? {
+                ...ticket,
+                comments: [...(ticket.comments || []), {
+                  id: createdComment.id,
+                  content: createdComment.content,
+                  author: createdComment.author,
+                  createdAt: new Date(createdComment.createdAt),
+                }],
+                updatedAt: new Date(),
+              }
             : ticket
         )
       );
-      console.log('✅ Comentário adicionado e ticket atualizado com sucesso');
+      console.log('✅ Comentário adicionado com sucesso');
     } catch (apiError: any) {
       console.error('❌ Erro ao adicionar comentário:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar
@@ -752,90 +316,25 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   };
 
   const addInteraction = async (ticketId: string, interaction: Interaction) => {
-    try {
-      // SEMPRE usar API - sem fallback para dados locais
-      console.log('💬 Adicionando interação via API:', ticketId, interaction.type, {
-        hasFiles: !!interaction.files && interaction.files.length > 0,
-        filesCount: interaction.files?.length || 0
-      });
-
-      // Preparar arquivos para envio
-      const filesToSend = interaction.files?.map(file => ({
-        name: file.name,
-        size: file.size,
-        type: file.type || 'application/octet-stream',
-        dataUrl: file.data || '', // Base64 data URL - IMPORTANTE: usar dataUrl para o backend
-      }));
-
-      console.log('📎 Arquivos preparados para envio:', {
-        count: filesToSend?.length || 0,
-        files: filesToSend?.map(f => ({
-          name: f.name,
-          size: f.size,
-          type: f.type,
-          hasDataUrl: !!f.dataUrl,
-          dataUrlLength: f.dataUrl?.length || 0,
-          dataUrlPreview: f.dataUrl?.substring(0, 50) + '...'
-        }))
-      });
-
-      const createdInteraction = await api.addInteraction(
-        ticketId,
-        interaction.type,
-        interaction.content,
-        interaction.metadata,
-        filesToSend
-      );
-
-      console.log('✅ Interação criada no backend:', createdInteraction);
-
-      // Transformar interação retornada
-      const transformedInteraction = transformInteractions([createdInteraction])[0];
-
-      // Atualizar localmente o ticket (evita depender de novo GET e evita 404)
-      setTickets((prev) =>
-        prev.map((ticket) => {
-          if (ticket.id !== ticketId) return ticket;
-
-          const filesByInteraction: Record<string, any[]> = {};
-          if (ticket.files && Array.isArray(ticket.files)) {
-            ticket.files.forEach((f: any) => {
-              const key = (f as any).interactionId || (f as any).interaction_id;
-              if (key) {
-                if (!filesByInteraction[key]) filesByInteraction[key] = [];
-                filesByInteraction[key].push({
-                  id: f.id,
-                  name: f.name,
-                  size: f.size,
-                  type: f.type,
-                  data: (f as any).data || (f as any).data_url,
-                });
-              }
-            });
-          }
-
-          const mergedInteraction =
-            transformedInteraction.files && transformedInteraction.files.length > 0
-              ? transformedInteraction
-              : (() => {
-                  const fallback = filesByInteraction[transformedInteraction.id];
-                  if (fallback && fallback.length > 0) {
-                    return { ...transformedInteraction, files: fallback };
-                  }
-                  return transformedInteraction;
-                })();
-
-          return {
+    const updatedTickets = tickets.map((ticket) =>
+      ticket.id === ticketId
+        ? {
             ...ticket,
-            interactions: [...(ticket.interactions || []), mergedInteraction],
-          };
-        })
-      );
+            interactions: [...(ticket.interactions || []), interaction],
+            updatedAt: new Date(),
+          }
+        : ticket
+    );
+    setTickets(updatedTickets);
 
-      console.log('✅ Interação adicionada localmente com anexos');
-    } catch (apiError: any) {
-      console.error('❌ Erro ao adicionar interação:', apiError);
-      throw apiError; // Propagar erro para que o componente possa tratar
+    // Encontrar o ticket atualizado e salvar no banco
+    const updatedTicket = updatedTickets.find(t => t.id === ticketId);
+    if (updatedTicket) {
+      try {
+        await database.saveTicket(updatedTicket);
+      } catch (error) {
+        console.error('Erro ao salvar interação no banco de dados:', error);
+      }
     }
   };
 

@@ -5,7 +5,7 @@ export interface CreateUserData {
   name: string;
   email: string;
   password: string;
-  role: 'admin' | 'technician' | 'user';
+  role: 'admin' | 'technician' | 'technician_n2' | 'user' | 'financial';
   avatar?: string;
 }
 

@@ -224,7 +224,7 @@ export default function UsersPage() {
           name: newUser.name,
           email: emailNormalized,
           password: newUser.password,
-          role: newUser.role === 'financial' ? 'user' : newUser.role,
+          role: newUser.role,
           avatar: newUserPhoto || undefined,
           company: newUser.company || undefined,
         });
@@ -404,7 +404,7 @@ export default function UsersPage() {
         const updateData: any = {
           name: editUser.name,
           email: emailNormalized,
-          role: editUser.role === 'financial' ? 'user' : editUser.role,
+          role: editUser.role,
           company: editUser.company || null,
         };
 

@@ -109,7 +109,7 @@ class ApiService {
     name: string;
     email: string;
     password: string;
-    role: 'admin' | 'technician' | 'user';
+    role: 'admin' | 'technician' | 'technician_n2' | 'user' | 'financial';
     avatar?: string;
     company?: string;
   }) {
@@ -123,7 +123,7 @@ class ApiService {
     name?: string;
     email?: string;
     password?: string;
-    role?: 'admin' | 'technician' | 'user';
+    role?: 'admin' | 'technician' | 'technician_n2' | 'user' | 'financial';
     avatar?: string | null;
     company?: string | null;
   }) {

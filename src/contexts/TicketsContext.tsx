@@ -124,6 +124,19 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     };
 
     loadTickets();
+
+    // Atualizar tickets automaticamente a cada 10 segundos
+    const intervalId = setInterval(() => {
+      const user = getCurrentUser();
+      if (user) {
+        console.log('🔄 Atualizando tickets automaticamente...');
+        loadTickets();
+      }
+    }, 10000); // 10 segundos
+
+    return () => {
+      clearInterval(intervalId);
+    };
   }, []);
 
 

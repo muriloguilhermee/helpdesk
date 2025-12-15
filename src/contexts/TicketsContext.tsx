@@ -38,6 +38,13 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const loadTickets = async () => {
       try {
+        const user = getCurrentUser();
+        if (!user) {
+          console.log('🚫 Nenhum usuário logado, não carregar tickets ainda.');
+          setIsLoading(false);
+          return;
+        }
+
         console.log('📡 Carregando tickets da API...');
         // SEMPRE usar API - sem fallback para dados locais
         const apiTickets = await api.getTickets();
@@ -74,7 +81,16 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       } catch (apiError: any) {
         console.error('❌ Erro ao carregar tickets da API:', apiError);
-        // Se a API falhar, mostrar lista vazia ao invés de dados locais
+
+        // Se for 401 (não autenticado), apenas limpa lista sem exibir alerta
+        if (apiError?.status === 401) {
+          console.warn('⚠️ Não autenticado ao carregar tickets. Aguarde login.');
+          setTickets([]);
+          setIsLoading(false);
+          return;
+        }
+
+        // Outros erros: mostrar alerta de conexão
         setTickets([]);
         setIsLoading(false);
         alert('Erro ao conectar com o servidor. Verifique se o backend está rodando.');

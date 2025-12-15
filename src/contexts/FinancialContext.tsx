@@ -16,10 +16,30 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
   const [financialTickets, setFinancialTickets] = useState<FinancialTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Função para obter usuário logado do localStorage
+  const getCurrentUser = (): User | null => {
+    try {
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        return JSON.parse(savedUser);
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  };
+
   // Carregar tickets financeiros APENAS do banco de dados (API)
   useEffect(() => {
     const loadFinancialTickets = async () => {
       try {
+        const user = getCurrentUser();
+        if (!user) {
+          console.log('🚫 Nenhum usuário logado, não carregar tickets financeiros ainda.');
+          setIsLoading(false);
+          return;
+        }
+
         setIsLoading(true);
         console.log('📡 Carregando tickets financeiros da API...');
 
@@ -59,6 +79,15 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       } catch (apiError: any) {
         console.error('❌ Erro ao carregar tickets financeiros da API:', apiError);
+
+        // Se for 401 (não autenticado), apenas limpa lista e não trata como erro de conexão
+        if (apiError?.status === 401) {
+          console.warn('⚠️ Não autenticado ao carregar tickets financeiros. Aguarde login.');
+          setFinancialTickets([]);
+          setIsLoading(false);
+          return;
+        }
+
         // Se a API falhar, mostrar lista vazia ao invés de dados locais
         setFinancialTickets([]);
         setIsLoading(false);

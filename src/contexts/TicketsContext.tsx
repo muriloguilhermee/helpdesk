@@ -230,23 +230,29 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     try {
       // SEMPRE usar API - sem fallback para dados locais
       console.log('📝 Atualizando ticket via API:', id, updates);
-      const updatedTicket = await api.updateTicket(id, {
-        title: updates.title,
-        description: updates.description,
-        status: updates.status as any,
-        priority: updates.priority as any,
-        category: updates.category as any,
-        serviceType: updates.serviceType,
-        totalValue: updates.totalValue,
-        assignedTo: updates.assignedTo?.id || null,
-        clientId: updates.client?.id,
-        queueId:
-          updates.queueId !== undefined
-            ? updates.queueId
-            : (updates.queue && typeof updates.queue === 'object' && 'id' in updates.queue)
-              ? (updates.queue as any).id
-              : (typeof updates.queue === 'string' ? updates.queue : null),
-      });
+      // Construir objeto de atualização apenas com campos definidos
+      const updateData: any = {};
+      if (updates.title !== undefined) updateData.title = updates.title;
+      if (updates.description !== undefined) updateData.description = updates.description;
+      if (updates.status !== undefined) updateData.status = updates.status as any;
+      if (updates.priority !== undefined) updateData.priority = updates.priority as any;
+      if (updates.category !== undefined) updateData.category = updates.category as any;
+      if (updates.serviceType !== undefined) updateData.serviceType = updates.serviceType;
+      if (updates.totalValue !== undefined) updateData.totalValue = updates.totalValue;
+      // Só enviar assignedTo se estiver explicitamente definido (não enviar null se não foi passado)
+      if (updates.assignedTo !== undefined) {
+        updateData.assignedTo = updates.assignedTo?.id || null;
+      }
+      if (updates.client !== undefined) updateData.clientId = updates.client?.id;
+      if (updates.queueId !== undefined) {
+        updateData.queueId = updates.queueId;
+      } else if (updates.queue !== undefined) {
+        updateData.queueId = (updates.queue && typeof updates.queue === 'object' && 'id' in updates.queue)
+          ? (updates.queue as any).id
+          : (typeof updates.queue === 'string' ? updates.queue : null);
+      }
+
+      const updatedTicket = await api.updateTicket(id, updateData);
 
       // Transform API response to Ticket format
       const transformedTicket = {

@@ -72,8 +72,15 @@ export default function AllTickets() {
     return labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
   }) as TicketStatus[];
 
-  // Técnicos veem TODOS os chamados (não filtrados por atribuição)
-  const availableTickets = tickets;
+  // Técnicos veem chamados de OUTROS técnicos (não os atribuídos a eles)
+  // Isso evita duplicação com "Meus Chamados"
+  let availableTickets = tickets;
+  if (user?.role === 'technician') {
+    // Excluir tickets atribuídos ao técnico atual
+    availableTickets = tickets.filter(ticket =>
+      !ticket.assignedTo || ticket.assignedTo.id !== user.id
+    );
+  }
 
   const filteredTickets = availableTickets
     .filter((ticket) => {

@@ -26,7 +26,7 @@ interface MenuItem {
   label: string;
   path: string;
   permission?: string;
-  role?: 'admin' | 'user' | 'technician' | 'financial' | 'all';
+  role?: 'admin' | 'user' | 'technician' | 'technician_n2' | 'financial' | 'all';
 }
 
 const allMenuItems: MenuItem[] = [
@@ -34,7 +34,6 @@ const allMenuItems: MenuItem[] = [
   { icon: Clock, label: 'Novos Chamados', path: '/tickets/pending', permission: 'view:pending:tickets', role: 'technician' },
   { icon: Ticket, label: 'Meus Chamados', path: '/tickets', permission: 'view:tickets', role: 'all' },
   { icon: Ticket, label: 'Todos os Chamados', path: '/tickets/all', permission: 'view:tickets', role: 'technician' },
-  { icon: Ticket, label: 'Chamados N2', path: '/tickets/n2', permission: 'view:tickets', role: 'technician_n2' },
   { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },
   { icon: Wallet, label: 'Gestão Financeira', path: '/financial/management', permission: 'view:all:financial', role: 'all' },
   { icon: Plug, label: 'Integração ERP', path: '/erp-integration', permission: 'view:all:financial', role: 'admin' },
@@ -50,7 +49,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Contar novos chamados para técnicos
   const getNewTicketsCount = () => {
-    if (user?.role !== 'technician') return 0;
+    if (user?.role !== 'technician' && user?.role !== 'technician_n2') return 0;
 
     const newTickets = tickets.filter((ticket) => {
       const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
@@ -74,13 +73,11 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
     // Verificar role específico
     if (item.role && item.role !== 'all') {
-      if (item.role === 'technician' && user?.role !== 'technician' && user?.role !== 'technician_n2') {
+      const isTechnician = user?.role === 'technician' || user?.role === 'technician_n2';
+      if (item.role === 'technician' && !isTechnician) {
         return false;
       }
-      if (item.role === 'technician_n2' && user?.role !== 'technician_n2') {
-        return false;
-      }
-      if (item.role !== 'technician' && item.role !== 'technician_n2' && (user?.role === 'technician' || user?.role === 'technician_n2')) {
+      if (item.role !== 'technician' && isTechnician) {
         // Se o item não é para técnico mas o usuário é técnico, verificar se tem permissão
         if (!item.permission || !hasPermission(item.permission)) {
           return false;

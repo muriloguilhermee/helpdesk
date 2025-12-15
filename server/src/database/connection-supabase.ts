@@ -55,7 +55,7 @@ const runMigrations = async (): Promise<void> => {
         table.string('email').unique().notNullable();
         table.string('name').notNullable();
         table.string('password').notNullable();
-        table.enum('role', ['admin', 'technician', 'technician_n2', 'user']).notNullable();
+        table.enum('role', ['admin', 'technician', 'user']).notNullable();
         table.text('avatar').nullable();
         table.timestamps(true, true);
       });

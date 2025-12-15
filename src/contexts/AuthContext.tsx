@@ -51,6 +51,12 @@ const permissions: Record<string, string[]> = {
     'edit:ticket',
     'close:ticket',
   ],
+  technician_n2: [
+    'view:tickets',
+    'view:pending:tickets',
+    'edit:ticket',
+    'close:ticket',
+  ],
   user: [
     'view:tickets',
     'create:ticket',

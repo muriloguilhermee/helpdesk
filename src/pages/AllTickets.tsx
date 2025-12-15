@@ -75,7 +75,8 @@ export default function AllTickets() {
   // Técnicos veem chamados de OUTROS técnicos (não os atribuídos a eles)
   // Isso evita duplicação com "Meus Chamados"
   let availableTickets = tickets;
-  if (user?.role === 'technician') {
+  const isTechnician = user?.role === 'technician' || user?.role === 'technician_n2';
+  if (isTechnician) {
     // Excluir tickets atribuídos ao técnico atual
     availableTickets = tickets.filter(ticket =>
       !ticket.assignedTo || ticket.assignedTo.id !== user.id

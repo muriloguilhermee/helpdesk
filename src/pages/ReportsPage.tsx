@@ -85,7 +85,7 @@ export default function ReportsPage() {
   // Filtrar apenas técnicos customizados (não mockados)
   const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
   const customUsers = allUsers.filter((u: any) => !mockUserEmails.has(u.email.toLowerCase()));
-  const technicians = customUsers.filter((u: any) => u.role === 'technician');
+  const technicians = customUsers.filter((u: any) => u.role === 'technician' || u.role === 'technician_n2');
 
   // Contar tickets por técnico (apenas dos chamados do usuário)
   const ticketsByTechnician = technicians.reduce((acc: Record<string, { name: string; count: number }>, tech: any) => {

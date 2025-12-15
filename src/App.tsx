@@ -6,7 +6,6 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import TicketsList from './pages/TicketsList';
 import AllTickets from './pages/AllTickets';
-import N2Tickets from './pages/N2Tickets';
 import NewTicket from './pages/NewTicket';
 import TicketDetails from './pages/TicketDetails';
 import UsersPage from './pages/UsersPage';
@@ -47,7 +46,6 @@ function AppRoutes() {
         } />
         <Route path="tickets" element={<ProtectedRoute requiredPermission="view:tickets"><TicketsList /></ProtectedRoute>} />
         <Route path="tickets/all" element={<ProtectedRoute requiredPermission="view:tickets"><AllTickets /></ProtectedRoute>} />
-        <Route path="tickets/n2" element={<ProtectedRoute requiredPermission="view:tickets"><N2Tickets /></ProtectedRoute>} />
         <Route path="tickets/pending" element={<ProtectedRoute requiredPermission="view:pending:tickets"><PendingTickets /></ProtectedRoute>} />
         <Route path="tickets/new" element={<ProtectedRoute requiredPermission="create:ticket"><NewTicket /></ProtectedRoute>} />
         <Route path="tickets/:id" element={<ProtectedRoute requiredPermission="view:tickets"><TicketDetails /></ProtectedRoute>} />

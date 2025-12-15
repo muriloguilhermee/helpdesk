@@ -11,7 +11,7 @@ export interface RegisterData {
   name: string;
   email: string;
   password: string;
-  role: 'admin' | 'technician' | 'technician_n2' | 'user';
+  role: 'admin' | 'technician' | 'user';
   avatar?: string;
 }
 
@@ -24,12 +24,10 @@ export const comparePassword = async (password: string, hash: string): Promise<b
 };
 
 export const generateToken = (user: { id: string; email: string; role: string }): string => {
-  const secret = process.env.JWT_SECRET || 'secret';
-  const expiresIn = (process.env.JWT_EXPIRES_IN || '7d') as string;
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role },
-    secret,
-    { expiresIn } as jwt.SignOptions
+    process.env.JWT_SECRET || 'secret',
+    { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
   );
 };
 

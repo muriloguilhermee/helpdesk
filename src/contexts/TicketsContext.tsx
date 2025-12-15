@@ -147,7 +147,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     const user = getCurrentUser();
 
     // Se um novo ticket foi adicionado e o usuário é técnico
-    if (currentTicketsCount > previousCount && user?.role === 'technician') {
+    if (currentTicketsCount > previousCount && (user?.role === 'technician' || user?.role === 'technician_n2')) {
       // Tocar som de notificação
       try {
         const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();

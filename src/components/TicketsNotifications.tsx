@@ -29,7 +29,7 @@ export function TicketsNotifications() {
         // Novo ticket criado - notificar apenas se for do usuário ou se for técnico e não atribuído
         if (user) {
           const isMyTicket = ticket.createdBy.id === user.id || ticket.client?.id === user.id;
-          const isTechnicianUnassigned = user.role === 'technician' && !ticket.assignedTo;
+          const isTechnicianUnassigned = (user.role === 'technician' || user.role === 'technician_n2') && !ticket.assignedTo;
           const isAdmin = user.role === 'admin';
 
           if (isMyTicket || isTechnicianUnassigned || isAdmin) {
@@ -49,7 +49,7 @@ export function TicketsNotifications() {
         if (previousTicket.status !== ticket.status && user) {
           const isMyTicket = ticket.createdBy.id === user.id || ticket.client?.id === user.id;
           const isAssignedToMe = ticket.assignedTo?.id === user.id;
-          const isTechnicianUnassigned = user.role === 'technician' && !ticket.assignedTo;
+          const isTechnicianUnassigned = (user.role === 'technician' || user.role === 'technician_n2') && !ticket.assignedTo;
           const isAdmin = user.role === 'admin';
 
           if (isMyTicket || isAssignedToMe || isTechnicianUnassigned || isAdmin) {
@@ -99,7 +99,7 @@ export function TicketsNotifications() {
           if (newInteraction && newInteraction.type === 'user') {
             const isMyTicket = ticket.createdBy.id === user.id || ticket.client?.id === user.id;
             const isAssignedToMe = ticket.assignedTo?.id === user.id;
-            const isTechnicianUnassigned = user.role === 'technician' && !ticket.assignedTo;
+            const isTechnicianUnassigned = (user.role === 'technician' || user.role === 'technician_n2') && !ticket.assignedTo;
             const isAdmin = user.role === 'admin';
             if (newInteraction.author) {
               const isNotMyInteraction = newInteraction.author.id !== user.id;

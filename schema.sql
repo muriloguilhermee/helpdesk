@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(255) UNIQUE NOT NULL,
   name VARCHAR(255) NOT NULL,
   password VARCHAR(255) NOT NULL,
-  role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'technician', 'user', 'financial')),
+  role VARCHAR(50) NOT NULL CHECK (role IN ('admin', 'technician', 'technician_n2', 'user', 'financial')),
   avatar TEXT,
   company VARCHAR(255),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

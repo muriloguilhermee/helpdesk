@@ -12,7 +12,9 @@ interface HeaderProps {
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
   technician: 'Técnico',
+  technician_n2: 'Técnico n2',
   user: 'Usuário',
+  financial: 'Financeiro',
 };
 
 export default function Header({ onMenuClick }: HeaderProps) {

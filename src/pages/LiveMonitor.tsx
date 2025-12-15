@@ -86,7 +86,7 @@ export default function LiveMonitor() {
         // Filtrar apenas técnicos que NÃO são mockados
         const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
         const customTechnicians = allUsers.filter((u: any) =>
-          u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
+          (u.role === 'technician' || u.role === 'technician_n2') && !mockUserEmails.has(u.email.toLowerCase())
         );
 
         // Ordenar técnicos alfabeticamente

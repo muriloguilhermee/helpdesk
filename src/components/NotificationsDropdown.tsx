@@ -51,44 +51,44 @@ export default function NotificationsDropdown() {
   // Filtrar notificações baseado no usuário logado
   const filteredNotifications = useMemo(() => {
     if (!user) return [];
-    
+
     // Admin vê todas as notificações
     if (user.role === 'admin') {
       return notifications;
     }
-    
+
     return notifications.filter(notification => {
       // Notificações de login/logout sempre aparecem
       if (notification.type === 'login' || notification.type === 'logout') {
         return notification.userId === user.id;
       }
-      
+
       // Para notificações de tickets, verificar se o usuário está relacionado
       if (notification.ticketId) {
         const ticket = tickets.find(t => t.id === notification.ticketId);
         if (!ticket) return false;
-        
+
         // Usuário comum: apenas seus próprios tickets
         if (user.role === 'user') {
           return ticket.createdBy.id === user.id || ticket.client?.id === user.id;
         }
-        
+
         // Técnico: tickets atribuídos a ele ou não atribuídos
-        if (user.role === 'technician') {
+        if (user.role === 'technician' || user.role === 'technician_n2') {
           const isAssignedToMe = ticket.assignedTo?.id === user.id;
           const isNotAssigned = !ticket.assignedTo;
           const isMyTicket = ticket.createdBy.id === user.id;
-          
+
           // Notificação de atribuição: apenas se foi atribuído a ele
           if (notification.type === 'ticket_assigned') {
             return notification.userId === user.id;
           }
-          
+
           // Outras notificações: se está atribuído a ele ou não atribuído
           return isAssignedToMe || isNotAssigned || isMyTicket;
         }
       }
-      
+
       return false;
     });
   }, [notifications, user, tickets]);

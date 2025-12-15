@@ -81,7 +81,8 @@ export default function TicketsList() {
   // Admins veem todos os chamados
   // Usuários veem apenas seus próprios chamados OU chamados de melhoria
   let availableTickets = tickets;
-  if (user?.role === 'technician') {
+  const isTechnician = user?.role === 'technician' || user?.role === 'technician_n2';
+  if (isTechnician) {
     // Técnicos veem apenas chamados atribuídos a eles
     availableTickets = tickets.filter(ticket =>
       ticket.assignedTo?.id === user.id
@@ -131,7 +132,7 @@ export default function TicketsList() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">
-          {user?.role === 'technician' ? 'Meus Chamados' : user?.role === 'user' ? 'Meus Chamados' : 'Chamados'}
+          {isTechnician ? 'Meus Chamados' : user?.role === 'user' ? 'Meus Chamados' : 'Chamados'}
         </h1>
         {hasPermission('create:ticket') && (
           <Link to="/tickets/new" className="btn-primary flex items-center justify-center gap-2 w-full sm:w-auto">

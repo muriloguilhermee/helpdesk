@@ -10,6 +10,7 @@ import { api } from '../services/api';
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
   technician: 'Técnico',
+  technician_n2: 'Técnico n2',
   user: 'Usuário',
   financial: 'Financeiro',
 };
@@ -17,6 +18,7 @@ const roleLabels: Record<string, string> = {
 const roleColors: Record<string, string> = {
   admin: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
   technician: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
+  technician_n2: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-400',
   user: 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-300',
   financial: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
 };
@@ -787,8 +789,8 @@ export default function UsersPage() {
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="user">Usuário</option>
-                  <option value="technician">Técnico N1</option>
-                  <option value="technician_n2">Técnico N2</option>
+                  <option value="technician">Técnico</option>
+                  <option value="technician_n2">Técnico n2</option>
                   <option value="financial">Financeiro</option>
                   <option value="admin">Administrador</option>
                 </select>
@@ -1010,8 +1012,8 @@ export default function UsersPage() {
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="user">Usuário</option>
-                  <option value="technician">Técnico N1</option>
-                  <option value="technician_n2">Técnico N2</option>
+                  <option value="technician">Técnico</option>
+                  <option value="technician_n2">Técnico n2</option>
                   <option value="financial">Financeiro</option>
                   <option value="admin">Administrador</option>
                 </select>

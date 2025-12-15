@@ -16,7 +16,7 @@ O banco de dados em produção ainda tem a constraint CHECK antiga que não perm
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
 
 -- Adicionar a nova constraint com todas as roles
-ALTER TABLE users ADD CONSTRAINT users_role_check 
+ALTER TABLE users ADD CONSTRAINT users_role_check
   CHECK (role IN ('admin', 'technician', 'technician_n2', 'user', 'financial'));
 ```
 
@@ -26,7 +26,7 @@ Execute o arquivo `migration_add_technician_n2.sql` no SQL Editor do Supabase.
 
 ### Opção 3: Reiniciar o servidor (migração automática)
 
-O código foi atualizado para fazer a migração automaticamente quando o servidor iniciar. 
+O código foi atualizado para fazer a migração automaticamente quando o servidor iniciar.
 Basta fazer o deploy no Render e a migração será executada automaticamente.
 
 ## Verificação
@@ -34,9 +34,9 @@ Basta fazer o deploy no Render e a migração será executada automaticamente.
 Após executar a migração, verifique se funcionou:
 
 ```sql
-SELECT conname, pg_get_constraintdef(oid) 
-FROM pg_constraint 
-WHERE conrelid = 'users'::regclass 
+SELECT conname, pg_get_constraintdef(oid)
+FROM pg_constraint
+WHERE conrelid = 'users'::regclass
   AND conname = 'users_role_check';
 ```
 

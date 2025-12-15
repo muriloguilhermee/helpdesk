@@ -291,7 +291,7 @@ const runMigrations = async (): Promise<void> => {
       });
       // Adicionar constraint CHECK para role
       await db!.raw(`
-        ALTER TABLE users ADD CONSTRAINT users_role_check 
+        ALTER TABLE users ADD CONSTRAINT users_role_check
         CHECK (role IN ('admin', 'technician', 'technician_n2', 'user', 'financial'))
       `);
       console.log('✅ Created users table');
@@ -304,12 +304,12 @@ const runMigrations = async (): Promise<void> => {
         });
         console.log('✅ Added company column to users table');
       }
-      
+
       // Atualizar constraint CHECK para incluir technician_n2 e financial
       try {
         await db!.raw(`
           ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-          ALTER TABLE users ADD CONSTRAINT users_role_check 
+          ALTER TABLE users ADD CONSTRAINT users_role_check
           CHECK (role IN ('admin', 'technician', 'technician_n2', 'user', 'financial'))
         `);
         console.log('✅ Updated users_role_check constraint to include technician_n2 and financial');

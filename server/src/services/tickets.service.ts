@@ -72,6 +72,7 @@ export interface UpdateTicketData {
   assignedTo?: string | null;
   clientId?: string;
   queueId?: string | null;
+  updatedBy?: string; // ID do usuário que está fazendo a atualização
 }
 
 export interface TicketFilters {
@@ -432,7 +433,29 @@ export const createTicket = async (data: CreateTicketData) => {
 
     console.log('📝 Criando ticket:', { title: data.title, category: data.category, priority: data.priority });
 
-    const { queueId } = await resolveQueueId(db, data.queueId);
+    // Se não foi especificada uma fila, atribuir à "Suporte N1" por padrão
+    let finalQueueId = data.queueId;
+    if (!finalQueueId) {
+      const suporteN1 = await db('queues').whereRaw('LOWER(name) = LOWER(?)', ['Suporte N1']).first();
+      if (suporteN1) {
+        finalQueueId = suporteN1.id;
+        console.log('📋 Atribuindo ticket à fila padrão: Suporte N1');
+      } else {
+        // Se não existir, criar a fila
+        const [newQueue] = await db('queues')
+          .insert({
+            name: 'Suporte N1',
+            description: 'Fila padrão de suporte nível 1',
+          })
+          .returning('*');
+        if (newQueue) {
+          finalQueueId = newQueue.id;
+          console.log('✅ Fila "Suporte N1" criada e atribuída ao ticket');
+        }
+      }
+    }
+
+    const { queueId } = await resolveQueueId(db, finalQueueId);
 
     // Gerar ID numérico incremental usando MAX(CAST(id AS INTEGER))
     // Usamos um alias explícito para evitar problemas de sintaxe com DBs diferentes
@@ -524,10 +547,50 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
       console.log('👤 Atribuindo ticket para:', data.assignedTo || 'ninguém');
     }
     if (data.clientId !== undefined) updateData.client_id = data.clientId;
+    let previousQueueName: string | null = null;
     if (data.queueId !== undefined) {
+      // Buscar fila atual antes de atualizar
+      const currentTicket = await db('tickets').where({ id }).first();
+      if (currentTicket?.queue_id) {
+        const currentQueue = await db('queues').where({ id: currentTicket.queue_id }).first();
+        previousQueueName = currentQueue?.name || null;
+      }
+
       const { queueId, queueName } = await resolveQueueId(db, data.queueId);
       updateData.queue_id = queueId ?? null;
       console.log('🔄 Transferindo ticket para fila:', queueName || data.queueId || 'nenhuma fila');
+
+      // Se a fila mudou, criar comentário de transferência
+      if (queueName && previousQueueName && queueName !== previousQueueName) {
+        try {
+          const authorId = data.updatedBy || currentTicket.created_by;
+          const author = await db('users').where({ id: authorId }).select('name').first();
+          const authorName = author?.name || 'Sistema';
+          await db('comments').insert({
+            ticket_id: id,
+            author_id: authorId,
+            content: `Chamado transferido de "${previousQueueName}" para "${queueName}" por ${authorName}`,
+          });
+          console.log(`✅ Comentário de transferência criado: "${previousQueueName}" → "${queueName}"`);
+        } catch (error) {
+          console.error('⚠️ Erro ao criar comentário de transferência:', error);
+        }
+      } else if (queueName && !previousQueueName) {
+        // Se não havia fila e agora tem, também criar comentário
+        try {
+          const authorId = data.updatedBy || currentTicket.created_by;
+          const author = await db('users').where({ id: authorId }).select('name').first();
+          const authorName = author?.name || 'Sistema';
+          await db('comments').insert({
+            ticket_id: id,
+            author_id: authorId,
+            content: `Chamado atribuído à fila "${queueName}" por ${authorName}`,
+          });
+          console.log(`✅ Comentário de atribuição de fila criado: "${queueName}"`);
+        } catch (error) {
+          console.error('⚠️ Erro ao criar comentário de atribuição de fila:', error);
+        }
+      }
     }
 
     // Atualizar updated_at manualmente

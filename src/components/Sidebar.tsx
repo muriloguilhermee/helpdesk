@@ -33,6 +33,7 @@ const allMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/', permission: 'view:dashboard', role: 'all' },
   { icon: Clock, label: 'Novos Chamados', path: '/tickets/pending', permission: 'view:pending:tickets', role: 'technician' },
   { icon: Ticket, label: 'Meus Chamados', path: '/tickets', permission: 'view:tickets', role: 'all' },
+  { icon: Ticket, label: 'Todos os Chamados', path: '/tickets/all', permission: 'view:tickets', role: 'technician' },
   { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },
   { icon: Wallet, label: 'Gestão Financeira', path: '/financial/management', permission: 'view:all:financial', role: 'all' },
   { icon: Plug, label: 'Integração ERP', path: '/erp-integration', permission: 'view:all:financial', role: 'admin' },
@@ -95,7 +96,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           onClick={onClose}
         />
       )}
-      
+
       <aside
         className={`fixed left-0 top-0 h-screen w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 z-40 transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
@@ -105,7 +106,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <Logo size="md" showText={false} />
         </div>
-        
+
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 lg:hidden">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Menu</h2>
           <button

@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { ArrowLeft, MessageSquare, User, Calendar, Tag, Trash2, AlertTriangle, Paperclip, Download, File, X, Save, DollarSign, Wrench, RefreshCw, Send, Filter, Eye, Zap, CheckCircle, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
 import { getStatusColor, getPriorityColor, getStatusLabel } from '../utils/statusColors';
@@ -58,6 +58,7 @@ export default function TicketDetails() {
   const { tickets, deleteTicket, updateTicket, addComment, addInteraction } = useTickets();
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [ticketDetails, setTicketDetails] = useState<Ticket | null>(null);
   const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [activeTab, setActiveTab] = useState<'interactions' | 'ticket'>('interactions');
@@ -132,8 +133,22 @@ export default function TicketDetails() {
   const isAdmin = user?.role === 'admin';
   // Verificar se o usuário é técnico
   const isTechnician = user?.role === 'technician';
+  // Verificar se o técnico veio da página "Todos os Chamados"
+  const cameFromAllTickets = location.state?.fromAllTickets || sessionStorage.getItem('viewingTicketFrom') === 'all-tickets';
+  // Se técnico veio de "Todos os Chamados" e não é o técnico atribuído, só pode comentar
+  const isTechnicianFromAllTickets = isTechnician && cameFromAllTickets && ticket?.assignedTo?.id !== user?.id;
+
+  // Limpar o sessionStorage quando sair da página
+  useEffect(() => {
+    return () => {
+      if (location.pathname !== `/tickets/${id}`) {
+        sessionStorage.removeItem('viewingTicketFrom');
+      }
+    };
+  }, [location.pathname, id]);
   // Verificar se pode alterar status (admin sempre pode, outros só se não estiver fechado)
-  const canChangeStatus = hasPermission('edit:ticket') && (isAdmin || !isClosed);
+  // Técnicos de "Todos os Chamados" não podem alterar status
+  const canChangeStatus = !isTechnicianFromAllTickets && hasPermission('edit:ticket') && (isAdmin || !isClosed);
 
   if (!ticket) {
     if (isLoadingDetails) {
@@ -1239,7 +1254,7 @@ export default function TicketDetails() {
                   Este chamado está fechado. Apenas administradores podem reabri-lo.
                 </div>
               )}
-              {isTechnician && hasPermission('edit:ticket') && (
+              {isTechnician && hasPermission('edit:ticket') && !isTechnicianFromAllTickets && (
                 <button
                   onClick={handleOpenServiceModal}
                   className="w-full btn-secondary flex items-center justify-center gap-2"
@@ -1248,7 +1263,7 @@ export default function TicketDetails() {
                   Informar Serviço e Valor
                 </button>
               )}
-              {hasPermission('assign:ticket') && (
+              {hasPermission('assign:ticket') && !isTechnicianFromAllTickets && (
                 <button
                   onClick={async () => {
                     if (ticket) {
@@ -1263,7 +1278,7 @@ export default function TicketDetails() {
                   Atribuir Técnico
                 </button>
               )}
-              {hasPermission('edit:ticket') && (
+              {hasPermission('edit:ticket') && !isTechnicianFromAllTickets && (
                 <button
                   onClick={() => setShowTransferModal(true)}
                   className="w-full btn-secondary flex items-center justify-center gap-2"
@@ -1272,7 +1287,7 @@ export default function TicketDetails() {
                   Transferir para Fila
                 </button>
               )}
-              {hasPermission('edit:ticket') && !isClosed && (
+              {hasPermission('edit:ticket') && !isClosed && !isTechnicianFromAllTickets && (
                 <button
                   onClick={handleCloseTicket}
                   className="w-full btn-secondary"
@@ -1280,7 +1295,7 @@ export default function TicketDetails() {
                   Fechar Chamado
                 </button>
               )}
-              {hasPermission('delete:ticket') && (
+              {hasPermission('delete:ticket') && !isTechnicianFromAllTickets && (
                 <button
                   onClick={() => setShowDeleteConfirm(true)}
                   className="w-full bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium flex items-center justify-center gap-2"
@@ -1288,6 +1303,11 @@ export default function TicketDetails() {
                   <Trash2 className="w-4 h-4" />
                   Excluir Chamado
                 </button>
+              )}
+              {isTechnicianFromAllTickets && (
+                <div className="w-full p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-800 dark:text-blue-400">
+                  Você está visualizando este chamado de outro técnico. Você pode apenas adicionar comentários.
+                </div>
               )}
             </div>
           </div>

@@ -135,7 +135,12 @@ export const updateTicketController = async (req: AuthRequest, res: Response): P
   try {
     console.log('📥 Recebida requisição para atualizar ticket:', req.params.id, req.body);
     const validated = updateTicketSchema.parse(req.body);
-    const ticket = await updateTicket(req.params.id, validated);
+    // Adicionar ID do usuário que está fazendo a atualização
+    const updateData = {
+      ...validated,
+      updatedBy: req.user?.id,
+    };
+    const ticket = await updateTicket(req.params.id, updateData);
     console.log('✅ Ticket atualizado, retornando resposta:', ticket.id);
     res.json(ticket);
   } catch (error) {

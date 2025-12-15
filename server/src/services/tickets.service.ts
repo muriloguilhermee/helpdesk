@@ -334,6 +334,11 @@ export const getTicketById = async (id: string) => {
       .where({ ticket_id: id })
       .select('id', 'ticket_id', 'comment_id', 'name', 'size', 'type', 'data_url', 'created_at');
 
+    console.log(`📎 Total de arquivos encontrados para ticket ${id}:`, files.length);
+    files.forEach((f: any) => {
+      console.log(`  - Arquivo ${f.id}: comment_id=${f.comment_id || 'null'}, name=${f.name}`);
+    });
+
     const ticketFiles: any[] = [];
     const filesByComment: Record<string, any[]> = {};
 
@@ -348,10 +353,14 @@ export const getTicketById = async (id: string) => {
       if (f.comment_id) {
         if (!filesByComment[f.comment_id]) filesByComment[f.comment_id] = [];
         filesByComment[f.comment_id].push(fileData);
+        console.log(`  ✅ Arquivo ${f.id} vinculado ao comentário ${f.comment_id}`);
       } else {
         ticketFiles.push(fileData);
+        console.log(`  📄 Arquivo ${f.id} vinculado ao ticket (sem comentário)`);
       }
     });
+
+    console.log(`📊 Resumo: ${ticketFiles.length} arquivo(s) do ticket, ${Object.keys(filesByComment).length} comentário(s) com arquivos`);
 
     // Get comments (com arquivos vinculados)
     const comments = await db('comments')
@@ -371,18 +380,25 @@ export const getTicketById = async (id: string) => {
       )
       .orderBy('comments.created_at', 'asc');
 
+    console.log(`💬 Total de comentários encontrados: ${comments.length}`);
+    const commentsWithFiles = comments.map(c => {
+      const commentFiles = filesByComment[c.id] || [];
+      console.log(`  💬 Comentário ${c.id} tem ${commentFiles.length} arquivo(s)`);
+      return {
+        id: c.id,
+        content: c.content,
+        author: c.author,
+        createdAt: c.created_at,
+        files: commentFiles,
+      };
+    });
+
     return {
       ...ticket,
       // Arquivos anexados diretamente ao ticket (não vinculados a comentário)
       files: ticketFiles,
       // Comentários com seus respectivos arquivos vinculados
-      comments: comments.map(c => ({
-        id: c.id,
-        content: c.content,
-        author: c.author,
-        createdAt: c.created_at,
-        files: filesByComment[c.id] || [],
-      })),
+      comments: commentsWithFiles,
     };
   } catch (error: any) {
     console.error('❌ Erro em getTicketById:', error);
@@ -583,7 +599,11 @@ export const addComment = async (
     // Salvar arquivos vinculados ao comentário (interação)
     let savedFiles: any[] = [];
     if (files && files.length > 0) {
-      console.log('📎 Salvando arquivos do comentário:', files.length);
+      console.log(`📎 Salvando ${files.length} arquivo(s) do comentário ${comment.id}:`);
+      files.forEach((file, idx) => {
+        console.log(`  - Arquivo ${idx + 1}: ${file.name} (${file.size} bytes)`);
+      });
+
       const insertFiles = await db('ticket_files')
         .insert(
           files.map((file) => ({
@@ -594,18 +614,21 @@ export const addComment = async (
             type: file.type,
             data_url: file.data,
           })),
-          ['id', 'name', 'size', 'type', 'data_url']
+          ['id', 'ticket_id', 'comment_id', 'name', 'size', 'type', 'data_url']
         );
 
       const insertedArray = Array.isArray(insertFiles) ? insertFiles : [insertFiles];
-      savedFiles = insertedArray.map((f: any) => ({
-        id: f.id,
-        name: f.name,
-        size: parseInt(f.size),
-        type: f.type,
-        data: f.data_url,
-      }));
-      console.log('✅ Arquivos do comentário salvos com sucesso');
+      savedFiles = insertedArray.map((f: any) => {
+        console.log(`  ✅ Arquivo salvo: id=${f.id}, comment_id=${f.comment_id}, name=${f.name}`);
+        return {
+          id: f.id,
+          name: f.name,
+          size: parseInt(f.size),
+          type: f.type,
+          data: f.data_url,
+        };
+      });
+      console.log(`✅ ${savedFiles.length} arquivo(s) do comentário salvos com sucesso`);
     }
 
     const author = await db('users')

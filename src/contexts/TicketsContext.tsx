@@ -397,6 +397,13 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
                     content: createdComment.content,
                     author: createdComment.author,
                     createdAt: new Date(createdComment.createdAt),
+                    files: (createdComment.files || []).map((f: any) => ({
+                      id: f.id,
+                      name: f.name,
+                      size: f.size,
+                      type: f.type,
+                      data: f.data || f.data_url,
+                    })),
                   },
                 ]
               : ticket.comments || [];

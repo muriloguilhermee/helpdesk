@@ -8,15 +8,58 @@ import { formatDate } from '../utils/formatDate';
 import { formatFileSize } from '../utils/formatFileSize';
 import { formatCurrency } from '../utils/formatCurrency';
 import { UserAvatar } from '../utils/userAvatar';
-import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType, Queue, TicketFile } from '../types';
+import { TicketStatus, Comment, TicketCategory, TicketPriority, Interaction, InteractionType, Queue, TicketFile, Ticket } from '../types';
 import { mockUsers } from '../data/mockData';
 import { database } from '../services/database';
+import { api } from '../services/api';
+
+// Função de transformação de ticket vindo da API para o modelo usado no frontend
+const transformApiTicketToFrontend = (t: any): Ticket => ({
+  id: t.id,
+  title: t.title,
+  description: t.description,
+  status: t.status,
+  priority: t.priority,
+  category: t.category,
+  serviceType: t.service_type,
+  totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
+  createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
+  assignedTo: t.assigned_to_user,
+  client: t.client_user,
+  queue: t.queue?.name || t.queue_name || null,
+  queueId: t.queue?.id || t.queue_id || null,
+  files: (t.files || []).map((f: any) => ({
+    id: f.id,
+    name: f.name,
+    size: f.size,
+    type: f.type,
+    data: f.data,
+  })),
+  comments: (t.comments || []).map((c: any) => ({
+    id: c.id,
+    content: c.content,
+    author: c.author,
+    createdAt: new Date(c.createdAt || c.created_at),
+    files: (c.files || []).map((f: any) => ({
+      id: f.id,
+      name: f.name,
+      size: f.size,
+      type: f.type,
+      data: f.data,
+    })),
+  })),
+  interactions: t.interactions || [],
+  createdAt: new Date(t.created_at),
+  updatedAt: new Date(t.updated_at),
+});
 
 export default function TicketDetails() {
   const { hasPermission, user } = useAuth();
   const { tickets, deleteTicket, updateTicket, addComment, addInteraction } = useTickets();
   const { id } = useParams();
   const navigate = useNavigate();
+  const [ticketDetails, setTicketDetails] = useState<Ticket | null>(null);
+  const [isLoadingDetails, setIsLoadingDetails] = useState(false);
   const [activeTab, setActiveTab] = useState<'interactions' | 'ticket'>('interactions');
   const [replyText, setReplyText] = useState('');
   const [showReplyBox, setShowReplyBox] = useState(false);
@@ -43,7 +86,27 @@ export default function TicketDetails() {
   const [showFileViewer, setShowFileViewer] = useState(false);
   const [selectedFile, setSelectedFile] = useState<TicketFile | null>(null);
 
-  const ticket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
+  const baseTicket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
+  const ticket = ticketDetails || baseTicket || null;
+
+  // Carregar detalhes completos do ticket (incluindo comentários e anexos) diretamente da API
+  useEffect(() => {
+    const loadTicketDetails = async () => {
+      if (!id) return;
+      try {
+        setIsLoadingDetails(true);
+        const apiTicket = await api.getTicketById(id);
+        const transformed = transformApiTicketToFrontend(apiTicket);
+        setTicketDetails(transformed);
+      } catch (error) {
+        console.error('Erro ao carregar detalhes do chamado:', error);
+      } finally {
+        setIsLoadingDetails(false);
+      }
+    };
+
+    loadTicketDetails();
+  }, [id]);
 
   // Verificar se o chamado está fechado (fechado ou resolvido)
   const isClosed = ticket?.status === 'fechado' || ticket?.status === 'resolvido';
@@ -55,6 +118,14 @@ export default function TicketDetails() {
   const canChangeStatus = hasPermission('edit:ticket') && (isAdmin || !isClosed);
 
   if (!ticket) {
+    if (isLoadingDetails) {
+      return (
+        <div className="text-center py-12">
+          <p className="text-gray-500 dark:text-gray-400">Carregando chamado...</p>
+        </div>
+      );
+    }
+
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 dark:text-gray-400">Chamado não encontrado</p>

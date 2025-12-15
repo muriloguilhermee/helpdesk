@@ -171,14 +171,33 @@ export default function TicketDetails() {
     }
   };
 
-  // Combinar comentários antigos com interações (sem repetir a descrição)
+  // Combinar comentários antigos com interações (sem repetir a descrição e evitando duplicar mensagem)
   const allInteractions = useMemo(() => {
     const interactions: Interaction[] = [];
 
     if (ticket) {
-      // Converter comentários antigos para interações
+      // 1) Adicionar interações (principalmente de sistema, atribuições, etc)
+      if (ticket.interactions && ticket.interactions.length > 0) {
+        interactions.push(...ticket.interactions);
+      }
+
+      // 2) Converter comentários antigos para interações de usuário,
+      //    mas evitando duplicar quando já existe uma interação de usuário
+      //    com o mesmo autor e mesmo conteúdo (caso da resposta recém enviada)
       if (ticket.comments && ticket.comments.length > 0) {
         ticket.comments.forEach(comment => {
+          const hasSameInteraction = interactions.some((i) =>
+            i.type === 'user' &&
+            i.author?.id === comment.author.id &&
+            i.content?.trim() === comment.content.trim()
+          );
+
+          if (hasSameInteraction) {
+            // Já existe uma interação equivalente (com anexo, por exemplo),
+            // então não adicionamos o comentário novamente para não duplicar.
+            return;
+          }
+
           interactions.push({
             id: comment.id,
             type: 'user',
@@ -187,11 +206,6 @@ export default function TicketDetails() {
             createdAt: comment.createdAt,
           });
         });
-      }
-
-      // Adicionar interações do sistema
-      if (ticket.interactions && ticket.interactions.length > 0) {
-        interactions.push(...ticket.interactions);
       }
 
       // Adicionar interação do sistema quando status muda

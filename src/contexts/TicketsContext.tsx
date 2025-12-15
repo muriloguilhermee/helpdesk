@@ -55,10 +55,15 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
           assignedTo: t.assigned_to_user,
           client: t.client_user,
-        queue: t.queue?.name || t.queue_name || null,
-        queueId: t.queue?.id || t.queue_id || null,
+          queue: t.queue?.name || t.queue_name || null,
+          queueId: t.queue?.id || t.queue_id || null,
           files: t.files || [],
-          comments: t.comments || [],
+          comments: (t.comments || []).map((c: any) => ({
+            id: c.id,
+            content: c.content,
+            author: c.author,
+            createdAt: new Date(c.createdAt || c.created_at),
+          })),
           createdAt: new Date(t.created_at),
           updatedAt: new Date(t.updated_at),
         }));

@@ -166,7 +166,47 @@ export const getAllTickets = async (filters?: TicketFilters) => {
     }
   }
 
-  return query.orderBy('tickets.updated_at', 'desc');
+  const tickets = await query.orderBy('tickets.updated_at', 'desc');
+
+  // Carregar comentários básicos para cada ticket (para exibir interações mesmo após recarregar)
+  const ticketIds = tickets.map((t: any) => t.id);
+  let commentsByTicket: Record<string, any[]> = {};
+
+  if (ticketIds.length > 0) {
+    const comments = await db('comments')
+      .leftJoin('users', 'comments.author_id', 'users.id')
+      .whereIn('comments.ticket_id', ticketIds)
+      .select(
+        'comments.*',
+        db.raw(`
+          json_build_object(
+            'id', users.id,
+            'name', users.name,
+            'email', users.email,
+            'role', users.role,
+            'avatar', users.avatar
+          ) as author
+        `)
+      )
+      .orderBy('comments.created_at', 'asc');
+
+    commentsByTicket = comments.reduce((acc: Record<string, any[]>, c: any) => {
+      const ticketId = c.ticket_id;
+      if (!acc[ticketId]) acc[ticketId] = [];
+      acc[ticketId].push({
+        id: c.id,
+        content: c.content,
+        author: c.author,
+        createdAt: c.created_at,
+      });
+      return acc;
+    }, {});
+  }
+
+  return tickets.map((t: any) => ({
+    ...t,
+    comments: commentsByTicket[t.id] || [],
+  }));
 };
 
 export const getTicketById = async (id: string) => {

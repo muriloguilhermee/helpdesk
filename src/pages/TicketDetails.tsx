@@ -611,12 +611,18 @@ export default function TicketDetails() {
         serviceType: serviceType || undefined,
       };
 
+      // Verificar se técnico pode adicionar valor (apenas categoria melhoria)
+      const canAddValue = isAdmin || (isTechnician && ticket.category === 'melhoria');
+
       // Se for categoria integração, usar integrationValue, senão usar totalValue
       if (ticket.category === 'integracao') {
         updates.integrationValue = integrationValue ? parseFloat(integrationValue) : undefined;
         updates.totalValue = undefined; // Limpar totalValue se for integração
       } else {
-        updates.totalValue = totalValue ? parseFloat(totalValue) : undefined;
+        // Só permitir adicionar totalValue se tiver permissão
+        if (canAddValue) {
+          updates.totalValue = totalValue ? parseFloat(totalValue) : undefined;
+        }
         updates.integrationValue = undefined; // Limpar integrationValue se não for integração
       }
 
@@ -1280,7 +1286,16 @@ export default function TicketDetails() {
                   Este chamado está fechado. Apenas administradores podem reabri-lo.
                 </div>
               )}
-              {isTechnician && hasPermission('edit:ticket') && !isTechnicianFromAllTickets && (
+              {isTechnician && hasPermission('edit:ticket') && !isTechnicianFromAllTickets && ticket?.category === 'melhoria' && (
+                <button
+                  onClick={handleOpenServiceModal}
+                  className="w-full btn-secondary flex items-center justify-center gap-2"
+                >
+                  <Wrench className="w-4 h-4" />
+                  Informar Serviço e Valor
+                </button>
+              )}
+              {isAdmin && hasPermission('edit:ticket') && !isTechnicianFromAllTickets && (
                 <button
                   onClick={handleOpenServiceModal}
                   className="w-full btn-secondary flex items-center justify-center gap-2"
@@ -1542,11 +1557,16 @@ export default function TicketDetails() {
                     min="0"
                     value={totalValue}
                     onChange={(e) => setTotalValue(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                    disabled={isTechnician && ticket?.category !== 'melhoria'}
+                    className={`w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400 ${
+                      isTechnician && ticket?.category !== 'melhoria' ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
                     placeholder="0.00"
                   />
                   <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    Informe o valor do serviço após a avaliação
+                    {isTechnician && ticket?.category !== 'melhoria'
+                      ? 'Apenas chamados com categoria "melhoria" permitem adicionar valor para técnicos'
+                      : 'Informe o valor do serviço após a avaliação'}
                   </p>
                 </div>
               )}

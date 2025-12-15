@@ -65,6 +65,7 @@ const commentSchema = z.object({
 
 export const getAllTicketsController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
+    console.log('📥 getAllTicketsController - Usuário:', req.user?.email, 'Role:', req.user?.role);
     const filters: any = {};
     if (req.query.status) filters.status = req.query.status;
     if (req.query.priority) filters.priority = req.query.priority;
@@ -80,9 +81,12 @@ export const getAllTicketsController = async (req: AuthRequest, res: Response): 
     }
     // Técnicos e admins não têm filtro de atribuição - veem todos os tickets
 
+    console.log('🔍 Filtros aplicados:', JSON.stringify(filters));
     const tickets = await getAllTickets(filters);
+    console.log(`✅ Retornando ${tickets.length} tickets para ${req.user?.role || 'usuário não autenticado'}`);
     res.json(tickets);
   } catch (error) {
+    console.error('❌ Erro em getAllTicketsController:', error);
     res.status(500).json({ error: (error as Error).message });
   }
 };

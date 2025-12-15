@@ -48,45 +48,58 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         console.log('📡 Carregando tickets da API...');
         // SEMPRE usar API - sem fallback para dados locais
         const apiTickets = await api.getTickets();
+        console.log('📦 Resposta da API (raw):', apiTickets);
+        console.log('📊 Quantidade de tickets recebidos:', apiTickets?.length || 0);
+
+        // Verificar se apiTickets é um array
+        if (!Array.isArray(apiTickets)) {
+          console.error('❌ Resposta da API não é um array:', typeof apiTickets, apiTickets);
+          setTickets([]);
+          setIsLoading(false);
+          return;
+        }
 
         // Transform API response to Ticket format
-        const transformedTickets = apiTickets.map((t: any) => ({
-          id: t.id,
-          title: t.title,
-          description: t.description,
-          status: t.status,
-          priority: t.priority,
-          category: t.category,
-          serviceType: t.service_type,
-          totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
-          createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
-          assignedTo: t.assigned_to_user,
-          client: t.client_user,
-          queue: t.queue?.name || t.queue_name || null,
-          queueId: t.queue?.id || t.queue_id || null,
-          files: (t.files || []).map((f: any) => ({
-            id: f.id,
-            name: f.name,
-            size: f.size,
-            type: f.type,
-            data: f.data,
-          })),
-          comments: (t.comments || []).map((c: any) => ({
-            id: c.id,
-            content: c.content,
-            author: c.author,
-            createdAt: new Date(c.createdAt || c.created_at),
-            files: (c.files || []).map((f: any) => ({
+        const transformedTickets = apiTickets.map((t: any) => {
+          console.log('🔄 Transformando ticket:', t.id, t.title);
+          return {
+            id: t.id,
+            title: t.title,
+            description: t.description,
+            status: t.status,
+            priority: t.priority,
+            category: t.category,
+            serviceType: t.service_type,
+            totalValue: t.total_value ? parseFloat(t.total_value) : undefined,
+            createdBy: t.created_by_user || { id: t.created_by, name: '', email: '', role: 'user' },
+            assignedTo: t.assigned_to_user,
+            client: t.client_user,
+            queue: t.queue?.name || t.queue_name || null,
+            queueId: t.queue?.id || t.queue_id || null,
+            files: (t.files || []).map((f: any) => ({
               id: f.id,
               name: f.name,
               size: f.size,
               type: f.type,
-              data: f.data || f.data_url, // Aceitar tanto 'data' quanto 'data_url'
+              data: f.data,
             })),
-          })),
-          createdAt: new Date(t.created_at),
-          updatedAt: new Date(t.updated_at),
-        }));
+            comments: (t.comments || []).map((c: any) => ({
+              id: c.id,
+              content: c.content,
+              author: c.author,
+              createdAt: new Date(c.createdAt || c.created_at),
+              files: (c.files || []).map((f: any) => ({
+                id: f.id,
+                name: f.name,
+                size: f.size,
+                type: f.type,
+                data: f.data || f.data_url, // Aceitar tanto 'data' quanto 'data_url'
+              })),
+            })),
+            createdAt: new Date(t.created_at),
+            updatedAt: new Date(t.updated_at),
+          };
+        });
 
         console.log('✅ Tickets carregados da API:', transformedTickets.length);
         previousTicketsCountRef.current = transformedTickets.length;

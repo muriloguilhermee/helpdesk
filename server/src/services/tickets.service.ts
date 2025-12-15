@@ -168,8 +168,10 @@ export const getAllTickets = async (filters?: TicketFilters) => {
   }
 
   const tickets = await query.orderBy('tickets.updated_at', 'desc');
+  console.log(`📋 getAllTickets - Encontrados ${tickets.length} tickets no banco`);
 
   const ticketIds = tickets.map((t: any) => t.id);
+  console.log(`📋 IDs dos tickets encontrados:`, ticketIds);
 
   let commentsByTicket: Record<string, any[]> = {};
   let ticketFilesByTicket: Record<string, any[]> = {};
@@ -238,11 +240,26 @@ export const getAllTickets = async (filters?: TicketFilters) => {
     }, {});
   }
 
-  return tickets.map((t: any) => ({
+  const result = tickets.map((t: any) => ({
     ...t,
     files: ticketFilesByTicket[t.id] || [],
     comments: commentsByTicket[t.id] || [],
   }));
+
+  console.log(`✅ getAllTickets - Retornando ${result.length} tickets processados`);
+  if (result.length > 0) {
+    console.log(`📝 Primeiro ticket (exemplo):`, {
+      id: result[0].id,
+      title: result[0].title,
+      status: result[0].status,
+      created_by_user: result[0].created_by_user?.name,
+      assigned_to_user: result[0].assigned_to_user?.name,
+      queue: result[0].queue?.name,
+      comments_count: result[0].comments?.length || 0,
+    });
+  }
+
+  return result;
 };
 
 export const getTicketById = async (id: string) => {

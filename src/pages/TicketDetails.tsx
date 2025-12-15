@@ -578,42 +578,48 @@ export default function TicketDetails() {
 
   const handleTransferToQueue = async () => {
     if (ticket && user && selectedQueue) {
-      const currentQueue = ticket.queue || 'Sem atribuição';
-      const targetQueue = queues.find((q) => q.id === selectedQueue || q.name === selectedQueue);
-      const queueName = targetQueue?.name || selectedQueue;
-      const queueId = targetQueue?.id || selectedQueue;
-      const queueIdForApi = (typeof queueId === 'string' && uuidRegex.test(queueId)) ? queueId : queueName;
+      try {
+        const currentQueue = ticket.queue || 'Sem atribuição';
+        const targetQueue = queues.find((q) => q.id === selectedQueue || q.name === selectedQueue);
+        const queueName = targetQueue?.name || selectedQueue;
+        const queueId = targetQueue?.id || selectedQueue;
+        const queueIdForApi = (typeof queueId === 'string' && uuidRegex.test(queueId)) ? queueId : queueName;
 
-      // Criar interação de transferência
-      const transferInteraction: Interaction = {
-        id: `transfer-${Date.now()}`,
-        type: 'queue_transfer',
-        content: `Chamado transferido para a fila "${queueName}"`,
-        author: user,
-        createdAt: new Date(),
-        metadata: {
-          fromQueue: currentQueue,
-          toQueue: queueName,
-        },
-      };
+        // Criar interação de transferência
+        const transferInteraction: Interaction = {
+          id: `transfer-${Date.now()}`,
+          type: 'queue_transfer',
+          content: `Chamado transferido para a fila "${queueName}"`,
+          author: user,
+          createdAt: new Date(),
+          metadata: {
+            fromQueue: currentQueue,
+            toQueue: queueName,
+          },
+        };
 
-      // Atualizar o ticket com a nova fila (API) e registrar interação local
-      await updateTicket(ticket.id, {
-        queueId: queueIdForApi,
-      });
+        // Atualizar o ticket com a nova fila (API) e registrar interação local
+        await updateTicket(ticket.id, {
+          queueId: queueIdForApi,
+        });
 
-      // Adicionar interação localmente para manter o histórico na UI
-      addInteraction(ticket.id, transferInteraction);
+        // Adicionar interação localmente para manter o histórico na UI
+        addInteraction(ticket.id, transferInteraction);
 
-      setShowTransferModal(false);
-      setSelectedQueue('');
-      setSuccessMessage('Chamado transferido com sucesso!');
-      setTimeout(() => setSuccessMessage(''), 3000);
+        setShowTransferModal(false);
+        setSelectedQueue('');
+        setSuccessMessage('Chamado transferido com sucesso!');
+        setTimeout(() => setSuccessMessage(''), 3000);
 
-      // Recarregar os detalhes do ticket
-      setTimeout(() => {
-        setReloadTrigger(prev => prev + 1);
-      }, 500);
+        // Recarregar os detalhes do ticket
+        setTimeout(() => {
+          setReloadTrigger(prev => prev + 1);
+        }, 500);
+      } catch (error: any) {
+        console.error('Erro ao transferir chamado para fila:', error);
+        setSuccessMessage(error?.message || 'Erro ao transferir chamado. Tente novamente.');
+        setTimeout(() => setSuccessMessage(''), 4000);
+      }
     }
   };
 

@@ -577,10 +577,21 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
 
       const { queueId, queueName } = await resolveQueueId(db, data.queueId);
       updateData.queue_id = queueId ?? null;
-      console.log('🔄 Transferindo ticket para fila:', queueName || data.queueId || 'nenhuma fila');
+
+      // Sempre buscar o nome da fila do banco de dados para garantir que temos o nome correto
+      let finalQueueName: string | null = null;
+      if (queueId) {
+        const queueRecord = await db('queues').where({ id: queueId }).first();
+        finalQueueName = queueRecord?.name || null;
+        console.log(`🔍 Fila encontrada no banco: ID=${queueId}, Nome=${finalQueueName}`);
+      }
+
+      // Usar o nome do banco se disponível, senão usar o queueName do resolveQueueId, senão usar o ID
+      const displayQueueName = finalQueueName || queueName || (queueId ? String(queueId) : null);
+      console.log('🔄 Transferindo ticket para fila:', displayQueueName || 'nenhuma fila');
 
       // Se a fila mudou, criar comentário de transferência
-      if (queueName && previousQueueName && queueName !== previousQueueName) {
+      if (displayQueueName && previousQueueName && displayQueueName !== previousQueueName) {
         try {
           const authorId = data.updatedBy || currentTicket.created_by;
           const author = await db('users').where({ id: authorId }).select('name').first();
@@ -588,13 +599,13 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
           await db('comments').insert({
             ticket_id: id,
             author_id: authorId,
-            content: `Chamado transferido de "${previousQueueName}" para "${queueName}" por ${authorName}`,
+            content: `Chamado transferido de "${previousQueueName}" para "${displayQueueName}" por ${authorName}`,
           });
-          console.log(`✅ Comentário de transferência criado: "${previousQueueName}" → "${queueName}"`);
+          console.log(`✅ Comentário de transferência criado: "${previousQueueName}" → "${displayQueueName}"`);
         } catch (error) {
           console.error('⚠️ Erro ao criar comentário de transferência:', error);
         }
-      } else if (queueName && !previousQueueName) {
+      } else if (displayQueueName && !previousQueueName) {
         // Se não havia fila e agora tem, também criar comentário
         try {
           const authorId = data.updatedBy || currentTicket.created_by;
@@ -603,40 +614,43 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
           await db('comments').insert({
             ticket_id: id,
             author_id: authorId,
-            content: `Chamado atribuído à fila "${queueName}" por ${authorName}`,
+            content: `Chamado atribuído à fila "${displayQueueName}" por ${authorName}`,
           });
-          console.log(`✅ Comentário de atribuição de fila criado: "${queueName}"`);
+          console.log(`✅ Comentário de atribuição de fila criado: "${displayQueueName}"`);
         } catch (error) {
           console.error('⚠️ Erro ao criar comentário de atribuição de fila:', error);
         }
-      } else if (!queueName && data.queueId) {
-        // Se queueName não foi resolvido mas queueId foi passado, buscar o nome da fila
+      } else if (!displayQueueName && queueId) {
+        // Se ainda não temos o nome, tentar buscar novamente
+        console.warn(`⚠️ Nome da fila não encontrado para ID: ${queueId}, tentando buscar novamente...`);
         try {
           const queueRecord = await db('queues').where({ id: queueId }).first();
           if (queueRecord?.name) {
             const authorId = data.updatedBy || currentTicket.created_by;
             const author = await db('users').where({ id: authorId }).select('name').first();
             const authorName = author?.name || 'Sistema';
-            const finalQueueName = queueRecord.name;
+            const finalName = queueRecord.name;
 
-            if (previousQueueName && previousQueueName !== finalQueueName) {
+            if (previousQueueName && previousQueueName !== finalName) {
               await db('comments').insert({
                 ticket_id: id,
                 author_id: authorId,
-                content: `Chamado transferido de "${previousQueueName}" para "${finalQueueName}" por ${authorName}`,
+                content: `Chamado transferido de "${previousQueueName}" para "${finalName}" por ${authorName}`,
               });
-              console.log(`✅ Comentário de transferência criado: "${previousQueueName}" → "${finalQueueName}"`);
+              console.log(`✅ Comentário de transferência criado (fallback): "${previousQueueName}" → "${finalName}"`);
             } else if (!previousQueueName) {
               await db('comments').insert({
                 ticket_id: id,
                 author_id: authorId,
-                content: `Chamado atribuído à fila "${finalQueueName}" por ${authorName}`,
+                content: `Chamado atribuído à fila "${finalName}" por ${authorName}`,
               });
-              console.log(`✅ Comentário de atribuição de fila criado: "${finalQueueName}"`);
+              console.log(`✅ Comentário de atribuição de fila criado (fallback): "${finalName}"`);
             }
+          } else {
+            console.error(`❌ Fila com ID ${queueId} não encontrada no banco de dados`);
           }
         } catch (error) {
-          console.error('⚠️ Erro ao buscar/criar comentário de fila:', error);
+          console.error('⚠️ Erro ao buscar/criar comentário de fila (fallback):', error);
         }
       }
     }

@@ -351,12 +351,14 @@ export const getTicketById = async (id: string) => {
         data: f.data_url,
       };
       if (f.comment_id) {
-        if (!filesByComment[f.comment_id]) filesByComment[f.comment_id] = [];
-        filesByComment[f.comment_id].push(fileData);
-        console.log(`  ✅ Arquivo ${f.id} vinculado ao comentário ${f.comment_id}`);
+        // Garantir que o comment_id seja string para consistência
+        const commentId = String(f.comment_id);
+        if (!filesByComment[commentId]) filesByComment[commentId] = [];
+        filesByComment[commentId].push(fileData);
+        console.log(`  ✅ Arquivo ${f.id} (${f.name}) vinculado ao comentário ${commentId}`);
       } else {
         ticketFiles.push(fileData);
-        console.log(`  📄 Arquivo ${f.id} vinculado ao ticket (sem comentário)`);
+        console.log(`  📄 Arquivo ${f.id} (${f.name}) vinculado ao ticket (sem comentário)`);
       }
     });
 
@@ -381,9 +383,27 @@ export const getTicketById = async (id: string) => {
       .orderBy('comments.created_at', 'asc');
 
     console.log(`💬 Total de comentários encontrados: ${comments.length}`);
+    console.log(`📋 IDs dos comentários:`, comments.map(c => c.id));
+    console.log(`📋 IDs dos comentários com arquivos:`, Object.keys(filesByComment));
+
     const commentsWithFiles = comments.map(c => {
-      const commentFiles = filesByComment[c.id] || [];
-      console.log(`  💬 Comentário ${c.id} tem ${commentFiles.length} arquivo(s)`);
+      // Garantir que ambos sejam strings para comparação
+      const commentId = String(c.id);
+      const commentFiles = filesByComment[commentId] || filesByComment[c.id] || [];
+
+      if (commentFiles.length > 0) {
+        console.log(`  ✅ Comentário ${c.id} tem ${commentFiles.length} arquivo(s):`, commentFiles.map((f: any) => f.name));
+      } else {
+        // Verificar se há arquivos com comment_id mas não foram encontrados
+        const filesForThisComment = files.filter((f: any) =>
+          f.comment_id && (String(f.comment_id) === commentId || String(f.comment_id) === String(c.id))
+        );
+        if (filesForThisComment.length > 0) {
+          console.log(`  ⚠️ Comentário ${c.id} deveria ter ${filesForThisComment.length} arquivo(s), mas não foram encontrados no filesByComment`);
+          console.log(`     Arquivos encontrados:`, filesForThisComment.map((f: any) => ({ id: f.id, comment_id: f.comment_id, name: f.name })));
+        }
+      }
+
       return {
         id: c.id,
         content: c.content,

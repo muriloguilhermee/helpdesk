@@ -44,7 +44,7 @@ export default function TicketDetails() {
   const [selectedFile, setSelectedFile] = useState<TicketFile | null>(null);
 
   const ticket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
-  
+
   // Verificar se o chamado está fechado (fechado ou resolvido)
   const isClosed = ticket?.status === 'fechado' || ticket?.status === 'resolvido';
   // Verificar se o usuário é admin
@@ -82,7 +82,7 @@ export default function TicketDetails() {
       );
     }
   }
-  
+
   if (user?.role === 'technician') {
     const isAssignedToMe = ticket.assignedTo?.id === user.id;
     const isMelhoria = ticket.category === 'melhoria';
@@ -171,20 +171,11 @@ export default function TicketDetails() {
     }
   };
 
-  // Combinar comentários antigos com interações e criar interações iniciais se necessário
+  // Combinar comentários antigos com interações (sem repetir a descrição)
   const allInteractions = useMemo(() => {
     const interactions: Interaction[] = [];
-    
-    // Adicionar interação inicial do criador do chamado
-    if (ticket) {
-      interactions.push({
-        id: `initial-${ticket.id}`,
-        type: 'user',
-        content: ticket.description,
-        author: ticket.createdBy,
-        createdAt: ticket.createdAt,
-      });
 
+    if (ticket) {
       // Converter comentários antigos para interações
       if (ticket.comments && ticket.comments.length > 0) {
         ticket.comments.forEach(comment => {
@@ -263,18 +254,18 @@ export default function TicketDetails() {
     try {
       await database.init();
       const allUsers = await database.getUsers();
-      
+
       // Filtrar apenas técnicos que NÃO são mockados
       const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-      const customTechnicians = allUsers.filter((u: any) => 
+      const customTechnicians = allUsers.filter((u: any) =>
         u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
       );
-      
+
       // Ordenar técnicos alfabeticamente
-      const sortedTechnicians = [...customTechnicians].sort((a: any, b: any) => 
+      const sortedTechnicians = [...customTechnicians].sort((a: any, b: any) =>
         a.name.localeCompare(b.name, 'pt-BR', { sensitivity: 'base' })
       );
-      
+
       setAllTechnicians(sortedTechnicians);
     } catch (error) {
       console.error('Erro ao carregar técnicos:', error);
@@ -297,7 +288,7 @@ export default function TicketDetails() {
         await database.init();
         const allQueues = await database.getQueues();
         setQueues(allQueues);
-        
+
         // Se não houver filas, garantir que as filas padrão existem
         if (allQueues.length === 0) {
           const suporteN1: Queue = {
@@ -321,7 +312,7 @@ export default function TicketDetails() {
           // Verificar se as filas padrão existem e criar se necessário
           const queueNames = allQueues.map(q => q.name);
           const queuesToCreate: Queue[] = [];
-          
+
           if (!queueNames.includes('Suporte N1')) {
             queuesToCreate.push({
               id: `queue-n1-${Date.now()}`,
@@ -331,7 +322,7 @@ export default function TicketDetails() {
               updatedAt: new Date(),
             });
           }
-          
+
           if (!queueNames.includes('Suporte N2')) {
             queuesToCreate.push({
               id: `queue-n2-${Date.now()}`,
@@ -341,7 +332,7 @@ export default function TicketDetails() {
               updatedAt: new Date(),
             });
           }
-          
+
           if (queuesToCreate.length > 0) {
             for (const queue of queuesToCreate) {
               await database.saveQueue(queue);
@@ -400,7 +391,7 @@ export default function TicketDetails() {
           const assignmentInteraction: Interaction = {
             id: `assignment-${Date.now()}`,
             type: 'assignment',
-            content: ticket.assignedTo 
+            content: ticket.assignedTo
               ? `Chamado atribuído de "${ticket.assignedTo.name}" para "${technician.name}"`
               : `Chamado atribuído para "${technician.name}"`,
             author: user,
@@ -445,7 +436,7 @@ export default function TicketDetails() {
       const targetQueue = queues.find((q) => q.id === selectedQueue || q.name === selectedQueue);
       const queueName = targetQueue?.name || selectedQueue;
       const queueId = targetQueue?.id || selectedQueue;
-      
+
       // Criar interação de transferência
       const transferInteraction: Interaction = {
         id: `transfer-${Date.now()}`,
@@ -458,16 +449,16 @@ export default function TicketDetails() {
           toQueue: queueName,
         },
       };
-      
+
       // Atualizar o ticket com a nova fila (API) e registrar interação local
-      await updateTicket(ticket.id, { 
+      await updateTicket(ticket.id, {
         queue: queueName,
         queueId,
       });
 
       // Adicionar interação localmente para manter o histórico na UI
       addInteraction(ticket.id, transferInteraction);
-      
+
       setShowTransferModal(false);
       setSelectedQueue('');
       setSuccessMessage('Chamado transferido com sucesso!');
@@ -488,7 +479,7 @@ export default function TicketDetails() {
       const updates: any = {
         serviceType: serviceType || undefined,
       };
-      
+
       // Se for categoria integração, usar integrationValue, senão usar totalValue
       if (ticket.category === 'integracao') {
         updates.integrationValue = integrationValue ? parseFloat(integrationValue) : undefined;
@@ -497,7 +488,7 @@ export default function TicketDetails() {
         updates.totalValue = totalValue ? parseFloat(totalValue) : undefined;
         updates.integrationValue = undefined; // Limpar integrationValue se não for integração
       }
-      
+
       updateTicket(ticket.id, updates);
       setShowServiceModal(false);
       setServiceType('');
@@ -635,7 +626,7 @@ export default function TicketDetails() {
                   const isImage = file.type?.startsWith('image/');
                   const isPdf = file.type === 'application/pdf';
                   const canPreview = isImage || isPdf;
-                  
+
                   return (
                     <div
                       key={file.id}
@@ -643,8 +634,8 @@ export default function TicketDetails() {
                     >
                       <div className="flex items-center gap-3 flex-1 min-w-0">
                         {isImage ? (
-                          <img 
-                            src={file.data} 
+                          <img
+                            src={file.data}
                             alt={file.name}
                             className="w-10 h-10 object-cover rounded flex-shrink-0 cursor-pointer"
                             loading="lazy"
@@ -770,11 +761,11 @@ export default function TicketDetails() {
                       const isSystem = interaction.type === 'system' || interaction.type === 'status_change' || interaction.type === 'assignment';
                       const isTransfer = interaction.type === 'queue_transfer';
                       const isCreator = interaction.type === 'user' && interaction.author?.id === ticket.createdBy.id;
-                      
+
                       // Extrair nome da fila do conteúdo da transferência
                       const queueNameMatch = isTransfer ? interaction.content.match(/fila de (.+)/i) : null;
                       const queueName = queueNameMatch ? queueNameMatch[1] : null;
-                      
+
                       return (
                         <div key={interaction.id} className="flex gap-4">
                           <div className="flex-shrink-0">
@@ -799,10 +790,10 @@ export default function TicketDetails() {
                               <span className="font-medium text-gray-900 dark:text-gray-100">
                                 {isTransfer
                                   ? interaction.author ? interaction.author.name : 'Analista'
-                                  : isSystem 
-                                    ? 'Sistema' 
-                                    : interaction.author 
-                                      ? interaction.author.name 
+                                  : isSystem
+                                    ? 'Sistema'
+                                    : interaction.author
+                                      ? interaction.author.name
                                       : 'Usuário'}
                               </span>
                               {interaction.author && !isSystem && (
@@ -831,7 +822,7 @@ export default function TicketDetails() {
                               ) : (
                                 <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>
                               )}
-                              
+
                               {/* Exibir arquivos anexados */}
                               {interaction.files && interaction.files.length > 0 && (
                                 <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
@@ -846,7 +837,7 @@ export default function TicketDetails() {
                                       const isImage = file.type?.startsWith('image/');
                                       const isPdf = file.type === 'application/pdf';
                                       const canPreview = isImage || isPdf;
-                                      
+
                                       return (
                                         <div
                                           key={file.id}
@@ -854,8 +845,8 @@ export default function TicketDetails() {
                                         >
                                           <div className="flex items-center gap-2 flex-1 min-w-0">
                                             {isImage ? (
-                                              <img 
-                                                src={file.data} 
+                                              <img
+                                                src={file.data}
                                                 alt={file.name}
                                                 className="w-8 h-8 object-cover rounded flex-shrink-0 cursor-pointer"
                                                 loading="lazy"
@@ -920,7 +911,7 @@ export default function TicketDetails() {
                       rows={4}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                     />
-                    
+
                     {/* Upload de Arquivos */}
                     <div className="mb-3">
                       <input
@@ -938,7 +929,7 @@ export default function TicketDetails() {
                         <Paperclip className="w-4 h-4" />
                         Anexar Arquivos
                       </label>
-                      
+
                       {replyFiles.length > 0 && (
                         <div className="mt-2 space-y-2">
                           {replyFiles.map((file, index) => (
@@ -1085,7 +1076,7 @@ export default function TicketDetails() {
                       {ticket.category === 'integracao' ? 'Valor da Integração' : 'Valor Total'}
                     </p>
                     <p className="font-medium text-gray-900 dark:text-gray-100">
-                      {ticket.category === 'integracao' 
+                      {ticket.category === 'integracao'
                         ? (ticket.integrationValue ? formatCurrency(ticket.integrationValue) : '-')
                         : (ticket.totalValue ? formatCurrency(ticket.totalValue) : '-')
                       }
@@ -1110,7 +1101,7 @@ export default function TicketDetails() {
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-4">Ações</h2>
             <div className="space-y-2">
               {ticket?.category === 'integracao' && hasPermission('edit:ticket') && !isClosed && (
-                <button 
+                <button
                   onClick={handleOpenAddValueModal}
                   className="w-full btn-primary flex items-center justify-center gap-2"
                 >
@@ -1119,7 +1110,7 @@ export default function TicketDetails() {
                 </button>
               )}
               {canChangeStatus && (
-                <button 
+                <button
                   onClick={() => {
                     if (ticket) {
                       setSelectedStatus(ticket.status);
@@ -1137,7 +1128,7 @@ export default function TicketDetails() {
                 </div>
               )}
               {isTechnician && hasPermission('edit:ticket') && (
-                <button 
+                <button
                   onClick={handleOpenServiceModal}
                   className="w-full btn-secondary flex items-center justify-center gap-2"
                 >
@@ -1146,7 +1137,7 @@ export default function TicketDetails() {
                 </button>
               )}
               {hasPermission('assign:ticket') && (
-                <button 
+                <button
                   onClick={async () => {
                     if (ticket) {
                       // Recarregar técnicos antes de abrir o modal
@@ -1161,7 +1152,7 @@ export default function TicketDetails() {
                 </button>
               )}
               {hasPermission('edit:ticket') && (
-                <button 
+                <button
                   onClick={() => setShowTransferModal(true)}
                   className="w-full btn-secondary flex items-center justify-center gap-2"
                 >
@@ -1170,7 +1161,7 @@ export default function TicketDetails() {
                 </button>
               )}
               {hasPermission('edit:ticket') && !isClosed && (
-                <button 
+                <button
                   onClick={handleCloseTicket}
                   className="w-full btn-secondary"
                 >
@@ -1429,14 +1420,14 @@ export default function TicketDetails() {
 
       {/* Modal de Adicionar Valor (apenas para integração) */}
       {showAddValueModal && ticket && ticket.category === 'integracao' && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4 overflow-y-auto"
-          style={{ 
-            position: 'fixed', 
-            top: 0, 
-            left: 0, 
-            right: 0, 
-            bottom: 0, 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
             zIndex: 9999,
             display: 'flex',
             alignItems: 'center',
@@ -1448,12 +1439,12 @@ export default function TicketDetails() {
             }
           }}
         >
-          <div 
+          <div
             className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-md w-full p-4 sm:p-6 space-y-4 sm:space-y-6 my-4 relative border-2 border-gray-300 dark:border-gray-600"
-            style={{ 
-              position: 'relative', 
-              zIndex: 10000, 
-              maxHeight: '90vh', 
+            style={{
+              position: 'relative',
+              zIndex: 10000,
+              maxHeight: '90vh',
               overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
@@ -1609,8 +1600,8 @@ export default function TicketDetails() {
             </div>
             <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
               {selectedFile.type?.startsWith('image/') ? (
-                <img 
-                  src={selectedFile.data} 
+                <img
+                  src={selectedFile.data}
                   alt={selectedFile.name}
                   className="max-w-full max-h-full object-contain rounded-lg"
                   loading="eager"

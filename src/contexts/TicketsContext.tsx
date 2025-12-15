@@ -316,25 +316,49 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   };
 
   const addInteraction = async (ticketId: string, interaction: Interaction) => {
-    const updatedTickets = tickets.map((ticket) =>
-      ticket.id === ticketId
-        ? {
+    try {
+      console.log('💬 Adicionando interação:', { ticketId, type: interaction.type });
+
+      // Se for uma interação de usuário com texto, salvar como comentário na API
+      let createdComment: any | null = null;
+      if (interaction.type === 'user' && interaction.content?.trim()) {
+        try {
+          createdComment = await api.addComment(ticketId, interaction.content);
+          console.log('✅ Interação salva como comentário na API:', createdComment?.id);
+        } catch (error) {
+          console.error('❌ Erro ao salvar interação como comentário na API:', error);
+        }
+      }
+
+      // Atualizar estado local com a nova interação e, se existir, o comentário vindo do backend
+      setTickets((prev) =>
+        prev.map((ticket) => {
+          if (ticket.id !== ticketId) return ticket;
+
+          const newComments =
+            createdComment && createdComment.id
+              ? [
+                  ...(ticket.comments || []),
+                  {
+                    id: createdComment.id,
+                    content: createdComment.content,
+                    author: createdComment.author,
+                    createdAt: new Date(createdComment.createdAt),
+                  },
+                ]
+              : ticket.comments || [];
+
+          return {
             ...ticket,
+            comments: newComments,
             interactions: [...(ticket.interactions || []), interaction],
             updatedAt: new Date(),
-          }
-        : ticket
-    );
-    setTickets(updatedTickets);
-
-    // Encontrar o ticket atualizado e salvar no banco
-    const updatedTicket = updatedTickets.find(t => t.id === ticketId);
-    if (updatedTicket) {
-      try {
-        await database.saveTicket(updatedTicket);
-      } catch (error) {
-        console.error('Erro ao salvar interação no banco de dados:', error);
-      }
+          };
+        })
+      );
+    } catch (error) {
+      console.error('❌ Erro ao registrar interação:', error);
+      throw error;
     }
   };
 

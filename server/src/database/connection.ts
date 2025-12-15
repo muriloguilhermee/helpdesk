@@ -284,11 +284,16 @@ const runMigrations = async (): Promise<void> => {
         table.string('email').unique().notNullable();
         table.string('name').notNullable();
         table.string('password').notNullable();
-        table.enum('role', ['admin', 'technician', 'user']).notNullable();
+        table.string('role', 50).notNullable();
         table.text('avatar').nullable(); // Armazena base64 da imagem
         table.string('company').nullable();
         table.timestamps(true, true);
       });
+      // Adicionar constraint CHECK para role
+      await db!.raw(`
+        ALTER TABLE users ADD CONSTRAINT users_role_check 
+        CHECK (role IN ('admin', 'technician', 'technician_n2', 'user', 'financial'))
+      `);
       console.log('✅ Created users table');
     } else {
       // Verificar se company existe, se não, adicionar
@@ -298,6 +303,18 @@ const runMigrations = async (): Promise<void> => {
           table.string('company').nullable();
         });
         console.log('✅ Added company column to users table');
+      }
+      
+      // Atualizar constraint CHECK para incluir technician_n2 e financial
+      try {
+        await db!.raw(`
+          ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+          ALTER TABLE users ADD CONSTRAINT users_role_check 
+          CHECK (role IN ('admin', 'technician', 'technician_n2', 'user', 'financial'))
+        `);
+        console.log('✅ Updated users_role_check constraint to include technician_n2 and financial');
+      } catch (error) {
+        console.warn('⚠️ Could not update constraint (may already be updated):', error);
       }
     }
 

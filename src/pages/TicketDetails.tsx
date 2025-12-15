@@ -88,41 +88,43 @@ export default function TicketDetails() {
 
   const baseTicket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
   const ticket = ticketDetails || baseTicket || null;
+  const [reloadTrigger, setReloadTrigger] = useState(0);
+
+  // Função para recarregar os detalhes do ticket
+  const loadTicketDetails = async () => {
+    if (!id) return;
+    try {
+      setIsLoadingDetails(true);
+      const apiTicket = await api.getTicketById(id);
+      console.log('📥 Ticket completo da API:', apiTicket);
+      console.log('💬 Comentários recebidos:', apiTicket.comments);
+      // Verificar arquivos em cada comentário
+      if (apiTicket.comments && Array.isArray(apiTicket.comments)) {
+        apiTicket.comments.forEach((c: any, idx: number) => {
+          console.log(`  📎 Comentário ${idx + 1} (${c.id}) tem ${(c.files || []).length} arquivo(s):`, c.files);
+        });
+      }
+      const transformed = transformApiTicketToFrontend(apiTicket);
+      console.log('✅ Ticket transformado:', transformed);
+      console.log('💬 Comentários transformados:', transformed.comments);
+      // Verificar arquivos após transformação
+      if (transformed.comments && Array.isArray(transformed.comments)) {
+        transformed.comments.forEach((c: any, idx: number) => {
+          console.log(`  📎 Comentário transformado ${idx + 1} (${c.id}) tem ${(c.files || []).length} arquivo(s):`, c.files);
+        });
+      }
+      setTicketDetails(transformed);
+    } catch (error) {
+      console.error('Erro ao carregar detalhes do chamado:', error);
+    } finally {
+      setIsLoadingDetails(false);
+    }
+  };
 
   // Carregar detalhes completos do ticket (incluindo comentários e anexos) diretamente da API
   useEffect(() => {
-    const loadTicketDetails = async () => {
-      if (!id) return;
-      try {
-        setIsLoadingDetails(true);
-        const apiTicket = await api.getTicketById(id);
-        console.log('📥 Ticket completo da API:', apiTicket);
-        console.log('💬 Comentários recebidos:', apiTicket.comments);
-        // Verificar arquivos em cada comentário
-        if (apiTicket.comments && Array.isArray(apiTicket.comments)) {
-          apiTicket.comments.forEach((c: any, idx: number) => {
-            console.log(`  📎 Comentário ${idx + 1} (${c.id}) tem ${(c.files || []).length} arquivo(s):`, c.files);
-          });
-        }
-        const transformed = transformApiTicketToFrontend(apiTicket);
-        console.log('✅ Ticket transformado:', transformed);
-        console.log('💬 Comentários transformados:', transformed.comments);
-        // Verificar arquivos após transformação
-        if (transformed.comments && Array.isArray(transformed.comments)) {
-          transformed.comments.forEach((c: any, idx: number) => {
-            console.log(`  📎 Comentário transformado ${idx + 1} (${c.id}) tem ${(c.files || []).length} arquivo(s):`, c.files);
-          });
-        }
-        setTicketDetails(transformed);
-      } catch (error) {
-        console.error('Erro ao carregar detalhes do chamado:', error);
-      } finally {
-        setIsLoadingDetails(false);
-      }
-    };
-
     loadTicketDetails();
-  }, [id]);
+  }, [id, reloadTrigger]);
 
   // Verificar se o chamado está fechado (fechado ou resolvido)
   const isClosed = ticket?.status === 'fechado' || ticket?.status === 'resolvido';
@@ -255,6 +257,11 @@ export default function TicketDetails() {
       setShowReplyBox(false);
       setSuccessMessage('Resposta enviada com sucesso!');
       setTimeout(() => setSuccessMessage(''), 3000);
+
+      // Recarregar os detalhes do ticket para atualizar com os dados mais recentes
+      setTimeout(() => {
+        setReloadTrigger(prev => prev + 1);
+      }, 500); // Pequeno delay para garantir que o backend processou
     }
   };
 
@@ -304,7 +311,7 @@ export default function TicketDetails() {
     return allInteractions.filter(i => i.type === interactionFilter);
   }, [allInteractions, interactionFilter]);
 
-  const handleUpdateStatus = () => {
+  const handleUpdateStatus = async () => {
     if (ticket && selectedStatus) {
       // Se o chamado está fechado/resolvido e o usuário está tentando reabrir, verificar se é admin
       if (isClosed && selectedStatus !== 'fechado' && selectedStatus !== 'resolvido') {
@@ -329,10 +336,15 @@ export default function TicketDetails() {
         addInteraction(ticket.id, statusInteraction);
       }
       // Manter o status como "resolvido" se selecionado (não mudar para "fechado")
-      updateTicket(ticket.id, { status: selectedStatus });
+      await updateTicket(ticket.id, { status: selectedStatus });
       setShowStatusModal(false);
       setSuccessMessage('Status atualizado com sucesso!');
       setTimeout(() => setSuccessMessage(''), 3000);
+
+      // Recarregar os detalhes do ticket
+      setTimeout(() => {
+        setReloadTrigger(prev => prev + 1);
+      }, 500);
     }
   };
 
@@ -472,7 +484,7 @@ export default function TicketDetails() {
     return labelA.localeCompare(labelB, 'pt-BR', { sensitivity: 'base' });
   });
 
-  const handleAssignTechnician = () => {
+  const handleAssignTechnician = async () => {
     if (ticket && user) {
       if (selectedTechnician) {
         const technician = allTechnicians.find((u: any) => u.id === selectedTechnician);
@@ -492,7 +504,7 @@ export default function TicketDetails() {
             },
           };
           addInteraction(ticket.id, assignmentInteraction);
-          updateTicket(ticket.id, { assignedTo: technician });
+          await updateTicket(ticket.id, { assignedTo: technician });
           setSuccessMessage('Técnico atribuído com sucesso!');
         }
       } else {
@@ -511,12 +523,17 @@ export default function TicketDetails() {
           addInteraction(ticket.id, unassignmentInteraction);
         }
         // Remover atribuição
-        updateTicket(ticket.id, { assignedTo: undefined });
+        await updateTicket(ticket.id, { assignedTo: undefined });
         setSuccessMessage('Atribuição removida com sucesso!');
       }
       setShowAssignModal(false);
       setSelectedTechnician('');
       setTimeout(() => setSuccessMessage(''), 3000);
+
+      // Recarregar os detalhes do ticket
+      setTimeout(() => {
+        setReloadTrigger(prev => prev + 1);
+      }, 500);
     }
   };
 
@@ -553,6 +570,11 @@ export default function TicketDetails() {
       setSelectedQueue('');
       setSuccessMessage('Chamado transferido com sucesso!');
       setTimeout(() => setSuccessMessage(''), 3000);
+
+      // Recarregar os detalhes do ticket
+      setTimeout(() => {
+        setReloadTrigger(prev => prev + 1);
+      }, 500);
     }
   };
 

@@ -96,7 +96,11 @@ export default function TicketDetails() {
       try {
         setIsLoadingDetails(true);
         const apiTicket = await api.getTicketById(id);
+        console.log('📥 Ticket completo da API:', apiTicket);
+        console.log('💬 Comentários recebidos:', apiTicket.comments);
         const transformed = transformApiTicketToFrontend(apiTicket);
+        console.log('✅ Ticket transformado:', transformed);
+        console.log('💬 Comentários transformados:', transformed.comments);
         setTicketDetails(transformed);
       } catch (error) {
         console.error('Erro ao carregar detalhes do chamado:', error);
@@ -247,6 +251,10 @@ export default function TicketDetails() {
     const interactions: Interaction[] = [];
 
     if (ticket) {
+      console.log('🔍 Processando interações para ticket:', ticket.id);
+      console.log('💬 Comentários disponíveis:', ticket.comments);
+      console.log('🔄 Interações disponíveis:', ticket.interactions);
+
       // 1) Adicionar interações (principalmente de sistema, atribuições, etc)
       if (ticket.interactions && ticket.interactions.length > 0) {
         interactions.push(...ticket.interactions);
@@ -256,7 +264,9 @@ export default function TicketDetails() {
       //    incluindo arquivos vindos da API e evitando duplicar quando já
       //    existe uma interação de usuário com o mesmo autor e conteúdo
       if (ticket.comments && ticket.comments.length > 0) {
-        ticket.comments.forEach(comment => {
+        console.log(`📝 Convertendo ${ticket.comments.length} comentário(s) para interações`);
+        ticket.comments.forEach((comment, index) => {
+          console.log(`  Comentário ${index + 1}:`, comment);
           const hasSameInteraction = interactions.some((i) =>
             i.type === 'user' &&
             i.author?.id === comment.author.id &&
@@ -264,26 +274,32 @@ export default function TicketDetails() {
           );
 
           if (hasSameInteraction) {
+            console.log(`  ⚠️ Comentário ${index + 1} duplicado, pulando`);
             // Já existe uma interação equivalente (com anexo, por exemplo),
             // então não adicionamos o comentário novamente para não duplicar.
             return;
           }
 
-          interactions.push({
+          const interaction = {
             id: comment.id,
-            type: 'user',
+            type: 'user' as const,
             content: comment.content,
             author: comment.author,
             createdAt: comment.createdAt,
             files: (comment as any).files || undefined,
-          });
+          };
+          console.log(`  ✅ Adicionando interação do comentário ${index + 1}:`, interaction);
+          interactions.push(interaction);
         });
+      } else {
+        console.log('⚠️ Nenhum comentário encontrado no ticket');
       }
 
       // Adicionar interação do sistema quando status muda
       // (isso será adicionado quando o status for atualizado)
     }
 
+    console.log(`✅ Total de interações montadas: ${interactions.length}`);
     // Ordenar por data
     return interactions.sort((a, b) => {
       const dateA = new Date(a.createdAt).getTime();

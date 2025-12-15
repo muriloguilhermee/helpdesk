@@ -296,9 +296,14 @@ export default function TicketDetails() {
         ticket.comments.forEach((comment, index) => {
           const commentFiles = (comment as any).files || [];
           console.log(`  📎 Comentário ${index + 1} tem ${commentFiles.length} arquivo(s):`, commentFiles);
+
+          // Detectar se é uma transferência de fila ou atribuição de fila
+          const isQueueTransfer = comment.content.includes('transferido') && comment.content.includes('fila');
+          const isQueueAssignment = comment.content.includes('atribuído') && comment.content.includes('fila');
+
           const interaction = {
             id: comment.id,
-            type: 'user' as const,
+            type: (isQueueTransfer || isQueueAssignment) ? 'queue_transfer' as const : 'user' as const,
             content: comment.content,
             author: comment.author,
             createdAt: comment.createdAt,
@@ -366,16 +371,15 @@ export default function TicketDetails() {
   // Estado para armazenar técnicos
   const [allTechnicians, setAllTechnicians] = useState<any[]>([]);
 
-  // Função para carregar técnicos do banco de dados
+  // Função para carregar técnicos da API
   const loadTechnicians = async () => {
     try {
-      await database.init();
-      const allUsers = await database.getUsers();
+      const allUsers = await api.getUsers();
 
       // Filtrar apenas técnicos que NÃO são mockados
       const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
       const customTechnicians = allUsers.filter((u: any) =>
-        u.role === 'technician' && !mockUserEmails.has(u.email.toLowerCase())
+        u.role === 'technician' && !mockUserEmails.has(u.email?.toLowerCase() || '')
       );
 
       // Ordenar técnicos alfabeticamente
@@ -890,8 +894,31 @@ export default function TicketDetails() {
                       const isCreator = interaction.type === 'user' && interaction.author?.id === ticket.createdBy.id;
 
                       // Extrair nome da fila do conteúdo da transferência
-                      const queueNameMatch = isTransfer ? interaction.content.match(/fila de (.+)/i) : null;
-                      const queueName = queueNameMatch ? queueNameMatch[1] : null;
+                      let queueName: string | null = null;
+                      if (isTransfer) {
+                        // Tentar diferentes padrões: "fila de X", "fila \"X\"", "à fila \"X\""
+                        const patterns = [
+                          /fila de "?([^"]+)"?/i,
+                          /à fila "?([^"]+)"?/i,
+                          /fila "?([^"]+)"?/i,
+                        ];
+                        for (const pattern of patterns) {
+                          const match = interaction.content.match(pattern);
+                          if (match && match[1]) {
+                            queueName = match[1].trim();
+                            // Remover "por Nome" se existir no final
+                            queueName = queueName.replace(/\s+por\s+[^"]+$/, '').trim();
+                            break;
+                          }
+                        }
+                        // Se não encontrou, tentar pegar o último trecho entre aspas
+                        if (!queueName) {
+                          const quotedMatch = interaction.content.match(/"([^"]+)"/);
+                          if (quotedMatch && quotedMatch[1]) {
+                            queueName = quotedMatch[1].trim();
+                          }
+                        }
+                      }
 
                       return (
                         <div key={interaction.id} className="flex gap-4">
@@ -941,10 +968,9 @@ export default function TicketDetails() {
                                     ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
                                     : 'bg-gray-50 dark:bg-gray-700/50'
                             } rounded-lg p-3`}>
-                              {isTransfer && queueName ? (
-                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                                  {interaction.content.replace(queueName, '').trim()}{' '}
-                                  <span className="text-purple-600 dark:text-purple-400 font-semibold">{queueName}</span>
+                              {isTransfer ? (
+                                <p className="text-purple-700 dark:text-purple-300 whitespace-pre-wrap font-medium">
+                                  {interaction.content}
                                 </p>
                               ) : (
                                 <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>

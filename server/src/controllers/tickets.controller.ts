@@ -73,12 +73,12 @@ export const getAllTicketsController = async (req: AuthRequest, res: Response): 
     if (req.query.createdBy) filters.createdBy = req.query.createdBy;
     if (req.query.search) filters.search = req.query.search;
 
-    // If user is not admin, filter by their own tickets
+    // Apenas usuários comuns são filtrados por seus próprios tickets
+    // Técnicos e admins veem todos os tickets
     if (req.user?.role === 'user') {
       filters.createdBy = req.user.id;
-    } else if (req.user?.role === 'technician') {
-      filters.assignedTo = req.user.id;
     }
+    // Técnicos e admins não têm filtro de atribuição - veem todos os tickets
 
     const tickets = await getAllTickets(filters);
     res.json(tickets);

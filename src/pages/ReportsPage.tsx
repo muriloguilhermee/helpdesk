@@ -15,15 +15,13 @@ export default function ReportsPage() {
   const exportMenuRef = useRef<HTMLDivElement>(null);
 
   // Filtrar apenas chamados criados pelo usuário atual
-  // Se for admin, ver todos os tickets; se for user, ver apenas os seus; se for technician, ver atribuídos a ele ou de melhoria
+  // Se for admin ou técnico, ver todos os tickets; se for user, ver apenas os seus
   let userTickets = tickets || [];
   if (user?.role === 'user') {
     userTickets = tickets.filter(t => t && t.createdBy && t.createdBy.id === user.id);
-  } else if (user?.role === 'technician') {
-    userTickets = tickets.filter(t => t && (t.assignedTo?.id === user.id || t.category === 'melhoria'));
   }
-  // Admin vê todos (userTickets = tickets)
-  
+  // Técnicos e admins veem todos os tickets (userTickets = tickets)
+
   // Garantir que todos os tickets tenham os campos necessários
   userTickets = userTickets.filter(t => t && t.id && t.title);
 
@@ -224,7 +222,7 @@ export default function ReportsPage() {
             <span className="sm:hidden">Exportar</span>
             <ChevronDown className={`w-4 h-4 transition-transform ${showExportMenu ? 'rotate-180' : ''}`} />
           </button>
-          
+
           {showExportMenu && (
             <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 z-50">
               <button
@@ -317,7 +315,7 @@ export default function ReportsPage() {
                   <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div
                       className="h-2 rounded-full"
-                      style={{ 
+                      style={{
                         width: stats.total > 0 ? `${(count / stats.total) * 100}%` : '0%',
                         backgroundColor: categoryColors[category]
                       }}
@@ -343,7 +341,7 @@ export default function ReportsPage() {
                 <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                   <div
                     className="h-2 rounded-full"
-                    style={{ 
+                    style={{
                       width: stats.total > 0 ? `${(count / stats.total) * 100}%` : '0%',
                       backgroundColor: priorityColors[priority] || '#6b7280'
                     }}

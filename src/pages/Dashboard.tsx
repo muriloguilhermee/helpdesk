@@ -44,21 +44,16 @@ export default function Dashboard() {
   }, [searchQuery]);
 
   // Filtrar tickets baseado no role do usuário
-  // Usuários veem seus próprios chamados E chamados de melhoria
-  // Técnicos veem chamados atribuídos a eles E chamados de melhoria
+  // Técnicos e admins veem todos os chamados
+  // Usuários veem apenas seus próprios chamados OU chamados de melhoria
   let availableTickets = tickets;
-  if (user?.role === 'technician') {
-    // Técnicos veem chamados atribuídos a eles OU chamados de melhoria
-    availableTickets = tickets.filter(ticket =>
-      ticket.assignedTo?.id === user.id || ticket.category === 'melhoria'
-    );
-  } else if (user?.role === 'user') {
+  if (user?.role === 'user') {
     // Usuários veem chamados que eles criaram OU chamados de melhoria
     availableTickets = tickets.filter(ticket =>
       ticket.createdBy.id === user.id || ticket.category === 'melhoria'
     );
   }
-  // Admins veem todos os chamados (availableTickets = tickets)
+  // Técnicos e admins veem todos os chamados (availableTickets = tickets)
 
   const stats = {
     total: availableTickets.length,

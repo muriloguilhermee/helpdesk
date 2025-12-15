@@ -14,7 +14,7 @@ const resolveQueueId = async (db: any, queueValue?: string | null) => {
   // Se já for UUID, apenas confirma a existência
   if (uuidRegex.test(queueValue)) {
     const existing = await db('queues').where({ id: queueValue }).first();
-    return { queueId: queueValue, queueName: existing?.name };
+    return { queueId: queueValue, queueName: existing?.name || queueValue };
   }
 
   // Tratar como nome de fila
@@ -202,8 +202,9 @@ export const getAllTickets = async (filters?: TicketFilters) => {
 
     files.forEach((f: any) => {
       if (f.comment_id) {
-        if (!filesByComment[f.comment_id]) filesByComment[f.comment_id] = [];
-        filesByComment[f.comment_id].push({
+        const commentIdStr = String(f.comment_id); // Ensure string comparison
+        if (!filesByComment[commentIdStr]) filesByComment[commentIdStr] = [];
+        filesByComment[commentIdStr].push({
           id: f.id,
           name: f.name,
           size: parseInt(f.size),
@@ -225,12 +226,13 @@ export const getAllTickets = async (filters?: TicketFilters) => {
     commentsByTicket = comments.reduce((acc: Record<string, any[]>, c: any) => {
       const ticketId = c.ticket_id;
       if (!acc[ticketId]) acc[ticketId] = [];
+      const commentIdStr = String(c.id); // Ensure string comparison
       acc[ticketId].push({
         id: c.id,
         content: c.content,
         author: c.author,
         createdAt: c.created_at,
-        files: filesByComment[c.id] || [],
+        files: filesByComment[commentIdStr] || [],
       });
       return acc;
     }, {});

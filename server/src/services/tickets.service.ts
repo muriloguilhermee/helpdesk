@@ -436,7 +436,7 @@ export const createTicket = async (data: CreateTicketData) => {
 
     // Gerar ID numérico incremental usando MAX(CAST(id AS INTEGER))
     const maxResult = await db('tickets')
-      .max<{ maxId: string | number | null }>(db.raw('CAST(id AS INTEGER) as maxId'))
+      .select(db.raw('MAX(CAST(id AS INTEGER)) as maxId'))
       .first();
 
     const lastNumericId = maxResult && maxResult.maxId != null

@@ -10,7 +10,7 @@ import { api } from '../services/api';
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
   technician: 'Técnico',
-  technician_n2: 'Técnico n2',
+  technician_n2: 'Técnico N2',
   user: 'Usuário',
   financial: 'Financeiro',
 };
@@ -790,7 +790,7 @@ export default function UsersPage() {
                 >
                   <option value="user">Usuário</option>
                   <option value="technician">Técnico</option>
-                  <option value="technician_n2">Técnico n2</option>
+                  <option value="technician_n2">Técnico N2</option>
                   <option value="financial">Financeiro</option>
                   <option value="admin">Administrador</option>
                 </select>
@@ -1013,7 +1013,7 @@ export default function UsersPage() {
                 >
                   <option value="user">Usuário</option>
                   <option value="technician">Técnico</option>
-                  <option value="technician_n2">Técnico n2</option>
+                  <option value="technician_n2">Técnico N2</option>
                   <option value="financial">Financeiro</option>
                   <option value="admin">Administrador</option>
                 </select>

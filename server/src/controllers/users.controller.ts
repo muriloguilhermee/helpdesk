@@ -22,7 +22,7 @@ const updateUserSchema = z.object({
   name: z.string().min(1).optional(),
   email: z.string().email().optional(),
   password: z.string().min(6).optional(),
-  role: z.enum(['admin', 'technician', 'user']).optional(),
+  role: z.enum(['admin', 'technician', 'technician_n2', 'user', 'financial']).optional(),
   avatar: z.union([z.string(), z.null()]).optional(),
   company: z.union([z.string(), z.null()]).optional(),
 });

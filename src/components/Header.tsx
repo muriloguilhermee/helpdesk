@@ -12,7 +12,7 @@ interface HeaderProps {
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
   technician: 'Técnico',
-  technician_n2: 'Técnico n2',
+  technician_n2: 'Técnico N2',
   user: 'Usuário',
   financial: 'Financeiro',
 };

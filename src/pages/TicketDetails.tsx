@@ -761,8 +761,6 @@ export default function TicketDetails() {
               <div className="space-y-2">
                 {ticket.files.map((file) => {
                   const isImage = file.type?.startsWith('image/');
-                  const isPdf = file.type === 'application/pdf';
-                  const canPreview = isImage || isPdf;
 
                   return (
                     <div
@@ -790,7 +788,8 @@ export default function TicketDetails() {
                         </div>
                       </div>
                       <div className="flex items-center gap-1">
-                        {canPreview && (
+                        {/* Sempre mostrar botão de visualizar para todos os arquivos */}
+                        {file.data && (
                           <button
                             onClick={() => {
                               setSelectedFile(file);
@@ -994,8 +993,6 @@ export default function TicketDetails() {
                                   <div className="space-y-2">
                                     {interaction.files.map((file) => {
                                       const isImage = file.type?.startsWith('image/');
-                                      const isPdf = file.type === 'application/pdf';
-                                      const canPreview = isImage || isPdf;
 
                                       return (
                                         <div
@@ -1023,18 +1020,17 @@ export default function TicketDetails() {
                                             </div>
                                           </div>
                                           <div className="flex items-center gap-1">
-                                            {canPreview && (
-                                              <button
-                                                onClick={() => {
-                                                  setSelectedFile(file);
-                                                  setShowFileViewer(true);
-                                                }}
-                                                className="p-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
-                                                title="Visualizar arquivo"
-                                              >
-                                                <Eye className="w-4 h-4" />
-                                              </button>
-                                            )}
+                                            {/* Sempre mostrar botão de visualizar para todos os arquivos */}
+                                            <button
+                                              onClick={() => {
+                                                setSelectedFile(file);
+                                                setShowFileViewer(true);
+                                              }}
+                                              className="p-1 text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                                              title="Visualizar arquivo"
+                                            >
+                                              <Eye className="w-4 h-4" />
+                                            </button>
                                             <a
                                               href={file.data}
                                               download={file.name}
@@ -1790,10 +1786,31 @@ export default function TicketDetails() {
                   className="w-full h-full min-h-[600px] rounded-lg border border-gray-200 dark:border-gray-700"
                   title={selectedFile.name}
                 />
+              ) : selectedFile.type?.startsWith('audio/') ? (
+                <div className="w-full max-w-2xl">
+                  <audio controls className="w-full" src={selectedFile.data}>
+                    Seu navegador não suporta o elemento de áudio.
+                  </audio>
+                  <p className="text-center text-gray-600 dark:text-gray-400 mt-4">{selectedFile.name}</p>
+                </div>
+              ) : selectedFile.type?.startsWith('video/') ? (
+                <div className="w-full max-w-4xl">
+                  <video controls className="w-full max-h-[80vh]" src={selectedFile.data}>
+                    Seu navegador não suporta o elemento de vídeo.
+                  </video>
+                  <p className="text-center text-gray-600 dark:text-gray-400 mt-4">{selectedFile.name}</p>
+                </div>
+              ) : selectedFile.type?.startsWith('text/') ? (
+                <iframe
+                  src={selectedFile.data}
+                  className="w-full h-full min-h-[600px] rounded-lg border border-gray-200 dark:border-gray-700"
+                  title={selectedFile.name}
+                />
               ) : (
-                <div className="text-center py-12">
+                <div className="text-center py-12 w-full">
                   <File className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">Visualização não disponível para este tipo de arquivo</p>
+                  <p className="text-gray-600 dark:text-gray-400 mb-2">{selectedFile.name}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-500 mb-4">Tipo: {selectedFile.type || 'desconhecido'}</p>
                   <a
                     href={selectedFile.data}
                     download={selectedFile.name}

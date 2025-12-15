@@ -77,7 +77,7 @@ export default function UsersPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'user' as 'admin' | 'user' | 'technician' | 'financial',
+    role: 'user' as 'admin' | 'user' | 'technician' | 'technician_n2' | 'financial',
     company: '',
   });
   const [editUser, setEditUser] = useState({
@@ -85,7 +85,7 @@ export default function UsersPage() {
     email: '',
     password: '',
     confirmPassword: '',
-    role: 'user' as 'admin' | 'user' | 'technician' | 'financial',
+    role: 'user' as 'admin' | 'user' | 'technician' | 'technician_n2' | 'financial',
     company: '',
   });
   const [error, setError] = useState('');
@@ -783,11 +783,12 @@ export default function UsersPage() {
                 </label>
                 <select
                   value={newUser.role}
-                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'user' | 'technician' | 'financial' })}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as 'admin' | 'user' | 'technician' | 'technician_n2' | 'financial' })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="user">Usuário</option>
-                  <option value="technician">Técnico</option>
+                  <option value="technician">Técnico N1</option>
+                  <option value="technician_n2">Técnico N2</option>
                   <option value="financial">Financeiro</option>
                   <option value="admin">Administrador</option>
                 </select>
@@ -1005,11 +1006,12 @@ export default function UsersPage() {
                 </label>
                 <select
                   value={editUser.role}
-                  onChange={(e) => setEditUser({ ...editUser, role: e.target.value as 'admin' | 'user' | 'technician' | 'financial' })}
+                  onChange={(e) => setEditUser({ ...editUser, role: e.target.value as 'admin' | 'user' | 'technician' | 'technician_n2' | 'financial' })}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
                 >
                   <option value="user">Usuário</option>
-                  <option value="technician">Técnico</option>
+                  <option value="technician">Técnico N1</option>
+                  <option value="technician_n2">Técnico N2</option>
                   <option value="financial">Financeiro</option>
                   <option value="admin">Administrador</option>
                 </select>

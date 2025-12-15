@@ -34,6 +34,7 @@ const allMenuItems: MenuItem[] = [
   { icon: Clock, label: 'Novos Chamados', path: '/tickets/pending', permission: 'view:pending:tickets', role: 'technician' },
   { icon: Ticket, label: 'Meus Chamados', path: '/tickets', permission: 'view:tickets', role: 'all' },
   { icon: Ticket, label: 'Todos os Chamados', path: '/tickets/all', permission: 'view:tickets', role: 'technician' },
+  { icon: Ticket, label: 'Chamados N2', path: '/tickets/n2', permission: 'view:tickets', role: 'technician_n2' },
   { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },
   { icon: Wallet, label: 'Gestão Financeira', path: '/financial/management', permission: 'view:all:financial', role: 'all' },
   { icon: Plug, label: 'Integração ERP', path: '/erp-integration', permission: 'view:all:financial', role: 'admin' },
@@ -73,10 +74,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
     // Verificar role específico
     if (item.role && item.role !== 'all') {
-      if (item.role === 'technician' && user?.role !== 'technician') {
+      if (item.role === 'technician' && user?.role !== 'technician' && user?.role !== 'technician_n2') {
         return false;
       }
-      if (item.role !== 'technician' && user?.role === 'technician') {
+      if (item.role === 'technician_n2' && user?.role !== 'technician_n2') {
+        return false;
+      }
+      if (item.role !== 'technician' && item.role !== 'technician_n2' && (user?.role === 'technician' || user?.role === 'technician_n2')) {
         // Se o item não é para técnico mas o usuário é técnico, verificar se tem permissão
         if (!item.permission || !hasPermission(item.permission)) {
           return false;

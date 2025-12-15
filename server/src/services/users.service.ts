@@ -5,7 +5,7 @@ export interface CreateUserData {
   name: string;
   email: string;
   password: string;
-  role: 'admin' | 'technician' | 'user';
+  role: 'admin' | 'technician' | 'technician_n2' | 'user';
   avatar?: string;
   company?: string;
 }
@@ -14,7 +14,7 @@ export interface UpdateUserData {
   name?: string;
   email?: string;
   password?: string;
-  role?: 'admin' | 'technician' | 'user';
+  role?: 'admin' | 'technician' | 'technician_n2' | 'user';
   avatar?: string | null;
   company?: string | null;
 }

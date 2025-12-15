@@ -168,11 +168,13 @@ export const getAllTickets = async (filters?: TicketFilters) => {
 
   const tickets = await query.orderBy('tickets.updated_at', 'desc');
 
-  // Carregar comentários básicos para cada ticket (para exibir interações mesmo após recarregar)
   const ticketIds = tickets.map((t: any) => t.id);
+
   let commentsByTicket: Record<string, any[]> = {};
+  let ticketFilesByTicket: Record<string, any[]> = {};
 
   if (ticketIds.length > 0) {
+    // Carregar todos os comentários dos tickets
     const comments = await db('comments')
       .leftJoin('users', 'comments.author_id', 'users.id')
       .whereIn('comments.ticket_id', ticketIds)
@@ -190,6 +192,35 @@ export const getAllTickets = async (filters?: TicketFilters) => {
       )
       .orderBy('comments.created_at', 'asc');
 
+    // Carregar todos os arquivos dos tickets
+    const files = await db('ticket_files')
+      .whereIn('ticket_id', ticketIds)
+      .select('id', 'ticket_id', 'comment_id', 'name', 'size', 'type', 'data_url', 'created_at');
+
+    const filesByComment: Record<string, any[]> = {};
+
+    files.forEach((f: any) => {
+      if (f.comment_id) {
+        if (!filesByComment[f.comment_id]) filesByComment[f.comment_id] = [];
+        filesByComment[f.comment_id].push({
+          id: f.id,
+          name: f.name,
+          size: parseInt(f.size),
+          type: f.type,
+          data: f.data_url,
+        });
+      } else {
+        if (!ticketFilesByTicket[f.ticket_id]) ticketFilesByTicket[f.ticket_id] = [];
+        ticketFilesByTicket[f.ticket_id].push({
+          id: f.id,
+          name: f.name,
+          size: parseInt(f.size),
+          type: f.type,
+          data: f.data_url,
+        });
+      }
+    });
+
     commentsByTicket = comments.reduce((acc: Record<string, any[]>, c: any) => {
       const ticketId = c.ticket_id;
       if (!acc[ticketId]) acc[ticketId] = [];
@@ -198,6 +229,7 @@ export const getAllTickets = async (filters?: TicketFilters) => {
         content: c.content,
         author: c.author,
         createdAt: c.created_at,
+        files: filesByComment[c.id] || [],
       });
       return acc;
     }, {});
@@ -205,6 +237,7 @@ export const getAllTickets = async (filters?: TicketFilters) => {
 
   return tickets.map((t: any) => ({
     ...t,
+    files: ticketFilesByTicket[t.id] || [],
     comments: commentsByTicket[t.id] || [],
   }));
 };
@@ -296,12 +329,31 @@ export const getTicketById = async (id: string) => {
 
     console.log('✅ Ticket encontrado:', ticket.id, ticket.title);
 
-    // Get files
+    // Get files (ticket-level e por comentário)
     const files = await db('ticket_files')
       .where({ ticket_id: id })
-      .select('id', 'name', 'size', 'type', 'data_url', 'created_at');
+      .select('id', 'ticket_id', 'comment_id', 'name', 'size', 'type', 'data_url', 'created_at');
 
-    // Get comments
+    const ticketFiles: any[] = [];
+    const filesByComment: Record<string, any[]> = {};
+
+    files.forEach((f: any) => {
+      const fileData = {
+        id: f.id,
+        name: f.name,
+        size: parseInt(f.size),
+        type: f.type,
+        data: f.data_url,
+      };
+      if (f.comment_id) {
+        if (!filesByComment[f.comment_id]) filesByComment[f.comment_id] = [];
+        filesByComment[f.comment_id].push(fileData);
+      } else {
+        ticketFiles.push(fileData);
+      }
+    });
+
+    // Get comments (com arquivos vinculados)
     const comments = await db('comments')
       .leftJoin('users', 'comments.author_id', 'users.id')
       .where({ ticket_id: id })
@@ -328,11 +380,13 @@ export const getTicketById = async (id: string) => {
         type: f.type,
         data: f.data_url,
       })),
+      files: ticketFiles,
       comments: comments.map(c => ({
         id: c.id,
         content: c.content,
         author: c.author,
         createdAt: c.created_at,
+        files: filesByComment[c.id] || [],
       })),
     };
   } catch (error: any) {
@@ -384,19 +438,20 @@ export const createTicket = async (data: CreateTicketData) => {
 
     console.log('✅ Ticket criado com sucesso:', ticket.id);
 
-    // Save files if provided
+    // Save files if provided (apenas nível de ticket)
     if (data.files && data.files.length > 0) {
-      console.log('📎 Salvando arquivos:', data.files.length);
+      console.log('📎 Salvando arquivos do ticket:', data.files.length);
       await db('ticket_files').insert(
         data.files.map(file => ({
           ticket_id: ticket.id,
+          comment_id: null,
           name: file.name,
           size: file.size.toString(),
           type: file.type,
           data_url: file.dataUrl,
         }))
       );
-      console.log('✅ Arquivos salvos com sucesso');
+      console.log('✅ Arquivos do ticket salvos com sucesso');
     }
 
     const fullTicket = await getTicketById(ticket.id);
@@ -492,7 +547,19 @@ export const deleteTicket = async (id: string) => {
   }
 };
 
-export const addComment = async (ticketId: string, authorId: string, content: string) => {
+export interface CommentFileInput {
+  name: string;
+  size: number;
+  type: string;
+  data: string;
+}
+
+export const addComment = async (
+  ticketId: string,
+  authorId: string,
+  content: string,
+  files?: CommentFileInput[]
+) => {
   try {
     const db = getDatabase();
 
@@ -512,6 +579,34 @@ export const addComment = async (ticketId: string, authorId: string, content: st
       throw new Error('Falha ao criar comentário: nenhum registro retornado');
     }
 
+    // Salvar arquivos vinculados ao comentário (interação)
+    let savedFiles: any[] = [];
+    if (files && files.length > 0) {
+      console.log('📎 Salvando arquivos do comentário:', files.length);
+      const insertFiles = await db('ticket_files')
+        .insert(
+          files.map((file) => ({
+            ticket_id: ticketId,
+            comment_id: comment.id,
+            name: file.name,
+            size: file.size.toString(),
+            type: file.type,
+            data_url: file.data,
+          })),
+          ['id', 'name', 'size', 'type', 'data_url']
+        );
+
+      const insertedArray = Array.isArray(insertFiles) ? insertFiles : [insertFiles];
+      savedFiles = insertedArray.map((f: any) => ({
+        id: f.id,
+        name: f.name,
+        size: parseInt(f.size),
+        type: f.type,
+        data: f.data_url,
+      }));
+      console.log('✅ Arquivos do comentário salvos com sucesso');
+    }
+
     const author = await db('users')
       .where({ id: authorId })
       .select('id', 'name', 'email', 'role', 'avatar')
@@ -524,6 +619,7 @@ export const addComment = async (ticketId: string, authorId: string, content: st
       content: comment.content,
       author,
       createdAt: comment.created_at,
+      files: savedFiles,
     };
   } catch (error: any) {
     console.error('❌ Erro ao adicionar comentário:', error);

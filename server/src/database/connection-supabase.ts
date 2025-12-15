@@ -86,13 +86,32 @@ const runMigrations = async (): Promise<void> => {
       await db!.schema.createTable('ticket_files', (table) => {
         table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
         table.string('ticket_id').references('id').inTable('tickets').onDelete('CASCADE');
+        table
+          .uuid('comment_id')
+          .nullable()
+          .references('id')
+          .inTable('comments')
+          .onDelete('CASCADE');
         table.string('name').notNullable();
         table.bigInteger('size').notNullable();
         table.string('type').notNullable();
         table.text('data_url').notNullable();
         table.timestamps(true, true);
       });
-      console.log('✅ Created ticket_files table');
+      console.log('✅ Created ticket_files table (with comment_id)');
+    } else {
+      const hasCommentId = await db!.schema.hasColumn('ticket_files', 'comment_id');
+      if (!hasCommentId) {
+        await db!.schema.alterTable('ticket_files', (table) => {
+          table
+            .uuid('comment_id')
+            .nullable()
+            .references('id')
+            .inTable('comments')
+            .onDelete('CASCADE');
+        });
+        console.log('✅ Added comment_id column to ticket_files table');
+      }
     }
 
     const hasCommentsTable = await db!.schema.hasTable('comments');

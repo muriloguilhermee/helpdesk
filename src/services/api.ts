@@ -210,10 +210,19 @@ class ApiService {
     });
   }
 
-  async addComment(ticketId: string, content: string) {
+  async addComment(
+    ticketId: string,
+    content: string,
+    files?: Array<{ name: string; size: number; type: string; data: string }>
+  ) {
+    const body: any = { content };
+    if (files && files.length > 0) {
+      body.files = files;
+    }
+
     return this.request<any>(`/tickets/${ticketId}/comments`, {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(body),
     });
   }
 

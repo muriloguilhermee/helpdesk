@@ -55,6 +55,12 @@ const updateTicketSchema = z.object({
 
 const commentSchema = z.object({
   content: z.string().min(1, 'Conteúdo do comentário é obrigatório'),
+  files: z.array(z.object({
+    name: z.string(),
+    size: z.number(),
+    type: z.string(),
+    data: z.string(),
+  })).optional(),
 });
 
 export const getAllTicketsController = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -165,7 +171,7 @@ export const addCommentController = async (req: AuthRequest, res: Response): Pro
     }
 
     const validated = commentSchema.parse(req.body);
-    const comment = await addComment(req.params.id, req.user.id, validated.content);
+    const comment = await addComment(req.params.id, req.user.id, validated.content, validated.files);
     res.status(201).json(comment);
   } catch (error) {
     if (error instanceof z.ZodError) {

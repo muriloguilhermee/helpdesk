@@ -182,8 +182,8 @@ export default function TicketDetails() {
       }
 
       // 2) Converter comentários antigos para interações de usuário,
-      //    mas evitando duplicar quando já existe uma interação de usuário
-      //    com o mesmo autor e mesmo conteúdo (caso da resposta recém enviada)
+      //    incluindo arquivos vindos da API e evitando duplicar quando já
+      //    existe uma interação de usuário com o mesmo autor e conteúdo
       if (ticket.comments && ticket.comments.length > 0) {
         ticket.comments.forEach(comment => {
           const hasSameInteraction = interactions.some((i) =>
@@ -204,6 +204,7 @@ export default function TicketDetails() {
             content: comment.content,
             author: comment.author,
             createdAt: comment.createdAt,
+            files: (comment as any).files || undefined,
           });
         });
       }

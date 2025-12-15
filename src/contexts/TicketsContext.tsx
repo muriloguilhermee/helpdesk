@@ -323,6 +323,13 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
                   content: createdComment.content,
                   author: createdComment.author,
                   createdAt: new Date(createdComment.createdAt),
+                  files: (createdComment.files || []).map((f: any) => ({
+                    id: f.id,
+                    name: f.name,
+                    size: f.size,
+                    type: f.type,
+                    data: f.data,
+                  })),
                 }],
                 updatedAt: new Date(),
               }
@@ -344,7 +351,19 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       let createdComment: any | null = null;
       if (interaction.type === 'user' && interaction.content?.trim()) {
         try {
-          createdComment = await api.addComment(ticketId, interaction.content);
+          const filesToSend =
+            interaction.files && interaction.files.length > 0
+              ? interaction.files
+                  .filter((f) => !!(f as any).data)
+                  .map((f: any) => ({
+                    name: f.name,
+                    size: f.size,
+                    type: f.type,
+                    data: f.data,
+                  }))
+              : undefined;
+
+          createdComment = await api.addComment(ticketId, interaction.content, filesToSend);
           console.log('✅ Interação salva como comentário na API:', createdComment?.id);
         } catch (error) {
           console.error('❌ Erro ao salvar interação como comentário na API:', error);

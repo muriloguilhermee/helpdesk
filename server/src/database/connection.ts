@@ -22,7 +22,7 @@ export const initializeDatabase = async (): Promise<void> => {
       console.error('❌ ============================================');
       console.error('');
       console.error('📋 Variáveis de ambiente encontradas relacionadas a banco:');
-      const dbVars = Object.keys(process.env).filter(k => 
+      const dbVars = Object.keys(process.env).filter(k =>
         k.includes('DATABASE') || k.includes('DB') || k.includes('SUPABASE')
       );
       if (dbVars.length > 0) {
@@ -150,10 +150,10 @@ export const initializeDatabase = async (): Promise<void> => {
 
     // Test connection with retry for temporary errors
     console.log('🔄 Testando conexão com o banco de dados...');
-    
+
     let retries = 3;
     let lastError: any = null;
-    
+
     while (retries > 0) {
       try {
         // Tentar conectar com timeout de 30 segundos
@@ -168,9 +168,9 @@ export const initializeDatabase = async (): Promise<void> => {
         break; // Sucesso, sair do loop
       } catch (error: any) {
         lastError = error;
-        
+
         // Se for erro temporário (XX000 - db_termination), tentar novamente
-        if (error.code === 'XX000' || 
+        if (error.code === 'XX000' ||
             (error.message && (error.message.includes('shutdown') || error.message.includes('db_termination') || error.message.includes('termination')))) {
           retries--;
           if (retries > 0) {
@@ -185,7 +185,7 @@ export const initializeDatabase = async (): Promise<void> => {
         }
       }
     }
-    
+
     // Se ainda há erro após retries, mostrar mensagem
     if (lastError) {
       const error = lastError;
@@ -200,11 +200,11 @@ export const initializeDatabase = async (): Promise<void> => {
       console.error(`   Detail: ${error.detail || 'N/A'}`);
       console.error(`   Hint: ${error.hint || 'N/A'}`);
       console.error('');
-      
+
       // Diagnóstico baseado no erro
       console.error('💡 Diagnóstico:');
       console.error('');
-      
+
       if (error.code === 'ECONNREFUSED') {
         console.error('   ❌ Conexão recusada - possíveis causas:');
         console.error('      1. Host ou porta incorretos na connection string');
@@ -240,7 +240,7 @@ export const initializeDatabase = async (): Promise<void> => {
         console.error('      - O banco pode estar sobrecarregado');
         console.error('      - Tente usar Connection Pooler (porta 6543)');
         console.error('      - Verifique se há problemas de rede');
-      } else if (error.code === 'XX000' || 
+      } else if (error.code === 'XX000' ||
                  (error.message && (error.message.includes('shutdown') || error.message.includes('db_termination') || error.message.includes('termination')))) {
         console.error('   ❌ Banco de dados foi encerrado ou está reiniciando');
         console.error('      - Este é geralmente um problema temporário');
@@ -258,11 +258,11 @@ export const initializeDatabase = async (): Promise<void> => {
         console.error('      - Verifique os logs do Supabase');
         console.error('      - Tente usar Connection Pooler (porta 6543)');
       }
-      
+
       console.error('');
       console.error('📖 Para mais ajuda, veja: server/CONFIGURAR_SUPABASE.md');
       console.error('');
-      
+
       throw error;
     }
 
@@ -361,13 +361,29 @@ const runMigrations = async (): Promise<void> => {
         table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
         // CASCADE: quando ticket é excluído, exclui arquivos
         table.string('ticket_id').references('id').inTable('tickets').onDelete('CASCADE');
+        // Quando comentário é excluído, exclui arquivos vinculados àquela interação
+        table.uuid('comment_id').references('id').inTable('comments').onDelete('CASCADE').nullable();
         table.string('name').notNullable();
         table.bigInteger('size').notNullable();
         table.string('type').notNullable();
         table.text('data_url').notNullable(); // Base64 ou URL
         table.timestamps(true, true);
       });
-      console.log('✅ Created ticket_files table with CASCADE');
+      console.log('✅ Created ticket_files table with CASCADE (incluindo comment_id)');
+    } else {
+      // Garantir que a coluna comment_id existe (para vincular arquivos a comentários/interações)
+      const hasCommentId = await db!.schema.hasColumn('ticket_files', 'comment_id');
+      if (!hasCommentId) {
+        await db!.schema.alterTable('ticket_files', (table) => {
+          table
+            .uuid('comment_id')
+            .nullable()
+            .references('id')
+            .inTable('comments')
+            .onDelete('CASCADE');
+        });
+        console.log('✅ Added comment_id column to ticket_files table');
+      }
     }
 
     const hasCommentsTable = await db!.schema.hasTable('comments');

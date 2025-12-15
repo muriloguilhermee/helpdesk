@@ -403,16 +403,18 @@ export const createTicket = async (data: CreateTicketData) => {
 
     const { queueId } = await resolveQueueId(db, data.queueId);
 
-    // Generate ticket ID baseado no MAIOR ID já existente (evita duplicar quando há buracos)
-    const lastTicket = await db('tickets')
-      .select('id')
-      .orderBy('id', 'desc')
+    // Gerar ID numérico incremental usando MAX(CAST(id AS INTEGER))
+    const maxResult = await db('tickets')
+      .max<{ maxId: string | number | null }>(db.raw('CAST(id AS INTEGER) as maxId'))
       .first();
 
-    const lastNumericId = lastTicket ? parseInt(String(lastTicket.id), 10) || 0 : 0;
+    const lastNumericId = maxResult && maxResult.maxId != null
+      ? Number(maxResult.maxId) || 0
+      : 0;
+
     const nextId = String(lastNumericId + 1).padStart(5, '0');
 
-    console.log('🆔 Último ID:', lastTicket?.id, '→ Próximo ID do ticket:', nextId);
+    console.log('🆔 Último ID numérico:', lastNumericId, '→ Próximo ID do ticket:', nextId);
 
     const insertResult = await db('tickets')
       .insert({

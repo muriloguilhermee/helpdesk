@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 80" width="200" height="80">
   <!-- Nuvem base (camada mais escura) -->
   <path d="M 20 50 Q 10 50 10 40 Q 10 30 20 30 Q 25 20 35 20 Q 45 20 50 30 Q 60 20 70 20 Q 80 20 85 30 Q 95 20 105 20 Q 115 20 120 30 Q 130 20 140 20 Q 150 20 155 30 Q 165 20 175 20 Q 185 20 190 30 Q 190 40 180 40 Q 190 50 180 50 Q 190 60 180 60 L 20 60 Q 10 60 10 50 Z" fill="#1e3a8a" opacity="0.9"/>
-  
+
   <!-- Nuvem camada média -->
   <path d="M 30 45 Q 20 45 20 35 Q 20 25 30 25 Q 35 15 45 15 Q 55 15 60 25 Q 70 15 80 15 Q 90 15 95 25 Q 105 15 115 15 Q 125 15 130 25 Q 140 15 150 15 Q 160 15 165 25 Q 175 15 185 15 Q 195 15 200 25 Q 200 35 190 35 Q 200 45 190 45 Q 200 55 190 55 L 30 55 Q 20 55 20 45 Z" fill="#3b82f6" opacity="0.8"/>
-  
+
   <!-- Nuvem camada clara (destaque) -->
   <path d="M 40 40 Q 30 40 30 30 Q 30 20 40 20 Q 45 10 55 10 Q 65 10 70 20 Q 80 10 90 10 Q 100 10 105 20 Q 115 10 125 10 Q 135 10 140 20 Q 150 10 160 10 Q 170 10 175 20 Q 185 10 195 10 Q 200 10 200 20 Q 200 30 190 30 Q 200 40 190 40 Q 200 50 190 50 L 40 50 Q 30 50 30 40 Z" fill="#60a5fa" opacity="0.7"/>
-  
+
   <!-- Nuvem pequena à esquerda -->
   <circle cx="25" cy="35" r="8" fill="#60a5fa" opacity="0.9"/>
   <circle cx="22" cy="32" r="6" fill="#93c5fd" opacity="0.8"/>
-  
+
   <!-- Texto "eva" -->
   <text x="100" y="45" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="white" text-anchor="middle" letter-spacing="2">eva</text>
 </svg>

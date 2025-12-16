@@ -163,19 +163,25 @@ export default function Dashboard() {
 
         // 1. Total: Todos os chamados que estão na fila N2 OU que passaram pela fila N2
         const ticketsN2 = tickets.filter(t => {
-          const queueName = t.queue?.toLowerCase() || '';
+          const queueName = (t.queue || '').toLowerCase();
           const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
 
           // Verificar se já passou pela fila N2 (mesmo que tenha sido transferido de volta)
           const hasBeenInN2 = t.interactions?.some((interaction) => {
             if (interaction.type === 'queue_transfer') {
-              const toQueue = interaction.metadata?.toQueue?.toLowerCase() || '';
+              const toQueue = (interaction.metadata?.toQueue || '').toLowerCase();
               return toQueue.includes('suporte n2') || toQueue.includes('n2');
             }
             return false;
           });
 
-          return isInN2Queue || hasBeenInN2;
+          const isN2Ticket = isInN2Queue || hasBeenInN2;
+
+          if (isN2Ticket) {
+            console.log(`  📋 Ticket ${t.id}: queue="${t.queue}", status="${t.status}", assignedTo="${t.assignedTo?.name || 'N/A'}"`);
+          }
+
+          return isN2Ticket;
         });
 
         console.log(`🔍 Técnico N2 ${tech.name}: Total de tickets que passaram pela fila N2: ${ticketsN2.length}`);
@@ -217,7 +223,7 @@ export default function Dashboard() {
           const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
           const isNotResolved = !resolvidos.some(r => r.id === t.id);
           const isInProgress = t.status === 'em_andamento' || t.status === 'em_atendimento' || t.status === 'aberto' || t.status === 'pendente';
-          
+
           // Se está atribuído ao N2, na fila N2, não resolvido e não está fechado/resolvido
           return isAssignedToN2 && isInN2Queue && isNotResolved && isInProgress && t.status !== 'fechado' && t.status !== 'resolvido';
         });
@@ -231,7 +237,7 @@ export default function Dashboard() {
           const isNotAssigned = !t.assignedTo;
           const isNotResolved = !resolvidos.some(r => r.id === t.id);
           const isOpen = t.status === 'aberto' || t.status === 'pendente';
-          
+
           // Se está na fila N2, não atribuído, não resolvido e está aberto/pendente
           return isInN2Queue && isNotResolved && isOpen && isNotAssigned;
         });

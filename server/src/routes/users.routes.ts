@@ -19,8 +19,25 @@ router.get('/', authorize('admin'), getAllUsersController);
 // Get user by ID
 router.get('/:id', getUserByIdController);
 
-// Create user (admin only)
-router.post('/', authorize('admin'), createUserController);
+// Create user (admin ou técnico - técnicos só podem criar clientes)
+router.post('/', (req, res, next) => {
+  const authReq = req as any;
+  // Admin pode criar qualquer tipo de usuário
+  if (authReq.user?.role === 'admin') {
+    return createUserController(authReq, res);
+  }
+  // Técnicos só podem criar clientes (role 'user')
+  if (authReq.user?.role === 'technician' || authReq.user?.role === 'technician_n2') {
+    // Verificar se está tentando criar um cliente
+    if (req.body.role === 'user' || !req.body.role) {
+      // Garantir que o role seja 'user' para técnicos
+      req.body.role = 'user';
+      return createUserController(authReq, res);
+    }
+    return res.status(403).json({ error: 'Técnicos só podem criar clientes' });
+  }
+  res.status(403).json({ error: 'Acesso negado' });
+});
 
 // Update user (admin or self)
 router.put('/:id', (req, res, next) => {

@@ -126,6 +126,55 @@ export default function NewTicket() {
     setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
   };
 
+  const handleCreateClient = async () => {
+    if (!newClient.name || !newClient.email) {
+      alert('Por favor, preencha nome e email do cliente.');
+      return;
+    }
+
+    // Validar email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(newClient.email)) {
+      alert('Por favor, insira um email válido.');
+      return;
+    }
+
+    setIsCreatingClient(true);
+
+    try {
+      // Gerar senha temporária (o cliente pode redefinir depois)
+      const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
+      
+      const createdUser = await api.createUser({
+        name: newClient.name,
+        email: newClient.email.toLowerCase().trim(),
+        password: tempPassword,
+        role: 'user',
+        company: newClient.company || undefined,
+      });
+
+      // Adicionar o novo cliente à lista
+      const newClientUser: User = {
+        id: createdUser.id,
+        name: createdUser.name,
+        email: createdUser.email,
+        role: 'user',
+        avatar: createdUser.avatar,
+        company: createdUser.company,
+      };
+
+      setAllClients([...allClients, newClientUser]);
+      setSelectedClientId(createdUser.id);
+      setShowNewClientModal(false);
+      setNewClient({ name: '', email: '', company: '' });
+    } catch (error: any) {
+      console.error('Erro ao criar cliente:', error);
+      alert(error.message || 'Erro ao criar cliente. Tente novamente.');
+    } finally {
+      setIsCreatingClient(false);
+    }
+  };
+
   const convertFileToTicketFile = async (file: File, index: number): Promise<TicketFile> => {
     // Em produção, aqui você faria upload para o servidor
     // Por enquanto, vamos converter para base64 para demonstração
@@ -490,6 +539,98 @@ export default function NewTicket() {
           </div>
         </div>
       </form>
+
+      {/* Modal de Cadastro de Novo Cliente */}
+      {showNewClientModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Cadastrar Novo Cliente</h2>
+              <button
+                onClick={() => {
+                  setShowNewClientModal(false);
+                  setNewClient({ name: '', email: '', company: '' });
+                }}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Nome <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newClient.name}
+                  onChange={(e) => setNewClient({ ...newClient, name: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="Nome completo do cliente"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Email <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={newClient.email}
+                  onChange={(e) => setNewClient({ ...newClient, email: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="email@exemplo.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Empresa
+                </label>
+                <input
+                  type="text"
+                  value={newClient.company}
+                  onChange={(e) => setNewClient({ ...newClient, company: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="Nome da empresa (opcional)"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4">
+              <button
+                onClick={() => {
+                  setShowNewClientModal(false);
+                  setNewClient({ name: '', email: '', company: '' });
+                }}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                disabled={isCreatingClient}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateClient}
+                disabled={isCreatingClient}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                {isCreatingClient ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Criando...
+                  </>
+                ) : (
+                  <>
+                    <UserPlus className="w-4 h-4" />
+                    Cadastrar
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

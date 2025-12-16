@@ -589,11 +589,16 @@ export default function TicketDetails() {
 
         // Se o técnico N2 enviar para N1, registrar como "Retorno N2"
         let finalQueueName = selectedName;
-        if (user?.role === 'technician_n2') {
-          const nameLower = selectedName.toLowerCase();
-          if (nameLower.includes('suporte n1') || nameLower.includes('n1')) {
-            finalQueueName = 'Retorno N2';
-          }
+        const nameLower = selectedName.toLowerCase();
+
+        // Qualquer direção para N2 deve cair em "Suporte N2"
+        if (nameLower.includes('suporte n2') || nameLower.includes('n2')) {
+          finalQueueName = 'Suporte N2';
+        }
+
+        // Se N2 enviar para N1, cai em "Retorno N2"
+        if (user?.role === 'technician_n2' && (nameLower.includes('suporte n1') || nameLower.includes('n1'))) {
+          finalQueueName = 'Retorno N2';
         }
 
         const queueIdForApi =

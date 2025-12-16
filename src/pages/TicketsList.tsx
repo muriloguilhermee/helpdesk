@@ -184,6 +184,7 @@ export default function TicketsList() {
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Valor total</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Cliente</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Técnico</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Fila</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300">Status</th>
                 <th className="text-right py-3 px-4 text-sm font-medium text-gray-700 dark:text-gray-300"></th>
               </tr>
@@ -191,7 +192,7 @@ export default function TicketsList() {
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
               {filteredTickets.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <td colSpan={9} className="text-center py-12 text-gray-500 dark:text-gray-400">
                     Nenhum chamado encontrado
                   </td>
                 </tr>
@@ -250,6 +251,15 @@ export default function TicketsList() {
                           </div>
                         ) : (
                           <span className="text-sm text-gray-400 dark:text-gray-500">Não atribuído</span>
+                        )}
+                      </td>
+                      <td className="py-4 px-4">
+                        {ticket.queue ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400">
+                            {ticket.queue}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-gray-400 dark:text-gray-500">Sem fila</span>
                         )}
                       </td>
                       <td className="py-4 px-4">

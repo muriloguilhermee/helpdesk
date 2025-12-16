@@ -307,13 +307,16 @@ export default function TicketDetails() {
           }
 
           // Se o arquivo não tiver nome, gerar um nome baseado na data/hora
-          let fileToAdd = file;
+          let fileToAdd: File = file;
           if (!file.name || file.name === 'image.png' || file.name === 'blob') {
             const extension = file.type.split('/')[1] || 'png';
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-            // Criar um novo arquivo com o nome customizado
-            const blob = file.slice(0, file.size, file.type);
-            fileToAdd = new File([blob], `print-${timestamp}.${extension}`, { type: file.type });
+            // Criar um novo arquivo com o nome customizado usando Object.assign
+            const blob = file.slice(0, file.size, file.type) as Blob;
+            fileToAdd = Object.assign(blob, {
+              name: `print-${timestamp}.${extension}`,
+              lastModified: Date.now(),
+            }) as File;
           }
           setReplyFiles([...replyFiles, fileToAdd]);
 

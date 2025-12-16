@@ -17,6 +17,9 @@ dotenv.config();
 const app = express();
 const PORT = Number(process.env.PORT) || 3001;
 
+// Trust proxy - necessário para rate limiting funcionar corretamente no Render
+app.set('trust proxy', true);
+
 // ============================================
 // CORS - ABSOLUTAMENTE PRIMEIRO (CRÍTICO!)
 // ============================================

@@ -17,6 +17,7 @@ router.use(authenticate);
 // IMPORTANTE: Rota específica deve vir ANTES de rota com parâmetro
 router.get('/', (req, res, next) => {
   const authReq = req as any;
+  console.log('📥 GET /api/users - Requisição recebida');
   console.log('🔍 GET /users - Usuário completo:', JSON.stringify(authReq.user));
   console.log('🔍 GET /users - Role do usuário:', authReq.user?.role);
   console.log('🔍 GET /users - Tipo do role:', typeof authReq.user?.role);
@@ -28,9 +29,9 @@ router.get('/', (req, res, next) => {
 
   // Normalizar o role (remover espaços e converter para lowercase para comparação)
   const userRole = String(authReq.user.role || '').trim().toLowerCase();
-  const isAllowed = 
-    userRole === 'admin' || 
-    userRole === 'technician' || 
+  const isAllowed =
+    userRole === 'admin' ||
+    userRole === 'technician' ||
     userRole === 'technician_n2';
 
   console.log('🔍 GET /users - Role normalizado:', userRole);
@@ -50,6 +51,7 @@ router.get('/:id', getUserByIdController);
 // Create user (admin ou técnico - técnicos só podem criar clientes)
 router.post('/', (req, res, next) => {
   const authReq = req as any;
+  console.log('📥 POST /api/users - Requisição recebida');
   console.log('🔍 POST /users - Usuário completo:', JSON.stringify(authReq.user));
   console.log('🔍 POST /users - Role do usuário:', authReq.user?.role, 'Body:', req.body);
 

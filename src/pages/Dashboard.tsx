@@ -157,35 +157,168 @@ export default function Dashboard() {
     }> = {};
 
     technicians.forEach((tech) => {
-      // Buscar todos os tickets atribuídos a este técnico (sem filtro de role)
-      const techTickets = tickets.filter(t => t.assignedTo?.id === tech.id);
-
-      const resolvidos = techTickets.filter(t => t.status === 'resolvido');
-      const emAndamento = techTickets.filter(t => t.status === 'em_andamento');
-      const abertos = techTickets.filter(t => t.status === 'aberto');
-
-      // Calcular tempo médio de resolução (em dias)
-      let tempoMedio = 0;
-      if (resolvidos.length > 0) {
-        const tempos: number[] = [];
-        resolvidos.forEach(ticket => {
-          const createdAt = ticket.createdAt instanceof Date ? ticket.createdAt : new Date(ticket.createdAt);
-          const updatedAt = ticket.updatedAt instanceof Date ? ticket.updatedAt : new Date(ticket.updatedAt);
-          const diffMs = updatedAt.getTime() - createdAt.getTime();
-          const diffDays = diffMs / (1000 * 60 * 60 * 24);
-          tempos.push(diffDays);
+      if (tech.role === 'technician_n2') {
+        // Lógica especial para técnicos N2
+        // N2 recebe chamados via transferência do N1 e pode transferir de volta
+        
+        // 1. Total: Todos os chamados que passaram pela fila N2 (atribuídos ou não)
+        const ticketsN2 = tickets.filter(t => {
+          const queueName = t.queue?.toLowerCase() || '';
+          const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
+          
+          // Verificar se já passou pela fila N2 (mesmo que tenha sido transferido de volta)
+          const hasBeenInN2 = t.interactions?.some((interaction) => {
+            if (interaction.type === 'queue_transfer') {
+              const toQueue = interaction.metadata?.toQueue?.toLowerCase() || '';
+              return toQueue.includes('suporte n2') || toQueue.includes('n2');
+            }
+            return false;
+          });
+          
+          return isInN2Queue || hasBeenInN2;
         });
-        tempoMedio = tempos.reduce((a, b) => a + b, 0) / tempos.length;
-      }
 
-      performance[tech.id] = {
-        total: techTickets.length,
-        resolvidos: resolvidos.length,
-        emAndamento: emAndamento.length,
-        abertos: abertos.length,
-        taxaResolucao: techTickets.length > 0 ? (resolvidos.length / techTickets.length) * 100 : 0,
-        tempoMedioResolucao: tempoMedio,
-      };
+        // 2. Resolvidos: Chamados que foram:
+        //    - Fechados/resolvidos pelo N2
+        //    - Transferidos de volta para N1 (Retorno N2) - conta como resolvido pelo N2
+        const resolvidos = ticketsN2.filter(t => {
+          // Se está fechado ou resolvido
+          if (t.status === 'resolvido' || t.status === 'fechado') {
+            return true;
+          }
+          
+          // Se foi transferido de N2 para N1 (Retorno N2)
+          const transferredToN1 = t.interactions?.some((interaction) => {
+            if (interaction.type === 'queue_transfer') {
+              const fromQueue = interaction.metadata?.fromQueue?.toLowerCase() || '';
+              const toQueue = interaction.metadata?.toQueue?.toLowerCase() || '';
+              const fromN2 = fromQueue.includes('suporte n2') || fromQueue.includes('n2');
+              const toN1 = toQueue.includes('suporte n1') || toQueue.includes('retorno n2') || toQueue.includes('n1');
+              return fromN2 && toN1;
+            }
+            return false;
+          });
+          
+          return transferredToN1;
+        });
+
+        // 3. Em Andamento: Chamados na fila N2 atribuídos ao N2, mas não resolvidos nem transferidos
+        const emAndamento = ticketsN2.filter(t => {
+          const isAssignedToN2 = t.assignedTo?.id === tech.id;
+          const queueName = t.queue?.toLowerCase() || '';
+          const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
+          const isNotResolved = !resolvidos.some(r => r.id === t.id);
+          return isAssignedToN2 && isInN2Queue && (t.status === 'em_andamento' || t.status === 'em_atendimento') && isNotResolved;
+        });
+
+        // 4. Abertos: Chamados na fila N2 mas não atribuídos
+        const abertos = ticketsN2.filter(t => {
+          const queueName = t.queue?.toLowerCase() || '';
+          const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
+          const isNotAssigned = !t.assignedTo;
+          const isNotResolved = !resolvidos.some(r => r.id === t.id);
+          return isInN2Queue && isNotAssigned && (t.status === 'aberto' || t.status === 'pendente') && isNotResolved;
+        });
+
+        // Calcular tempo médio de resolução (em dias)
+        // Considerar apenas chamados que foram realmente resolvidos (fechados ou transferidos de volta)
+        let tempoMedio = 0;
+        if (resolvidos.length > 0) {
+          const tempos: number[] = [];
+          resolvidos.forEach(ticket => {
+            // Encontrar quando chegou na fila N2
+            let n2ArrivalDate: Date | null = null;
+            const n2Transfer = ticket.interactions?.find((interaction) => {
+              if (interaction.type === 'queue_transfer') {
+                const toQueue = interaction.metadata?.toQueue?.toLowerCase() || '';
+                return toQueue.includes('suporte n2') || toQueue.includes('n2');
+              }
+              return false;
+            });
+            
+            if (n2Transfer) {
+              n2ArrivalDate = n2Transfer.createdAt instanceof Date ? n2Transfer.createdAt : new Date(n2Transfer.createdAt);
+            } else {
+              // Se não encontrou transferência, usar data de criação do ticket
+              n2ArrivalDate = ticket.createdAt instanceof Date ? ticket.createdAt : new Date(ticket.createdAt);
+            }
+            
+            // Encontrar quando foi resolvido (fechado ou transferido de volta)
+            let resolutionDate: Date | null = null;
+            if (ticket.status === 'resolvido' || ticket.status === 'fechado') {
+              resolutionDate = ticket.updatedAt instanceof Date ? ticket.updatedAt : new Date(ticket.updatedAt);
+            } else {
+              // Foi transferido de volta para N1
+              const returnTransfer = ticket.interactions?.find((interaction) => {
+                if (interaction.type === 'queue_transfer') {
+                  const fromQueue = interaction.metadata?.fromQueue?.toLowerCase() || '';
+                  const toQueue = interaction.metadata?.toQueue?.toLowerCase() || '';
+                  const fromN2 = fromQueue.includes('suporte n2') || fromQueue.includes('n2');
+                  const toN1 = toQueue.includes('suporte n1') || toQueue.includes('retorno n2') || toQueue.includes('n1');
+                  return fromN2 && toN1;
+                }
+                return false;
+              });
+              
+              if (returnTransfer) {
+                resolutionDate = returnTransfer.createdAt instanceof Date ? returnTransfer.createdAt : new Date(returnTransfer.createdAt);
+              }
+            }
+            
+            if (n2ArrivalDate && resolutionDate) {
+              const diffMs = resolutionDate.getTime() - n2ArrivalDate.getTime();
+              const diffDays = diffMs / (1000 * 60 * 60 * 24);
+              if (diffDays > 0) {
+                tempos.push(diffDays);
+              }
+            }
+          });
+          
+          if (tempos.length > 0) {
+            tempoMedio = tempos.reduce((a, b) => a + b, 0) / tempos.length;
+          }
+        }
+
+        performance[tech.id] = {
+          total: ticketsN2.length,
+          resolvidos: resolvidos.length,
+          emAndamento: emAndamento.length,
+          abertos: abertos.length,
+          taxaResolucao: ticketsN2.length > 0 ? (resolvidos.length / ticketsN2.length) * 100 : 0,
+          tempoMedioResolucao: tempoMedio,
+        };
+      } else {
+        // Lógica padrão para técnicos N1
+        // Buscar todos os tickets atribuídos a este técnico
+        const techTickets = tickets.filter(t => t.assignedTo?.id === tech.id);
+
+        const resolvidos = techTickets.filter(t => t.status === 'resolvido' || t.status === 'fechado');
+        const emAndamento = techTickets.filter(t => t.status === 'em_andamento' || t.status === 'em_atendimento');
+        const abertos = techTickets.filter(t => t.status === 'aberto' || t.status === 'pendente');
+
+        // Calcular tempo médio de resolução (em dias)
+        let tempoMedio = 0;
+        if (resolvidos.length > 0) {
+          const tempos: number[] = [];
+          resolvidos.forEach(ticket => {
+            const createdAt = ticket.createdAt instanceof Date ? ticket.createdAt : new Date(ticket.createdAt);
+            const updatedAt = ticket.updatedAt instanceof Date ? ticket.updatedAt : new Date(ticket.updatedAt);
+            const diffMs = updatedAt.getTime() - createdAt.getTime();
+            const diffDays = diffMs / (1000 * 60 * 60 * 24);
+            tempos.push(diffDays);
+          });
+          tempoMedio = tempos.reduce((a, b) => a + b, 0) / tempos.length;
+        }
+
+        performance[tech.id] = {
+          total: techTickets.length,
+          resolvidos: resolvidos.length,
+          emAndamento: emAndamento.length,
+          abertos: abertos.length,
+          taxaResolucao: techTickets.length > 0 ? (resolvidos.length / techTickets.length) * 100 : 0,
+          tempoMedioResolucao: tempoMedio,
+        };
+      }
     });
 
     setTechnicianPerformance(performance);

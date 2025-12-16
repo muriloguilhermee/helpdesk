@@ -1336,7 +1336,7 @@ export default function TicketDetails() {
                   Este chamado está fechado. Apenas administradores podem reabri-lo.
                 </div>
               )}
-              {(isTechnician || isAdmin) && hasPermission('edit:ticket') && !isTechnicianFromAllTickets && 
+              {(isTechnician || isAdmin) && hasPermission('edit:ticket') && !isTechnicianFromAllTickets &&
                (ticket?.category === 'melhoria' || ticket?.category === 'integracao') && (
                 <button
                   onClick={handleOpenServiceModal}

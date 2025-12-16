@@ -425,7 +425,7 @@ export default function NewTicket() {
                     Carregando clientes...
                   </div>
                 ) : (
-                  <select
+          <select
                     id="client"
                     required
                     value={selectedClientId}
@@ -435,7 +435,7 @@ export default function NewTicket() {
                     <option value="">Selecione o cliente</option>
                     {allClients.map((client) => (
                       <option key={client.id} value={client.id}>
-                        {client.name} {client.company ? `(${client.company})` : ''}
+                {client.name}{client.company ? ` - ${client.company}` : ' - (Sem empresa)'}
                       </option>
                     ))}
                   </select>
@@ -551,7 +551,7 @@ export default function NewTicket() {
                   {selectedFiles.map((file, index) => {
                     const isImage = file.type?.startsWith('image/');
                     const objectUrl = isImage ? URL.createObjectURL(file) : null;
-                    
+
                     return (
                       <div
                         key={index}

@@ -266,8 +266,27 @@ export default function TicketDetails() {
   };
 
   const handleRemoveReplyFile = (index: number) => {
+    const fileToRemove = replyFiles[index];
+    // Limpar object URL se for uma imagem
+    if (fileToRemove && fileToRemove.type?.startsWith('image/')) {
+      const objectUrl = URL.createObjectURL(fileToRemove);
+      URL.revokeObjectURL(objectUrl);
+    }
     setReplyFiles(replyFiles.filter((_, i) => i !== index));
   };
+
+  // Limpar object URLs quando o componente desmontar ou quando os arquivos mudarem
+  useEffect(() => {
+    return () => {
+      // Limpar todos os object URLs quando o componente desmontar
+      replyFiles.forEach((file) => {
+        if (file.type?.startsWith('image/')) {
+          const objectUrl = URL.createObjectURL(file);
+          URL.revokeObjectURL(objectUrl);
+        }
+      });
+    };
+  }, []); // Apenas na desmontagem
 
   const handlePasteImage = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData.items;

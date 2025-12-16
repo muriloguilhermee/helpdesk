@@ -13,7 +13,11 @@ const router = Router();
 // All routes require authentication
 router.use(authenticate);
 
+// Get user by ID (deve vir antes de GET / para não capturar a rota)
+router.get('/:id', getUserByIdController);
+
 // Get all users (admin ou técnicos - para listar clientes)
+// IMPORTANTE: Esta rota deve vir DEPOIS de /:id para não ser capturada
 router.get('/', (req, res, next) => {
   const authReq = req as any;
   console.log('🔍 GET /users - Role do usuário:', authReq.user?.role);
@@ -24,9 +28,6 @@ router.get('/', (req, res, next) => {
   console.log('❌ Acesso negado - Role:', authReq.user?.role);
   res.status(403).json({ error: 'Acesso negado' });
 });
-
-// Get user by ID
-router.get('/:id', getUserByIdController);
 
 // Create user (admin ou técnico - técnicos só podem criar clientes)
 router.post('/', (req, res, next) => {

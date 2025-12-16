@@ -70,7 +70,31 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     return newTickets.length;
   };
 
+  const getReturnFromN2Count = () => {
+    if (user?.role !== 'technician') return 0;
+    const returns = tickets.filter((ticket) => {
+      const queueName = ticket.queue?.toLowerCase() || '';
+      const isReturnQueue = queueName.includes('retorno n2');
+      
+      // Verificar também nas interações se houve transferência de N2 para N1
+      const hasN2ToN1Transfer = ticket.interactions?.some((interaction) => {
+        if (interaction.type === 'queue_transfer') {
+          const fromQueue = interaction.metadata?.fromQueue?.toLowerCase() || '';
+          const toQueue = interaction.metadata?.toQueue?.toLowerCase() || '';
+          const fromN2 = fromQueue.includes('suporte n2') || fromQueue.includes('n2');
+          const toN1 = toQueue.includes('suporte n1') || toQueue.includes('retorno n2') || toQueue.includes('n1');
+          return fromN2 && toN1;
+        }
+        return false;
+      });
+      
+      return isReturnQueue || hasN2ToN1Transfer;
+    });
+    return returns.length;
+  };
+
   const newTicketsCount = getNewTicketsCount();
+  const returnN2Count = getReturnFromN2Count();
 
   // Filtrar itens do menu baseado em permissões e role
   const menuItems = allMenuItems.filter((item) => {

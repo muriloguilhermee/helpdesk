@@ -73,6 +73,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const getReturnFromN2Count = () => {
     if (user?.role !== 'technician') return 0;
     const returns = tickets.filter((ticket) => {
+      // Apenas chamados atribuídos ao técnico
+      const isAssignedToMe = ticket.assignedTo?.id === user.id;
+      if (!isAssignedToMe) return false;
+      
       const queueName = ticket.queue?.toLowerCase() || '';
       const isReturnQueue = queueName.includes('retorno n2');
       

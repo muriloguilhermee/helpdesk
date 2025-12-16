@@ -21,9 +21,14 @@ export default function ReturnFromN2() {
     );
   }
 
-  // Filtra chamados que voltaram do N2
+  // Filtra chamados que voltaram do N2 e estão atribuídos ao técnico N1
   // Verifica se está na fila "Retorno N2" OU se foi transferido de N2 para N1
+  // E se está atribuído ao técnico logado
   const retornoTickets = tickets.filter((ticket) => {
+    // Primeiro verificar se está atribuído ao técnico
+    const isAssignedToMe = ticket.assignedTo?.id === user?.id;
+    if (!isAssignedToMe) return false;
+    
     const queueName = ticket.queue?.toLowerCase() || '';
     const isReturnQueue = queueName.includes('retorno n2');
     
@@ -44,8 +49,7 @@ export default function ReturnFromN2() {
       return false;
     });
     
-    // Mostrar chamados na fila "Retorno N2" ou que foram transferidos de N2 para N1
-    // Incluir todos os status, não apenas pendentes, para ver o histórico completo
+    // Mostrar apenas chamados atribuídos ao técnico que estão na fila "Retorno N2" ou foram transferidos de N2 para N1
     return isReturnQueue || hasN2ToN1Transfer;
   });
 

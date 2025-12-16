@@ -26,16 +26,21 @@ router.get('/', (req, res, next) => {
     return res.status(401).json({ error: 'Não autenticado' });
   }
 
-  const userRole = authReq.user.role;
-  const isAllowed = userRole === 'admin' || userRole === 'technician' || userRole === 'technician_n2';
+  // Normalizar o role (remover espaços e converter para lowercase para comparação)
+  const userRole = String(authReq.user.role || '').trim().toLowerCase();
+  const isAllowed = 
+    userRole === 'admin' || 
+    userRole === 'technician' || 
+    userRole === 'technician_n2';
 
-  console.log('🔍 GET /users - Permissão:', isAllowed, 'Role:', userRole);
+  console.log('🔍 GET /users - Role normalizado:', userRole);
+  console.log('🔍 GET /users - Permissão:', isAllowed, 'Role original:', authReq.user?.role);
 
   if (isAllowed) {
     console.log('✅ Permissão concedida para listar usuários');
     return getAllUsersController(authReq, res);
   }
-  console.log('❌ Acesso negado - Role:', userRole);
+  console.log('❌ Acesso negado - Role:', userRole, 'Role original:', authReq.user?.role);
   res.status(403).json({ error: 'Acesso negado' });
 });
 
@@ -53,7 +58,9 @@ router.post('/', (req, res, next) => {
     return res.status(401).json({ error: 'Não autenticado' });
   }
 
-  const userRole = authReq.user.role;
+  // Normalizar o role (remover espaços e converter para lowercase para comparação)
+  const userRole = String(authReq.user.role || '').trim().toLowerCase();
+  console.log('🔍 POST /users - Role normalizado:', userRole, 'Role original:', authReq.user?.role);
 
   // Admin pode criar qualquer tipo de usuário
   if (userRole === 'admin') {
@@ -75,7 +82,7 @@ router.post('/', (req, res, next) => {
     return res.status(403).json({ error: 'Técnicos só podem criar clientes' });
   }
 
-  console.log('❌ Acesso negado - Role:', userRole);
+  console.log('❌ Acesso negado - Role normalizado:', userRole, 'Role original:', authReq.user?.role);
   res.status(403).json({ error: 'Acesso negado' });
 });
 

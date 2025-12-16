@@ -307,14 +307,15 @@ export default function TicketDetails() {
           }
 
           // Se o arquivo não tiver nome, gerar um nome baseado na data/hora
+          let fileToAdd = file;
           if (!file.name || file.name === 'image.png' || file.name === 'blob') {
             const extension = file.type.split('/')[1] || 'png';
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-            const newFile = new File([file], `print-${timestamp}.${extension}`, { type: file.type });
-            setReplyFiles([...replyFiles, newFile]);
-          } else {
-            setReplyFiles([...replyFiles, file]);
+            // Criar um novo arquivo com o nome customizado
+            const blob = file.slice(0, file.size, file.type);
+            fileToAdd = new File([blob], `print-${timestamp}.${extension}`, { type: file.type });
           }
+          setReplyFiles([...replyFiles, fileToAdd]);
 
           // Mostrar mensagem de sucesso
           setSuccessMessage('Imagem colada com sucesso!');

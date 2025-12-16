@@ -14,22 +14,22 @@ export default function PendingTickets() {
   const navigate = useNavigate();
 
   // Filtrar apenas chamados pendentes ou abertos
-  // Técnicos N2 veem APENAS chamados pendentes na fila "Suporte N2"
-  // Técnicos normais veem chamados pendentes atribuídos a eles ou não atribuídos
+  // Técnicos N2 veem APENAS chamados pendentes na fila "Suporte N2" e não atribuídos
+  // Técnicos normais veem APENAS chamados pendentes NÃO atribuídos (chamados atribuídos vão para "Meus Chamados")
   const pendingTickets = tickets.filter((ticket) => {
     const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
+    const isNotAssigned = !ticket.assignedTo;
 
     if (user?.role === 'technician_n2') {
-      // Técnicos N2 veem APENAS chamados pendentes na fila "Suporte N2"
+      // Técnicos N2 veem APENAS chamados pendentes na fila "Suporte N2" e não atribuídos
       const queueName = ticket.queue || '';
       const isInN2Queue = queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
-      return isPending && isInN2Queue;
+      return isPending && isInN2Queue && isNotAssigned;
     }
 
-    // Técnicos normais veem chamados pendentes atribuídos a eles ou não atribuídos
-    const isAssignedToMe = ticket.assignedTo?.id === user?.id;
-    const isNotAssigned = !ticket.assignedTo;
-    return isPending && (isAssignedToMe || isNotAssigned);
+    // Técnicos normais veem APENAS chamados pendentes NÃO atribuídos
+    // Chamados atribuídos aparecem apenas em "Meus Chamados"
+    return isPending && isNotAssigned;
   });
 
   const filteredTickets = pendingTickets;
@@ -54,7 +54,7 @@ export default function PendingTickets() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-gray-100">Novos Chamados</h1>
-          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Chamados novos ou atribuídos a você</p>
+          <p className="text-sm sm:text-base text-gray-600 dark:text-gray-400 mt-1">Chamados novos não atribuídos</p>
         </div>
       </div>
 
@@ -78,17 +78,6 @@ export default function PendingTickets() {
               </p>
             </div>
             <Clock className="w-8 h-8 text-orange-600" />
-          </div>
-        </div>
-        <div className="card dark:bg-gray-800 dark:border-gray-700">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Atribuídos a Você</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 mt-1">
-                {pendingTickets.filter(t => t.assignedTo?.id === user?.id).length}
-              </p>
-            </div>
-            <CheckCircle className="w-8 h-8 text-green-600" />
           </div>
         </div>
       </div>
@@ -230,31 +219,18 @@ export default function PendingTickets() {
                       </td>
                       <td className="py-5 px-4">
                         <div className="flex items-center justify-end gap-2">
-                          {isNotAssigned && (
-                            <button
-                              onClick={() => handleAcceptTicket(ticket.id)}
-                              className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm hover:shadow-md"
-                            >
-                              Aceitar
-                            </button>
-                          )}
-                          {isAssignedToMe && (
-                            <>
-                              <button
-                                onClick={() => navigate(`/tickets/${ticket.id}`)}
-                                className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
-                              >
-                                Ver Detalhes
-                              </button>
-                              <button
-                                onClick={() => handleCloseTicket(ticket.id)}
-                                className="px-4 py-2 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1.5 shadow-sm hover:shadow-md"
-                              >
-                                <CheckCircle className="w-4 h-4" />
-                                Fechar
-                              </button>
-                            </>
-                          )}
+                          <button
+                            onClick={() => handleAcceptTicket(ticket.id)}
+                            className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors shadow-sm hover:shadow-md"
+                          >
+                            Aceitar
+                          </button>
+                          <button
+                            onClick={() => navigate(`/tickets/${ticket.id}`)}
+                            className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm hover:shadow-md"
+                          >
+                            Ver Detalhes
+                          </button>
                         </div>
                       </td>
                     </tr>

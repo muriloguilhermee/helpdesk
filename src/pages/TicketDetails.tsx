@@ -1117,7 +1117,7 @@ export default function TicketDetails() {
                                   {interaction.content}
                                 </p>
                               ) : interaction.type === 'user' && !isSystem && !isTransfer ? (
-                                <p className="text-blue-700 dark:text-blue-300 whitespace-pre-wrap">{interaction.content}</p>
+                                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>
                               ) : (
                                 <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>
                               )}

@@ -133,6 +133,46 @@ export default function NewTicket() {
     setSelectedFiles(selectedFiles.filter((_, i) => i !== index));
   };
 
+  const handlePasteImage = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData.items;
+    
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      
+      // Verificar se é uma imagem
+      if (item.type.indexOf('image') !== -1) {
+        e.preventDefault();
+        
+        const file = item.getAsFile();
+        if (file) {
+          // Verificar se já não excedeu o limite de 10 arquivos
+          if (selectedFiles.length >= 10) {
+            alert('Limite de 10 arquivos atingido. Remova alguns arquivos antes de adicionar mais.');
+            return;
+          }
+          
+          // Se o arquivo não tiver nome, gerar um nome baseado na data/hora
+          let fileToAdd: File = file;
+          if (!file.name || file.name === 'image.png' || file.name === 'blob') {
+            const extension = file.type.split('/')[1] || 'png';
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            // Criar um novo arquivo com o nome customizado usando Object.assign
+            const blob = file.slice(0, file.size, file.type) as Blob;
+            fileToAdd = Object.assign(blob, {
+              name: `print-${timestamp}.${extension}`,
+              lastModified: Date.now(),
+            }) as File;
+          }
+          setSelectedFiles([...selectedFiles, fileToAdd]);
+          
+          // Mostrar mensagem de sucesso
+          setSuccessMessage('Imagem colada com sucesso!');
+          setTimeout(() => setSuccessMessage(''), 2000);
+        }
+      }
+    }
+  };
+
   const handleCreateClient = async () => {
     if (!newClient.name || !newClient.email) {
       alert('Por favor, preencha nome e email do cliente.');
@@ -180,14 +220,14 @@ export default function NewTicket() {
     } catch (error: any) {
       console.error('❌ Erro ao criar cliente:', error);
       console.error('Status:', error.status, 'Mensagem:', error.message);
-      
+
       let errorMessage = error.message || 'Erro ao criar cliente. Tente novamente.';
-      
+
       // Mensagem específica para erro 403
       if (error.status === 403) {
         errorMessage = 'Acesso negado. Seu token pode estar desatualizado. Por favor, faça logout e login novamente.';
       }
-      
+
       alert(errorMessage);
     } finally {
       setIsCreatingClient(false);
@@ -414,8 +454,9 @@ export default function NewTicket() {
               rows={6}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onPaste={handlePasteImage}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-              placeholder="Descreva o problema em detalhes..."
+              placeholder="Descreva o problema em detalhes... (Você pode colar imagens com Ctrl+V)"
             />
           </div>
 

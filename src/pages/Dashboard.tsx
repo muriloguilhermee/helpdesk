@@ -191,9 +191,18 @@ export default function Dashboard() {
     setTechnicianPerformance(performance);
   }, [technicians, tickets]);
 
-  // Ordenar técnicos por performance (mais resolvidos primeiro)
-  const sortedTechnicians = useMemo(() => {
-    return [...technicians].sort((a, b) => {
+  // Separar técnicos N1 e N2
+  const techniciansN1 = useMemo(() => {
+    return technicians.filter(tech => tech.role === 'technician');
+  }, [technicians]);
+
+  const techniciansN2 = useMemo(() => {
+    return technicians.filter(tech => tech.role === 'technician_n2');
+  }, [technicians]);
+
+  // Ordenar técnicos N1 por performance (mais resolvidos primeiro)
+  const sortedTechniciansN1 = useMemo(() => {
+    return [...techniciansN1].sort((a, b) => {
       const perfA = technicianPerformance[a.id];
       const perfB = technicianPerformance[b.id];
       if (!perfA && !perfB) return 0;
@@ -201,7 +210,19 @@ export default function Dashboard() {
       if (!perfB) return -1;
       return perfB.resolvidos - perfA.resolvidos;
     });
-  }, [technicians, technicianPerformance]);
+  }, [techniciansN1, technicianPerformance]);
+
+  // Ordenar técnicos N2 por performance (mais resolvidos primeiro)
+  const sortedTechniciansN2 = useMemo(() => {
+    return [...techniciansN2].sort((a, b) => {
+      const perfA = technicianPerformance[a.id];
+      const perfB = technicianPerformance[b.id];
+      if (!perfA && !perfB) return 0;
+      if (!perfA) return 1;
+      if (!perfB) return -1;
+      return perfB.resolvidos - perfA.resolvidos;
+    });
+  }, [techniciansN2, technicianPerformance]);
 
   return (
     <div className="space-y-6">

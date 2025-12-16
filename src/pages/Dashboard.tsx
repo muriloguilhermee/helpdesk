@@ -216,25 +216,27 @@ export default function Dashboard() {
           const queueName = t.queue?.toLowerCase() || '';
           const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
           const isNotResolved = !resolvidos.some(r => r.id === t.id);
-          const isInProgress = t.status === 'em_andamento' || t.status === 'em_atendimento';
+          const isInProgress = t.status === 'em_andamento' || t.status === 'em_atendimento' || t.status === 'aberto' || t.status === 'pendente';
           
-          return isAssignedToN2 && isInN2Queue && isInProgress && isNotResolved;
+          // Se está atribuído ao N2, na fila N2, não resolvido e não está fechado/resolvido
+          return isAssignedToN2 && isInN2Queue && isNotResolved && isInProgress && t.status !== 'fechado' && t.status !== 'resolvido';
         });
 
-        console.log(`🔄 Em Andamento: ${emAndamento.length}`);
+        console.log(`🔄 Em Andamento: ${emAndamento.length}`, emAndamento.map(t => ({ id: t.id, status: t.status, queue: t.queue, assignedTo: t.assignedTo?.name })));
 
         // 4. Abertos: Chamados na fila N2 mas não atribuídos (ou atribuídos a outros técnicos)
         const abertos = ticketsN2.filter(t => {
           const queueName = t.queue?.toLowerCase() || '';
           const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
-          const isNotAssigned = !t.assignedTo || t.assignedTo.id !== tech.id;
+          const isNotAssigned = !t.assignedTo;
           const isNotResolved = !resolvidos.some(r => r.id === t.id);
           const isOpen = t.status === 'aberto' || t.status === 'pendente';
           
+          // Se está na fila N2, não atribuído, não resolvido e está aberto/pendente
           return isInN2Queue && isNotResolved && isOpen && isNotAssigned;
         });
 
-        console.log(`📋 Abertos: ${abertos.length}`);
+        console.log(`📋 Abertos: ${abertos.length}`, abertos.map(t => ({ id: t.id, status: t.status, queue: t.queue })));
 
         // Calcular tempo médio de resolução (em dias)
         // Considerar apenas chamados que foram realmente resolvidos (fechados ou transferidos de volta)

@@ -93,10 +93,11 @@ export default function TicketsList() {
       return queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
     });
   } else if (isTechnician) {
-    // Técnicos veem apenas chamados atribuídos a eles
-    availableTickets = tickets.filter(ticket =>
-      ticket.assignedTo?.id === user.id
-    );
+    // Técnicos N1 veem apenas chamados atribuídos a eles (Meus Chamados)
+    availableTickets = tickets.filter(ticket => {
+      // Verificar se o ticket está atribuído ao técnico atual
+      return ticket.assignedTo && ticket.assignedTo.id === user.id;
+    });
   } else if (user?.role === 'user') {
     // Usuários veem chamados que eles criaram OU chamados de melhoria
     availableTickets = tickets.filter(ticket =>

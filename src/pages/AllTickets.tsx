@@ -86,10 +86,17 @@ export default function AllTickets() {
       return queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
     });
   } else if (isTechnician) {
-    // Excluir tickets atribuídos ao técnico atual
-    availableTickets = tickets.filter(ticket =>
-      !ticket.assignedTo || ticket.assignedTo.id !== user.id
-    );
+    // Técnicos N1 veem apenas chamados de OUTROS técnicos (não os atribuídos a eles)
+    // Isso evita duplicação com "Meus Chamados"
+    availableTickets = tickets.filter(ticket => {
+      // Excluir tickets atribuídos ao técnico atual
+      // Mostrar apenas tickets não atribuídos OU atribuídos a outros técnicos
+      if (!ticket.assignedTo) {
+        return true; // Mostrar tickets não atribuídos
+      }
+      // Mostrar apenas se NÃO estiver atribuído ao técnico atual
+      return ticket.assignedTo.id !== user.id;
+    });
   }
 
   const filteredTickets = availableTickets

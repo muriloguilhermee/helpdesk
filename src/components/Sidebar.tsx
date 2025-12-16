@@ -33,7 +33,7 @@ interface MenuItem {
 const allMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/', permission: 'view:dashboard', role: 'all' },
   { icon: Clock, label: 'Novos Chamados', path: '/tickets/pending', permission: 'view:pending:tickets', role: 'technician' },
-  { icon: ArrowLeftRight, label: 'Retorno N2', path: '/tickets/retorno-n2', permission: 'view:pending:tickets', role: 'technician' },
+  { icon: ArrowLeftRight, label: 'Retorno Chamados (N2)', path: '/tickets/retorno-n2', permission: 'view:pending:tickets', role: 'technician' },
   { icon: Ticket, label: 'Meus Chamados', path: '/tickets', permission: 'view:tickets', role: 'all' },
   { icon: Ticket, label: 'Todos os Chamados', path: '/tickets/all', permission: 'view:tickets', role: 'technician' },
   { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },

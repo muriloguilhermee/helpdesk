@@ -377,6 +377,79 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* Performance dos Técnicos N2 */}
+      {sortedTechniciansN2.length > 0 && (
+        <div className="card dark:bg-gray-800 dark:border-gray-700">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Award className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Performance dos Técnicos N2</h2>
+            </div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Técnico</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Total</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Resolvidos</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Em Andamento</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Abertos</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Taxa Resolução</th>
+                  <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700 dark:text-gray-300">Tempo Médio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedTechniciansN2.map((tech) => {
+                  const perf = technicianPerformance[tech.id];
+                  if (!perf) return null;
+
+                  return (
+                    <tr key={tech.id} className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <UserAvatar user={tech} size="sm" />
+                          <span className="font-medium text-gray-900 dark:text-gray-100">{tech.name}</span>
+                        </div>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className="text-gray-900 dark:text-gray-100 font-semibold">{perf.total}</span>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className="text-green-600 dark:text-green-400 font-semibold">{perf.resolvidos}</span>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className="text-orange-600 dark:text-orange-400 font-semibold">{perf.emAndamento}</span>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className="text-yellow-600 dark:text-yellow-400 font-semibold">{perf.abertos}</span>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className={`font-semibold ${
+                          perf.taxaResolucao >= 80 ? 'text-green-600 dark:text-green-400' :
+                          perf.taxaResolucao >= 50 ? 'text-yellow-600 dark:text-yellow-400' :
+                          'text-red-600 dark:text-red-400'
+                        }`}>
+                          {perf.taxaResolucao.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="text-center py-3 px-4">
+                        <span className="text-gray-700 dark:text-gray-300">
+                          {perf.tempoMedioResolucao > 0
+                            ? `${perf.tempoMedioResolucao.toFixed(1)} dias`
+                            : '-'
+                          }
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card dark:bg-gray-800 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">

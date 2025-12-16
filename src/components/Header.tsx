@@ -33,7 +33,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [passwordSuccess, setPasswordSuccess] = useState('');
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const { user, logout } = useAuth();
+  const { user, logout, hasPermission } = useAuth();
   const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
 
@@ -93,6 +93,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
     try {
       // Atualizar senha via API
+      if (!user) {
+        setPasswordError('Usuário não encontrado');
+        setIsUpdatingPassword(false);
+        return;
+      }
+      
       await api.updateUser(user.id, {
         password: newPassword,
       });

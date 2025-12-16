@@ -29,31 +29,31 @@ export default function ReturnFromN2() {
     // Primeiro verificar se está atribuído ao técnico
     const isAssignedToMe = ticket.assignedTo?.id === user?.id;
     if (!isAssignedToMe) return false;
-    
+
     // Verificar se o chamado ainda não foi tratado (não está fechado ou resolvido)
-    const isNotTreated = ticket.status !== 'fechado' && ticket.status !== 'resolvido' && ticket.status !== 'encerrado';
+    const isNotTreated = ticket.status !== 'fechado' && ticket.status !== 'resolvido';
     if (!isNotTreated) return false;
-    
+
     const queueName = ticket.queue?.toLowerCase() || '';
     const isReturnQueue = queueName.includes('retorno n2');
-    
+
     // Verificar também nas interações se houve transferência de N2 para N1
     const hasN2ToN1Transfer = ticket.interactions?.some((interaction) => {
       if (interaction.type === 'queue_transfer') {
         const fromQueue = interaction.metadata?.fromQueue?.toLowerCase() || '';
         const toQueue = interaction.metadata?.toQueue?.toLowerCase() || '';
         const content = interaction.content?.toLowerCase() || '';
-        
+
         // Verificar se foi transferido de N2 para N1 ou Retorno N2
         const fromN2 = fromQueue.includes('suporte n2') || fromQueue.includes('n2');
         const toN1 = toQueue.includes('suporte n1') || toQueue.includes('retorno n2') || toQueue.includes('n1');
         const mentionsN2ToN1 = content.includes('suporte n2') && (content.includes('suporte n1') || content.includes('retorno n2'));
-        
+
         return fromN2 && (toN1 || mentionsN2ToN1);
       }
       return false;
     });
-    
+
     // Mostrar apenas chamados atribuídos ao técnico que estão na fila "Retorno N2" ou foram transferidos de N2 para N1
     // E que ainda não foram tratados
     return (isReturnQueue || hasN2ToN1Transfer);

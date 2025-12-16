@@ -76,14 +76,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       // Apenas chamados atribuídos ao técnico
       const isAssignedToMe = ticket.assignedTo?.id === user.id;
       if (!isAssignedToMe) return false;
-      
+
       // Apenas chamados que ainda não foram tratados
       const isNotTreated = ticket.status !== 'fechado' && ticket.status !== 'resolvido' && ticket.status !== 'encerrado';
       if (!isNotTreated) return false;
-      
+
       const queueName = ticket.queue?.toLowerCase() || '';
       const isReturnQueue = queueName.includes('retorno n2');
-      
+
       // Verificar também nas interações se houve transferência de N2 para N1
       const hasN2ToN1Transfer = ticket.interactions?.some((interaction) => {
         if (interaction.type === 'queue_transfer') {
@@ -95,7 +95,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
         }
         return false;
       });
-      
+
       return isReturnQueue || hasN2ToN1Transfer;
     });
     return returns.length;

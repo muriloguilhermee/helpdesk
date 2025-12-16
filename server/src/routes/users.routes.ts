@@ -13,8 +13,14 @@ const router = Router();
 // All routes require authentication
 router.use(authenticate);
 
-// Get all users (admin only)
-router.get('/', authorize('admin'), getAllUsersController);
+// Get all users (admin ou técnicos - para listar clientes)
+router.get('/', (req, res, next) => {
+  const authReq = req as any;
+  if (authReq.user?.role === 'admin' || authReq.user?.role === 'technician' || authReq.user?.role === 'technician_n2') {
+    return getAllUsersController(authReq, res);
+  }
+  res.status(403).json({ error: 'Acesso negado' });
+});
 
 // Get user by ID
 router.get('/:id', getUserByIdController);

@@ -318,8 +318,11 @@ export default function TicketDetails() {
           console.log(`  📎 Comentário ${index + 1} tem ${commentFiles.length} arquivo(s):`, commentFiles);
 
           // Detectar se é uma transferência de fila ou atribuição de fila
-          const isQueueTransfer = comment.content.includes('transferido') && comment.content.includes('fila');
-          const isQueueAssignment = comment.content.includes('atribuído') && comment.content.includes('fila');
+          const lowerContent = comment.content.toLowerCase();
+          const isQueueTransfer =
+            lowerContent.includes('transferido') || (lowerContent.includes('fila') && lowerContent.includes('para'));
+          const isQueueAssignment =
+            lowerContent.includes('atribuído') && lowerContent.includes('fila');
 
           const interaction = {
             id: comment.id,

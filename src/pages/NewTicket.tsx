@@ -80,7 +80,9 @@ export default function NewTicket() {
 
       try {
         setIsLoadingClients(true);
+        console.log('📡 Carregando clientes para técnico:', user.id, user.role);
         const apiUsers = await api.getUsers();
+        console.log('✅ Clientes carregados:', apiUsers.length);
         // Filtrar apenas clientes (usuários normais)
         const clients = apiUsers
           .filter((u: any) => u.role === 'user')
@@ -93,8 +95,13 @@ export default function NewTicket() {
             company: u.company,
           }));
         setAllClients(clients);
-      } catch (error) {
-        console.error('Erro ao carregar clientes:', error);
+      } catch (error: any) {
+        console.error('❌ Erro ao carregar clientes:', error);
+        console.error('Status:', error.status, 'Mensagem:', error.message);
+        // Se for erro 403, pode ser que o token esteja desatualizado
+        if (error.status === 403) {
+          console.warn('⚠️ Erro 403 - Token pode estar desatualizado. Faça logout e login novamente.');
+        }
         setAllClients([]);
       } finally {
         setIsLoadingClients(false);
@@ -142,9 +149,10 @@ export default function NewTicket() {
     setIsCreatingClient(true);
 
     try {
+      console.log('📡 Criando novo cliente:', newClient);
       // Gerar senha temporária (o cliente pode redefinir depois)
       const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
-      
+
       const createdUser = await api.createUser({
         name: newClient.name,
         email: newClient.email.toLowerCase().trim(),
@@ -152,6 +160,8 @@ export default function NewTicket() {
         role: 'user',
         company: newClient.company || undefined,
       });
+
+      console.log('✅ Cliente criado com sucesso:', createdUser);
 
       // Adicionar o novo cliente à lista
       const newClientUser: User = {
@@ -168,8 +178,17 @@ export default function NewTicket() {
       setShowNewClientModal(false);
       setNewClient({ name: '', email: '', company: '' });
     } catch (error: any) {
-      console.error('Erro ao criar cliente:', error);
-      alert(error.message || 'Erro ao criar cliente. Tente novamente.');
+      console.error('❌ Erro ao criar cliente:', error);
+      console.error('Status:', error.status, 'Mensagem:', error.message);
+      
+      let errorMessage = error.message || 'Erro ao criar cliente. Tente novamente.';
+      
+      // Mensagem específica para erro 403
+      if (error.status === 403) {
+        errorMessage = 'Acesso negado. Seu token pode estar desatualizado. Por favor, faça logout e login novamente.';
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsCreatingClient(false);
     }

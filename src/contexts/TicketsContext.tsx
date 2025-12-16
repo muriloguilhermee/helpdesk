@@ -319,6 +319,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         priority: ticket.priority as any,
         category: ticket.category as any,
         serviceType: ticket.serviceType,
+        assignedTo: ticket.assignedTo?.id,
         totalValue: ticket.totalValue,
         clientId: ticket.client?.id || ticket.createdBy.id,
         files: ticket.files?.map(f => ({

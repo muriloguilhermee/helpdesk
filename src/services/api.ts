@@ -185,6 +185,7 @@ class ApiService {
     serviceType?: string;
     totalValue?: number;
     clientId?: string;
+    assignedTo?: string | null;
     files?: Array<{
       name: string;
       size: number;

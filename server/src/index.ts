@@ -119,13 +119,27 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// Rate Limiting - EXCLUIR OPTIONS
+// Rate Limiting - EXCLUIR OPTIONS e ser mais permissivo para login
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100,
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 200, // Aumentado para 200 requisições por 15 minutos
   skip: (req) => req.method === 'OPTIONS', // Não aplicar rate limit em OPTIONS
+  message: 'Muitas requisições. Aguarde alguns segundos e tente novamente.',
+  standardHeaders: true,
+  legacyHeaders: false,
 });
+
+// Rate limiting mais permissivo para login
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutos
+  max: 50, // 50 tentativas de login por 15 minutos
+  message: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 app.use('/api/', limiter);
+app.use('/api/auth/login', loginLimiter);
 
 // Body Parsing
 app.use(express.json({ limit: '10mb' }));

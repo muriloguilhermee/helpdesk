@@ -40,7 +40,19 @@ class ApiService {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: 'Erro desconhecido' }));
-        const errorMessage = error.error || `HTTP error! status: ${response.status}`;
+        let errorMessage = error.error || `HTTP error! status: ${response.status}`;
+        
+        // Mensagens específicas para códigos de erro comuns
+        if (response.status === 429) {
+          errorMessage = 'Muitas requisições. O servidor está temporariamente sobrecarregado. Aguarde alguns segundos e tente novamente.';
+        } else if (response.status === 401) {
+          errorMessage = 'Email ou senha incorretos';
+        } else if (response.status === 500) {
+          errorMessage = 'Erro interno do servidor. Tente novamente em alguns instantes.';
+        } else if (response.status === 503) {
+          errorMessage = 'Serviço temporariamente indisponível. Tente novamente em alguns instantes.';
+        }
+        
         const errorWithStatus = new Error(errorMessage);
         (errorWithStatus as any).status = response.status;
         throw errorWithStatus;

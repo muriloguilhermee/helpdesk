@@ -252,9 +252,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           stack: apiError.stack
         });
 
+        // Se for erro 429 (Too Many Requests), mostrar mensagem específica
+        if (apiError.status === 429) {
+          throw new Error('Muitas requisições. O servidor está temporariamente sobrecarregado. Aguarde alguns segundos e tente novamente.');
+        }
+
         // Se Supabase está configurado, não permitir fallback local
         if (hasSupabase) {
-          const errorMsg = apiError.message || 'Erro ao fazer login. Verifique se o backend está rodando na porta 3001.';
+          const errorMsg = apiError.message || 'Erro ao fazer login. Verifique se o backend está rodando.';
           throw new Error(errorMsg);
         }
         // Fallback to local authentication apenas se não estiver usando Supabase

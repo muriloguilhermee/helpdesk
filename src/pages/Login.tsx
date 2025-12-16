@@ -32,8 +32,14 @@ export default function Login() {
     } catch (err: any) {
       console.error('🚀 [LOGIN] Erro capturado:', err);
       // Mostrar mensagem de erro mais específica
-      const errorMessage = err.message || 'Erro ao fazer login. Tente novamente.';
+      let errorMessage = err.message || 'Erro ao fazer login. Tente novamente.';
       console.error('🚀 [LOGIN] Mensagem de erro:', errorMessage);
+      
+      // Tratamento específico para erro 429
+      if (err.status === 429 || errorMessage.includes('Muitas requisições')) {
+        errorMessage = 'Muitas requisições. O servidor está temporariamente sobrecarregado. Aguarde alguns segundos e tente novamente.';
+      }
+      
       setError(errorMessage);
 
       // Se for erro de backend não configurado, mostrar instruções

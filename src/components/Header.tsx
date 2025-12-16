@@ -1,5 +1,6 @@
-import { Search, LogOut, ChevronDown, Menu, X, Moon, Sun, Key } from 'lucide-react';
+import { Search, LogOut, ChevronDown, Menu, X, Moon, Sun, Key, Plus } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
@@ -72,7 +73,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const handleUpdatePassword = async () => {
     setPasswordError('');
     setPasswordSuccess('');
-    
+
     if (!newPassword || !confirmPassword) {
       setPasswordError('Todos os campos são obrigatórios');
       return;
@@ -164,6 +165,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </div>
 
           <div className="flex items-center gap-2 lg:gap-4 lg:ml-6">
+            {hasPermission('create:ticket') && (
+              <Link
+                to="/tickets/new"
+                className="btn-primary flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                <span className="hidden sm:inline">Novo Chamado</span>
+                <span className="sm:hidden">Novo</span>
+              </Link>
+            )}
             <NotificationsDropdown />
 
             <div className="relative" ref={menuRef}>

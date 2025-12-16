@@ -145,6 +145,8 @@ export default function NewTicket() {
         category: formData.category,
         client: user,
         createdBy: user,
+        // Se o usuário for técnico, atribuir automaticamente a ele
+        assignedTo: user.role === 'technician' ? user : undefined,
         queue: 'Suporte N1', // Atribuir automaticamente à fila Suporte N1
         createdAt: new Date(),
         updatedAt: new Date(),

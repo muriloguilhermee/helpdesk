@@ -48,6 +48,7 @@ const permissions: Record<string, string[]> = {
   technician: [
     'view:tickets',
     'view:pending:tickets',
+    'create:ticket',
     'edit:ticket',
     'close:ticket',
   ],

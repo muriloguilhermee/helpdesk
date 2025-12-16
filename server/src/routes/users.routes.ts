@@ -17,12 +17,25 @@ router.use(authenticate);
 // IMPORTANTE: Rota específica deve vir ANTES de rota com parâmetro
 router.get('/', (req, res, next) => {
   const authReq = req as any;
+  console.log('🔍 GET /users - Usuário completo:', JSON.stringify(authReq.user));
   console.log('🔍 GET /users - Role do usuário:', authReq.user?.role);
-  if (authReq.user?.role === 'admin' || authReq.user?.role === 'technician' || authReq.user?.role === 'technician_n2') {
+  console.log('🔍 GET /users - Tipo do role:', typeof authReq.user?.role);
+  
+  if (!authReq.user) {
+    console.log('❌ Usuário não autenticado');
+    return res.status(401).json({ error: 'Não autenticado' });
+  }
+
+  const userRole = authReq.user.role;
+  const isAllowed = userRole === 'admin' || userRole === 'technician' || userRole === 'technician_n2';
+  
+  console.log('🔍 GET /users - Permissão:', isAllowed, 'Role:', userRole);
+  
+  if (isAllowed) {
     console.log('✅ Permissão concedida para listar usuários');
     return getAllUsersController(authReq, res);
   }
-  console.log('❌ Acesso negado - Role:', authReq.user?.role);
+  console.log('❌ Acesso negado - Role:', userRole);
   res.status(403).json({ error: 'Acesso negado' });
 });
 
@@ -32,14 +45,24 @@ router.get('/:id', getUserByIdController);
 // Create user (admin ou técnico - técnicos só podem criar clientes)
 router.post('/', (req, res, next) => {
   const authReq = req as any;
+  console.log('🔍 POST /users - Usuário completo:', JSON.stringify(authReq.user));
   console.log('🔍 POST /users - Role do usuário:', authReq.user?.role, 'Body:', req.body);
+  
+  if (!authReq.user) {
+    console.log('❌ Usuário não autenticado');
+    return res.status(401).json({ error: 'Não autenticado' });
+  }
+
+  const userRole = authReq.user.role;
+  
   // Admin pode criar qualquer tipo de usuário
-  if (authReq.user?.role === 'admin') {
+  if (userRole === 'admin') {
     console.log('✅ Admin criando usuário');
     return createUserController(authReq, res);
   }
+  
   // Técnicos só podem criar clientes (role 'user')
-  if (authReq.user?.role === 'technician' || authReq.user?.role === 'technician_n2') {
+  if (userRole === 'technician' || userRole === 'technician_n2') {
     console.log('✅ Técnico tentando criar cliente');
     // Verificar se está tentando criar um cliente
     if (req.body.role === 'user' || !req.body.role) {
@@ -51,7 +74,8 @@ router.post('/', (req, res, next) => {
     console.log('❌ Técnico tentando criar usuário com role diferente de user');
     return res.status(403).json({ error: 'Técnicos só podem criar clientes' });
   }
-  console.log('❌ Acesso negado - Role:', authReq.user?.role);
+  
+  console.log('❌ Acesso negado - Role:', userRole);
   res.status(403).json({ error: 'Acesso negado' });
 });
 

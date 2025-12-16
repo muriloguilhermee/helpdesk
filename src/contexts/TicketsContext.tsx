@@ -117,22 +117,29 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         }
 
         // Outros erros: mostrar alerta de conexão
+        // Se for rate limit, apenas loga e mantém lista atual para não derrubar a UI
+        if (apiError?.status === 429) {
+          console.warn('⚠️ API limitou requisições (429). Mantendo lista atual e tentando depois.');
+          setIsLoading(false);
+          return;
+        }
+
         setTickets([]);
         setIsLoading(false);
-        alert('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
+        console.error('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
       }
     };
 
     loadTickets();
 
-    // Atualizar tickets automaticamente a cada 10 segundos
+    // Atualizar tickets automaticamente a cada 30 segundos (evita 429)
     const intervalId = setInterval(() => {
       const user = getCurrentUser();
       if (user) {
         console.log('🔄 Atualizando tickets automaticamente...');
         loadTickets();
       }
-    }, 10000); // 10 segundos
+    }, 30000); // 30 segundos
 
     return () => {
       clearInterval(intervalId);

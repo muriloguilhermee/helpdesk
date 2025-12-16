@@ -40,6 +40,14 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
           return;
         }
 
+        // Apenas roles financeiros/admin precisam carregar
+        if (user.role !== 'financial' && user.role !== 'admin') {
+          console.log('ℹ️ Usuário sem perfil financeiro - pulando carga de tickets financeiros.');
+          setFinancialTickets([]);
+          setIsLoading(false);
+          return;
+        }
+
         setIsLoading(true);
         console.log('📡 Carregando tickets financeiros da API...');
 
@@ -89,6 +97,13 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         }
 
         // Se a API falhar, mostrar lista vazia ao invés de dados locais
+        // Se for 429, manter lista atual e tentar depois
+        if (apiError?.status === 429) {
+          console.warn('⚠️ API financeira limitou requisições (429). Mantendo lista atual.');
+          setIsLoading(false);
+          return;
+        }
+
         setFinancialTickets([]);
         setIsLoading(false);
       }

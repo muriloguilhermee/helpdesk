@@ -50,8 +50,10 @@ export default function UsersPage() {
           email: u.email,
           role: u.role,
           avatar: u.avatar,
-          company: u.company || undefined,
+          company: typeof u.company === 'string' ? u.company : undefined,
         }));
+
+        console.log('🧾 Exemplo de usuário transformado (frontend):', transformedUsers?.[0]);
 
         console.log('✅ Usuários carregados da API:', transformedUsers.length);
         setUsers(transformedUsers);
@@ -105,7 +107,7 @@ export default function UsersPage() {
         email: u.email,
         role: u.role,
         avatar: u.avatar,
-        company: u.company || undefined,
+        company: typeof u.company === 'string' ? u.company : undefined,
       }));
 
       setUsers(transformedUsers);
@@ -586,7 +588,7 @@ export default function UsersPage() {
                   </td>
                   <td className="py-4 px-4 text-gray-600 dark:text-gray-400 dark:text-gray-500">{user.email}</td>
                   <td className="py-4 px-4 text-gray-600 dark:text-gray-400 dark:text-gray-500">
-                    {user.company || '-'}
+                    {typeof user.company === 'string' && user.company.trim() ? user.company : '-'}
                   </td>
                   <td className="py-4 px-4">
                     <span className={`badge ${roleColors[user.role]}`}>

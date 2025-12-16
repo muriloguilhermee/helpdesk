@@ -82,7 +82,7 @@ export interface UpdateTicketData {
   description?: string;
   status?: 'aberto' | 'em_andamento' | 'em_atendimento' | 'pendente' | 'resolvido' | 'fechado' | 'encerrado' | 'em_fase_de_testes' | 'homologacao' | 'aguardando_cliente';
   priority?: 'baixa' | 'media' | 'alta' | 'critica';
-  category?: 'tecnico' | 'suporte' | 'financeiro' | 'outros';
+  category?: 'tecnico' | 'suporte' | 'integracao' | 'melhoria';
   serviceType?: string;
   totalValue?: number;
   assignedTo?: string | null;

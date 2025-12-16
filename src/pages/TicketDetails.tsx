@@ -1229,24 +1229,44 @@ export default function TicketDetails() {
 
                       {replyFiles.length > 0 && (
                         <div className="mt-2 space-y-2">
-                          {replyFiles.map((file, index) => (
-                            <div
-                              key={index}
-                              className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700"
-                            >
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{file.name}</span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
-                              </div>
-                              <button
-                                onClick={() => handleRemoveReplyFile(index)}
-                                className="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                          {replyFiles.map((file, index) => {
+                            const isImage = file.type?.startsWith('image/');
+                            const objectUrl = isImage ? URL.createObjectURL(file) : null;
+                            
+                            return (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700"
                               >
-                                <X className="w-4 h-4" />
-                              </button>
-                            </div>
-                          ))}
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {isImage && objectUrl ? (
+                                    <img
+                                      src={objectUrl}
+                                      alt={file.name}
+                                      className="w-8 h-8 object-cover rounded flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate block">{file.name || 'Imagem colada'}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    if (objectUrl) {
+                                      URL.revokeObjectURL(objectUrl);
+                                    }
+                                    handleRemoveReplyFile(index);
+                                  }}
+                                  className="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>

@@ -304,13 +304,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Performance dos Técnicos */}
-      {sortedTechnicians.length > 0 && (
+      {/* Performance dos Técnicos N1 */}
+      {sortedTechniciansN1.length > 0 && (
         <div className="card dark:bg-gray-800 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Award className="w-5 h-5 text-primary-600 dark:text-primary-400" />
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Performance dos Técnicos</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Performance dos Técnicos N1</h2>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -327,7 +327,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {sortedTechnicians.map((tech) => {
+                {sortedTechniciansN1.map((tech) => {
                   const perf = technicianPerformance[tech.id];
                   if (!perf) return null;
 

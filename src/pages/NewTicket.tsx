@@ -135,14 +135,14 @@ export default function NewTicket() {
 
   const handlePasteImage = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData.items;
-    
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+
       // Verificar se é uma imagem
       if (item.type.indexOf('image') !== -1) {
         e.preventDefault();
-        
+
         const file = item.getAsFile();
         if (file) {
           // Verificar se já não excedeu o limite de 10 arquivos
@@ -150,7 +150,7 @@ export default function NewTicket() {
             alert('Limite de 10 arquivos atingido. Remova alguns arquivos antes de adicionar mais.');
             return;
           }
-          
+
           // Se o arquivo não tiver nome, gerar um nome baseado na data/hora
           let fileToAdd: File = file;
           if (!file.name || file.name === 'image.png' || file.name === 'blob') {
@@ -164,7 +164,7 @@ export default function NewTicket() {
             }) as File;
           }
           setSelectedFiles([...selectedFiles, fileToAdd]);
-          
+
           // Mostrar mensagem de sucesso
           setSuccessMessage('Imagem colada com sucesso!');
           setTimeout(() => setSuccessMessage(''), 2000);
@@ -548,28 +548,46 @@ export default function NewTicket() {
               <div className="mt-4 space-y-2">
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Arquivos selecionados:</p>
                 <div className="space-y-2">
-                  {selectedFiles.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <File className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{file.name}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</p>
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFile(index)}
-                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors ml-2"
-                        title="Remover arquivo"
+                  {selectedFiles.map((file, index) => {
+                    const isImage = file.type?.startsWith('image/');
+                    const objectUrl = isImage ? URL.createObjectURL(file) : null;
+                    
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600"
                       >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  ))}
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          {isImage && objectUrl ? (
+                            <img
+                              src={objectUrl}
+                              alt={file.name}
+                              className="w-10 h-10 object-cover rounded flex-shrink-0"
+                            />
+                          ) : (
+                            <File className="w-5 h-5 text-gray-400 dark:text-gray-500 flex-shrink-0" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{file.name}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (objectUrl) {
+                              URL.revokeObjectURL(objectUrl);
+                            }
+                            handleRemoveFile(index);
+                          }}
+                          className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded transition-colors ml-2"
+                          title="Remover arquivo"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

@@ -80,19 +80,28 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
 
   // Filtrar itens do menu baseado em permissões e role
   const menuItems = allMenuItems.filter((item) => {
-    // Verificar permissão
-    if (item.permission && !hasPermission(item.permission)) {
-      return false;
-    }
-
     // Se tem flag onlyTechnicianN1, mostrar APENAS para technician (não technician_n2)
+    // Esta verificação deve vir ANTES de qualquer outra para garantir que technician_n2 não veja
     if (item.onlyTechnicianN1) {
-      const shouldShow = user?.role === 'technician';
-      if (!shouldShow) {
+      // Se o usuário é technician_n2, não mostrar
+      if (user?.role === 'technician_n2') {
+        return false;
+      }
+      // Se o usuário não é technician, não mostrar
+      if (user?.role !== 'technician') {
+        return false;
+      }
+      // Usuário é technician, verificar permissão
+      if (item.permission && !hasPermission(item.permission)) {
         return false;
       }
       // Usuário é technician e tem permissão, então mostrar o item
       return true;
+    }
+
+    // Verificar permissão
+    if (item.permission && !hasPermission(item.permission)) {
+      return false;
     }
 
     // Verificar role específico

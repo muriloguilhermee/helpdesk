@@ -41,6 +41,7 @@ export default function UsersPage() {
 
         // SEMPRE usar API - sem fallback para dados locais
         const apiUsers = await api.getUsers();
+        console.log('🧾 Exemplo de usuário vindo da API:', apiUsers?.[0]);
 
         // Transform API response to User format
         const transformedUsers = apiUsers.map((u: any) => ({

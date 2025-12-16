@@ -30,6 +30,14 @@ const updateUserSchema = z.object({
 export const getAllUsersController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const users = await getAllUsers();
+    // Debug: garantir que 'company' está vindo do banco
+    if (Array.isArray(users) && users.length > 0) {
+      const sample = users[0] as any;
+      console.log('👥 GET /users sample keys:', Object.keys(sample));
+      console.log('👥 GET /users sample company:', sample.company);
+    } else {
+      console.log('👥 GET /users retornou lista vazia');
+    }
     res.json(users);
   } catch (error) {
     res.status(500).json({ error: (error as Error).message });

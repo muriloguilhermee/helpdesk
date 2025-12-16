@@ -1,9 +1,11 @@
-import { Search, LogOut, ChevronDown, Menu, X } from 'lucide-react';
+import { Search, LogOut, ChevronDown, Menu, X, Moon, Sun, Key } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useNavigate } from 'react-router-dom';
 import { UserAvatar } from '../utils/userAvatar';
 import NotificationsDropdown from './NotificationsDropdown';
+import { api } from '../services/api';
 
 interface HeaderProps {
   onMenuClick?: () => void;
@@ -23,8 +25,15 @@ export default function Header({ onMenuClick }: HeaderProps) {
     return localStorage.getItem('dashboardSearchQuery') || '';
   });
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
+  const { darkMode, toggleDarkMode } = useTheme();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -41,6 +50,61 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const handleLogout = () => {
     logout();
     navigate('/login');
+  };
+
+  const handleOpenPasswordModal = () => {
+    setShowPasswordModal(true);
+    setShowUserMenu(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+    setPasswordSuccess('');
+  };
+
+  const handleClosePasswordModal = () => {
+    setShowPasswordModal(false);
+    setNewPassword('');
+    setConfirmPassword('');
+    setPasswordError('');
+    setPasswordSuccess('');
+  };
+
+  const handleUpdatePassword = async () => {
+    setPasswordError('');
+    setPasswordSuccess('');
+    
+    if (!newPassword || !confirmPassword) {
+      setPasswordError('Todos os campos são obrigatórios');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setPasswordError('A nova senha deve ter no mínimo 6 caracteres');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setPasswordError('As senhas não coincidem');
+      return;
+    }
+
+    setIsUpdatingPassword(true);
+
+    try {
+      // Atualizar senha via API
+      await api.updateUser(user.id, {
+        password: newPassword,
+      });
+
+      setPasswordSuccess('Senha atualizada com sucesso!');
+      setTimeout(() => {
+        handleClosePasswordModal();
+      }, 1500);
+    } catch (error: any) {
+      setPasswordError(error.message || 'Erro ao atualizar senha. Tente novamente.');
+    } finally {
+      setIsUpdatingPassword(false);
+    }
   };
 
   if (!user) return null;
@@ -123,6 +187,30 @@ export default function Header({ onMenuClick }: HeaderProps) {
                     <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{roleLabels[user.role]}</p>
                   </div>
                   <button
+                    onClick={toggleDarkMode}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {darkMode ? (
+                      <>
+                        <Sun className="w-4 h-4" />
+                        Modo Claro
+                      </>
+                    ) : (
+                      <>
+                        <Moon className="w-4 h-4" />
+                        Modo Escuro
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={handleOpenPasswordModal}
+                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <Key className="w-4 h-4" />
+                    Redefinir Senha
+                  </button>
+                  <div className="border-t border-gray-200 dark:border-gray-700 my-1"></div>
+                  <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
                   >
@@ -135,6 +223,86 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </div>
         </div>
       </div>
+
+      {/* Modal de Redefinir Senha */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">Redefinir Senha</h2>
+              <button
+                onClick={handleClosePasswordModal}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {passwordError && (
+              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+                {passwordError}
+              </div>
+            )}
+
+            {passwordSuccess && (
+              <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 text-green-700 dark:text-green-400 px-4 py-3 rounded-lg text-sm">
+                {passwordSuccess}
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Nova Senha
+                </label>
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="Digite a nova senha (mín. 6 caracteres)"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Confirmar Nova Senha
+                </label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  placeholder="Confirme a nova senha"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      handleUpdatePassword();
+                    }
+                  }}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-4">
+              <button
+                onClick={handleClosePasswordModal}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                disabled={isUpdatingPassword}
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleUpdatePassword}
+                disabled={isUpdatingPassword}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isUpdatingPassword ? 'Atualizando...' : 'Atualizar Senha'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

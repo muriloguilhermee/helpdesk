@@ -34,7 +34,7 @@ interface MenuItem {
 const allMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/', permission: 'view:dashboard', role: 'all' },
   { icon: Clock, label: 'Novos Chamados', path: '/tickets/pending', permission: 'view:pending:tickets', role: 'technician' },
-  { icon: ArrowLeftRight, label: 'Retorno Chamados (N2)', path: '/tickets/retorno-n2', permission: 'view:pending:tickets', role: 'technician', onlyTechnicianN1: true },
+  { icon: ArrowLeftRight, label: 'Retorno N2', path: '/tickets/retorno-n2', permission: 'view:pending:tickets', role: 'technician', onlyTechnicianN1: true },
   { icon: Ticket, label: 'Meus Chamados', path: '/tickets', permission: 'view:tickets', role: 'all' },
   { icon: Ticket, label: 'Todos os Chamados', path: '/tickets/all', permission: 'view:tickets', role: 'technician' },
   { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },
@@ -85,15 +85,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       return false;
     }
 
+    // Se tem flag onlyTechnicianN1, mostrar APENAS para technician (não technician_n2)
+    if (item.onlyTechnicianN1) {
+      const shouldShow = user?.role === 'technician';
+      if (!shouldShow) {
+        return false;
+      }
+      // Usuário é technician e tem permissão, então mostrar o item
+      return true;
+    }
+
     // Verificar role específico
     if (item.role && item.role !== 'all') {
       const isTechnician = user?.role === 'technician' || user?.role === 'technician_n2';
-      const isTechnicianN1 = user?.role === 'technician';
       if (item.role === 'technician' && !isTechnician) {
-        return false;
-      }
-      // Se marcado para apenas N1, bloquear N2
-      if (item.onlyTechnicianN1 && !isTechnicianN1) {
         return false;
       }
       if (item.role !== 'technician' && isTechnician) {

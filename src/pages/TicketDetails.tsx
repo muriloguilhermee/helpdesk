@@ -290,14 +290,14 @@ export default function TicketDetails() {
 
   const handlePasteImage = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
     const items = e.clipboardData.items;
-    
+
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+
       // Verificar se é uma imagem
       if (item.type.indexOf('image') !== -1) {
         e.preventDefault();
-        
+
         const file = item.getAsFile();
         if (file) {
           // Verificar se já não excedeu o limite de 10 arquivos
@@ -305,10 +305,17 @@ export default function TicketDetails() {
             alert('Limite de 10 arquivos atingido. Remova alguns arquivos antes de adicionar mais.');
             return;
           }
-          
-          // Adicionar o arquivo à lista
-          setReplyFiles([...replyFiles, file]);
-          
+
+          // Se o arquivo não tiver nome, gerar um nome baseado na data/hora
+          if (!file.name || file.name === 'image.png' || file.name === 'blob') {
+            const extension = file.type.split('/')[1] || 'png';
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const newFile = new File([file], `print-${timestamp}.${extension}`, { type: file.type });
+            setReplyFiles([...replyFiles, newFile]);
+          } else {
+            setReplyFiles([...replyFiles, file]);
+          }
+
           // Mostrar mensagem de sucesso
           setSuccessMessage('Imagem colada com sucesso!');
           setTimeout(() => setSuccessMessage(''), 2000);
@@ -1251,7 +1258,7 @@ export default function TicketDetails() {
                           {replyFiles.map((file, index) => {
                             const isImage = file.type?.startsWith('image/');
                             const objectUrl = isImage ? URL.createObjectURL(file) : null;
-                            
+
                             return (
                               <div
                                 key={index}

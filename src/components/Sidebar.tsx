@@ -49,18 +49,23 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
   const { hasPermission, user } = useAuth();
   const { tickets } = useTickets();
 
-  // Contar novos chamados para técnicos
+  // Contar novos chamados para técnicos (apenas não atribuídos)
   const getNewTicketsCount = () => {
     if (user?.role !== 'technician' && user?.role !== 'technician_n2') return 0;
-
     const newTickets = tickets.filter((ticket) => {
       const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
-      const isAssignedToMe = ticket.assignedTo?.id === user.id;
       const isNotAssigned = !ticket.assignedTo;
-
-      return isPending && (isAssignedToMe || isNotAssigned);
+      
+      if (user?.role === 'technician_n2') {
+        // Técnicos N2: apenas na fila N2 e não atribuídos
+        const queueName = ticket.queue || '';
+        const isInN2Queue = queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
+        return isPending && isInN2Queue && isNotAssigned;
+      }
+      
+      // Técnicos N1: apenas não atribuídos
+      return isPending && isNotAssigned;
     });
-
     return newTickets.length;
   };
 

@@ -7,6 +7,7 @@ export interface CreateUserData {
   password: string;
   role: 'admin' | 'technician' | 'technician_n2' | 'user' | 'financial';
   avatar?: string;
+  company?: string | null;
 }
 
 export interface UpdateUserData {
@@ -21,7 +22,7 @@ export interface UpdateUserData {
 export const getAllUsers = async () => {
   const db = getDatabase();
   return db('users')
-    .select('id', 'email', 'name', 'role', 'avatar', 'created_at', 'updated_at')
+    .select('id', 'email', 'name', 'role', 'avatar', 'company', 'created_at', 'updated_at')
     .orderBy('created_at', 'desc');
 };
 
@@ -29,7 +30,7 @@ export const getUserById = async (id: string) => {
   const db = getDatabase();
   const user = await db('users')
     .where({ id })
-    .select('id', 'email', 'name', 'role', 'avatar', 'created_at', 'updated_at')
+    .select('id', 'email', 'name', 'role', 'avatar', 'company', 'created_at', 'updated_at')
     .first();
 
   if (!user) {
@@ -65,8 +66,9 @@ export const createUser = async (data: CreateUserData) => {
       password: hashedPassword,
       role: data.role,
       avatar: data.avatar || null,
+      company: data.company ?? null,
     })
-    .returning(['id', 'email', 'name', 'role', 'avatar', 'created_at', 'updated_at']);
+    .returning(['id', 'email', 'name', 'role', 'avatar', 'company', 'created_at', 'updated_at']);
 
   return user;
 };

@@ -34,6 +34,7 @@ interface MenuItem {
 const allMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/', permission: 'view:dashboard', role: 'all' },
   { icon: Clock, label: 'Novos Chamados', path: '/tickets/pending', permission: 'view:pending:tickets', role: 'technician', onlyTechnicianN1: true },
+  { icon: ArrowLeftRight, label: 'Retorno N2', path: '/tickets/retorno-n2', permission: 'view:pending:tickets', role: 'technician', onlyTechnicianN1: true },
   { icon: Ticket, label: 'Meus Chamados', path: '/tickets', permission: 'view:tickets', role: 'all' },
   { icon: Ticket, label: 'Todos os Chamados', path: '/tickets/all', permission: 'view:tickets', role: 'technician' },
   { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },
@@ -55,14 +56,14 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     const newTickets = tickets.filter((ticket) => {
       const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
       const isNotAssigned = !ticket.assignedTo;
-      
+
       if (user?.role === 'technician_n2') {
         // Técnicos N2: apenas na fila N2 e não atribuídos
         const queueName = ticket.queue || '';
         const isInN2Queue = queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
         return isPending && isInN2Queue && isNotAssigned;
       }
-      
+
       // Técnicos N1: apenas não atribuídos
       return isPending && isNotAssigned;
     });
@@ -149,10 +150,13 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
             const Icon = item.icon;
             const isActive = location.pathname === item.path;
 
-            // Notificações para "Novos Chamados"
+            // Notificações para "Novos Chamados" e "Retorno N2"
             const isNewTicketsItem = item.path === '/tickets/pending';
-            const showNotification = isNewTicketsItem && newTicketsCount > 0;
-            const badgeCount = isNewTicketsItem ? newTicketsCount : 0;
+            const isReturnN2Item = item.path === '/tickets/retorno-n2';
+            const showNotification =
+              (isNewTicketsItem && newTicketsCount > 0) ||
+              (isReturnN2Item && returnN2Count > 0);
+            const badgeCount = isNewTicketsItem ? newTicketsCount : isReturnN2Item ? returnN2Count : 0;
 
             return (
               <li key={item.path}>

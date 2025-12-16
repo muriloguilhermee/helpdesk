@@ -22,11 +22,31 @@ export default function ReturnFromN2() {
   }
 
   // Filtra chamados que voltaram do N2
+  // Verifica se está na fila "Retorno N2" OU se foi transferido de N2 para N1
   const retornoTickets = tickets.filter((ticket) => {
     const queueName = ticket.queue?.toLowerCase() || '';
     const isReturnQueue = queueName.includes('retorno n2');
-    const isPending = ticket.status === 'aberto' || ticket.status === 'pendente';
-    return isReturnQueue && isPending;
+    
+    // Verificar também nas interações se houve transferência de N2 para N1
+    const hasN2ToN1Transfer = ticket.interactions?.some((interaction) => {
+      if (interaction.type === 'queue_transfer') {
+        const fromQueue = interaction.metadata?.fromQueue?.toLowerCase() || '';
+        const toQueue = interaction.metadata?.toQueue?.toLowerCase() || '';
+        const content = interaction.content?.toLowerCase() || '';
+        
+        // Verificar se foi transferido de N2 para N1 ou Retorno N2
+        const fromN2 = fromQueue.includes('suporte n2') || fromQueue.includes('n2');
+        const toN1 = toQueue.includes('suporte n1') || toQueue.includes('retorno n2') || toQueue.includes('n1');
+        const mentionsN2ToN1 = content.includes('suporte n2') && (content.includes('suporte n1') || content.includes('retorno n2'));
+        
+        return fromN2 && (toN1 || mentionsN2ToN1);
+      }
+      return false;
+    });
+    
+    // Mostrar chamados na fila "Retorno N2" ou que foram transferidos de N2 para N1
+    // Incluir todos os status, não apenas pendentes, para ver o histórico completo
+    return isReturnQueue || hasN2ToN1Transfer;
   });
 
   const handleAcceptTicket = (ticketId: string) => {

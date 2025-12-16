@@ -269,6 +269,35 @@ export default function TicketDetails() {
     setReplyFiles(replyFiles.filter((_, i) => i !== index));
   };
 
+  const handlePasteImage = async (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
+    const items = e.clipboardData.items;
+    
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      
+      // Verificar se é uma imagem
+      if (item.type.indexOf('image') !== -1) {
+        e.preventDefault();
+        
+        const file = item.getAsFile();
+        if (file) {
+          // Verificar se já não excedeu o limite de 10 arquivos
+          if (replyFiles.length >= 10) {
+            alert('Limite de 10 arquivos atingido. Remova alguns arquivos antes de adicionar mais.');
+            return;
+          }
+          
+          // Adicionar o arquivo à lista
+          setReplyFiles([...replyFiles, file]);
+          
+          // Mostrar mensagem de sucesso
+          setSuccessMessage('Imagem colada com sucesso!');
+          setTimeout(() => setSuccessMessage(''), 2000);
+        }
+      }
+    }
+  };
+
   const handleAddInteraction = async () => {
     if ((replyText.trim() || replyFiles.length > 0) && user && ticket) {
       // Converter arquivos
@@ -809,7 +838,8 @@ export default function TicketDetails() {
                 {ticket.files.map((file) => {
                   const isImage = file.type?.startsWith('image/');
                   const isPdf = file.type === 'application/pdf';
-                  const canPreview = isImage || isPdf;
+                  const isVideo = file.type?.startsWith('video/');
+                  const canPreview = isImage || isPdf || isVideo;
 
                   return (
                     <div
@@ -828,6 +858,34 @@ export default function TicketDetails() {
                               setShowFileViewer(true);
                             }}
                           />
+                        ) : isVideo ? (
+                          <div
+                            className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded flex-shrink-0 cursor-pointer flex items-center justify-center relative overflow-hidden"
+                            onClick={() => {
+                              setSelectedFile(file);
+                              setShowFileViewer(true);
+                            }}
+                          >
+                            <video
+                              src={file.data}
+                              className="w-full h-full object-cover"
+                              muted
+                              onMouseEnter={(e) => {
+                                const video = e.currentTarget;
+                                video.play().catch(() => {});
+                              }}
+                              onMouseLeave={(e) => {
+                                const video = e.currentTarget;
+                                video.pause();
+                                video.currentTime = 0;
+                              }}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                              <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                              </svg>
+                            </div>
+                          </div>
                         ) : (
                           <File className="w-5 h-5 text-gray-400 flex-shrink-0" />
                         )}
@@ -1045,7 +1103,8 @@ export default function TicketDetails() {
                                     {interaction.files.map((file) => {
                                       const isImage = file.type?.startsWith('image/');
                                       const isPdf = file.type === 'application/pdf';
-                                      const canPreview = isImage || isPdf;
+                                      const isVideo = file.type?.startsWith('video/');
+                                      const canPreview = isImage || isPdf || isVideo;
 
                                       return (
                                         <div
@@ -1064,6 +1123,34 @@ export default function TicketDetails() {
                                                   setShowFileViewer(true);
                                                 }}
                                               />
+                                            ) : isVideo ? (
+                                              <div
+                                                className="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded flex-shrink-0 cursor-pointer flex items-center justify-center relative overflow-hidden"
+                                                onClick={() => {
+                                                  setSelectedFile(file);
+                                                  setShowFileViewer(true);
+                                                }}
+                                              >
+                                                <video
+                                                  src={file.data}
+                                                  className="w-full h-full object-cover"
+                                                  muted
+                                                  onMouseEnter={(e) => {
+                                                    const video = e.currentTarget;
+                                                    video.play().catch(() => {});
+                                                  }}
+                                                  onMouseLeave={(e) => {
+                                                    const video = e.currentTarget;
+                                                    video.pause();
+                                                    video.currentTime = 0;
+                                                  }}
+                                                />
+                                                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-30">
+                                                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M8 5v14l11-7z" />
+                                                  </svg>
+                                                </div>
+                                              </div>
                                             ) : (
                                               <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
                                             )}
@@ -1116,7 +1203,8 @@ export default function TicketDetails() {
                     <textarea
                       value={replyText}
                       onChange={(e) => setReplyText(e.target.value)}
-                      placeholder="Digite sua resposta..."
+                      onPaste={handlePasteImage}
+                      placeholder="Digite sua resposta... (Você pode colar imagens com Ctrl+V)"
                       rows={4}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
                     />
@@ -1826,6 +1914,15 @@ export default function TicketDetails() {
                   className="max-w-full max-h-full object-contain rounded-lg"
                   loading="eager"
                 />
+              ) : selectedFile.type?.startsWith('video/') ? (
+                <video
+                  src={selectedFile.data}
+                  controls
+                  className="max-w-full max-h-full rounded-lg"
+                  style={{ maxHeight: 'calc(90vh - 120px)' }}
+                >
+                  Seu navegador não suporta a tag de vídeo.
+                </video>
               ) : selectedFile.type === 'application/pdf' ? (
                 <iframe
                   src={selectedFile.data}

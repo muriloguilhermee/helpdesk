@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { ArrowLeft, Save, Paperclip, X, File, CheckCircle, Loader2 } from 'lucide-react';
+import { ArrowLeft, Save, Paperclip, X, File, CheckCircle, Loader2, UserPlus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
@@ -19,6 +19,13 @@ export default function NewTicket() {
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [allClients, setAllClients] = useState<User[]>([]);
   const [isLoadingClients, setIsLoadingClients] = useState(false);
+  const [showNewClientModal, setShowNewClientModal] = useState(false);
+  const [isCreatingClient, setIsCreatingClient] = useState(false);
+  const [newClient, setNewClient] = useState({
+    name: '',
+    email: '',
+    company: '',
+  });
   const [formData, setFormData] = useState({
     title: '',
     system: '',
@@ -70,7 +77,7 @@ export default function NewTicket() {
   useEffect(() => {
     const loadClients = async () => {
       if (user?.role !== 'technician') return;
-      
+
       try {
         setIsLoadingClients(true);
         const apiUsers = await api.getUsers();
@@ -292,9 +299,19 @@ export default function NewTicket() {
             {/* Campo de seleção de cliente apenas para técnicos N1 */}
             {user?.role === 'technician' && (
               <div>
-                <label htmlFor="client" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Cliente <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-2">
+                  <label htmlFor="client" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Cliente <span className="text-red-500">*</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowNewClientModal(true)}
+                    className="text-xs text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300 flex items-center gap-1"
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    Cadastrar Novo
+                  </button>
+                </div>
                 {isLoadingClients ? (
                   <div className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400">
                     Carregando clientes...

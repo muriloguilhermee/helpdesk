@@ -57,7 +57,7 @@ export default function NotificationsDropdown() {
       return notifications;
     }
 
-    return notifications.filter(notification => {
+    return notifications.filter((notification: any) => {
       // Notificações de login/logout sempre aparecem
       if (notification.type === 'login' || notification.type === 'logout') {
         return notification.userId === user.id;
@@ -93,7 +93,7 @@ export default function NotificationsDropdown() {
     });
   }, [notifications, user, tickets]);
 
-  const filteredUnreadCount = filteredNotifications.filter(n => !n.read).length;
+  const filteredUnreadCount = filteredNotifications.filter((n: any) => !n.read).length;
 
   const handleNotificationClick = (notification: any) => {
     markAsRead(notification.id);
@@ -167,7 +167,7 @@ export default function NotificationsDropdown() {
               </div>
             ) : (
               <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                {filteredNotifications.map((notification) => (
+                {filteredNotifications.map((notification: any) => (
                   <div
                     key={notification.id}
                     onClick={() => handleNotificationClick(notification)}

@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode, useRef } from 'react';
 import { Ticket, User, Comment, Interaction } from '../types';
 import { mockTickets } from '../data/mockData';
-import { dbAdapter as database } from '../services/dbAdapter';
+import { database } from '../services/database';
 import { api } from '../services/api';
 
 interface TicketsContextType {
@@ -224,7 +224,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Salvar tickets no banco de dados sempre que houver mudanças
     if (!isLoading && tickets.length > 0) {
-      database.saveTickets(tickets).catch((error) => {
+      database.saveTickets(tickets).catch((error: any) => {
         console.error('Erro ao salvar tickets no banco de dados:', error);
       });
     }

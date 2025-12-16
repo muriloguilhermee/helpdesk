@@ -62,7 +62,7 @@ export interface CreateTicketData {
   title: string;
   description: string;
   priority: 'baixa' | 'media' | 'alta' | 'critica';
-  category: 'tecnico' | 'suporte' | 'financeiro' | 'outros';
+  category: 'tecnico' | 'suporte' | 'integracao' | 'melhoria';
   serviceType?: string;
   totalValue?: number;
   createdBy: string;

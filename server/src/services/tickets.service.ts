@@ -68,6 +68,7 @@ export interface CreateTicketData {
   createdBy: string;
   clientId?: string;
   queueId?: string;
+  assignedTo?: string | null;
   files?: Array<{
     name: string;
     size: number;
@@ -522,7 +523,7 @@ export const createTicket = async (data: CreateTicketData) => {
         total_value: data.totalValue || null,
         created_by: data.createdBy,
         client_id: data.clientId || data.createdBy,
-        assigned_to: null,
+        assigned_to: data.assignedTo || null,
         queue_id: queueId ?? null,
       })
       .returning('*');

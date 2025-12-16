@@ -19,6 +19,7 @@ const createTicketSchema = z.object({
   totalValue: z.number().optional(),
   clientId: z.string().uuid().optional(),
   queueId: z.string().uuid().optional(),
+  assignedTo: z.string().uuid().nullable().optional(),
   files: z.array(z.object({
     name: z.string(),
     size: z.number(),
@@ -121,10 +122,19 @@ export const createTicketController = async (req: AuthRequest, res: Response): P
 
     console.log('📥 Recebida requisição para criar ticket:', req.body);
     const validated = createTicketSchema.parse(req.body);
+    
+    // Se o usuário for técnico e não houver assignedTo especificado, atribuir automaticamente a ele
+    let assignedTo = validated.assignedTo;
+    if (!assignedTo && req.user.role === 'technician') {
+      assignedTo = req.user.id;
+      console.log('👤 Técnico criando chamado - atribuindo automaticamente a ele:', req.user.id);
+    }
+    
     const ticket = await createTicket({
       ...validated,
       createdBy: req.user.id,
       clientId: validated.clientId || req.user.id,
+      assignedTo: assignedTo,
     });
     console.log('✅ Ticket criado, retornando resposta:', ticket.id);
     res.status(201).json(ticket);

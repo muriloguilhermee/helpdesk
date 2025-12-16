@@ -1104,18 +1104,20 @@ export default function TicketDetails() {
                               </span>
                             </div>
                             <div className={`${
-                              isCreator
+                              interaction.type === 'user' && !isSystem && !isTransfer
                                 ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
                                 : isTransfer
                                   ? 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800'
                                   : isSystem
                                     ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800'
-                                    : 'bg-gray-50 dark:bg-gray-700/50'
+                                    : 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
                             } rounded-lg p-3`}>
                               {isTransfer ? (
                                 <p className="text-purple-700 dark:text-purple-300 whitespace-pre-wrap font-medium">
                                   {interaction.content}
                                 </p>
+                              ) : interaction.type === 'user' && !isSystem && !isTransfer ? (
+                                <p className="text-blue-700 dark:text-blue-300 whitespace-pre-wrap">{interaction.content}</p>
                               ) : (
                                 <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{interaction.content}</p>
                               )}

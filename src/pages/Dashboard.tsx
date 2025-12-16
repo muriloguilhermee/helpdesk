@@ -160,12 +160,12 @@ export default function Dashboard() {
       if (tech.role === 'technician_n2') {
         // Lógica especial para técnicos N2
         // N2 recebe chamados via transferência do N1 e pode transferir de volta
-        
-        // 1. Total: Todos os chamados que passaram pela fila N2 (atribuídos ou não)
+
+        // 1. Total: Todos os chamados que estão na fila N2 OU que passaram pela fila N2
         const ticketsN2 = tickets.filter(t => {
           const queueName = t.queue?.toLowerCase() || '';
           const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
-          
+
           // Verificar se já passou pela fila N2 (mesmo que tenha sido transferido de volta)
           const hasBeenInN2 = t.interactions?.some((interaction) => {
             if (interaction.type === 'queue_transfer') {
@@ -174,20 +174,26 @@ export default function Dashboard() {
             }
             return false;
           });
-          
+
           return isInN2Queue || hasBeenInN2;
         });
 
+        console.log(`🔍 Técnico N2 ${tech.name}: Total de tickets que passaram pela fila N2: ${ticketsN2.length}`);
+
         // 2. Resolvidos: Chamados que foram:
-        //    - Fechados/resolvidos pelo N2
+        //    - Fechados/resolvidos (independente da fila atual)
         //    - Transferidos de volta para N1 (Retorno N2) - conta como resolvido pelo N2
         const resolvidos = ticketsN2.filter(t => {
           // Se está fechado ou resolvido
           if (t.status === 'resolvido' || t.status === 'fechado') {
             return true;
           }
-          
+
           // Se foi transferido de N2 para N1 (Retorno N2)
+          // Verificar se a fila atual é "Retorno N2" ou se houve transferência de N2 para N1
+          const queueName = t.queue?.toLowerCase() || '';
+          const isInReturnQueue = queueName.includes('retorno n2');
+
           const transferredToN1 = t.interactions?.some((interaction) => {
             if (interaction.type === 'queue_transfer') {
               const fromQueue = interaction.metadata?.fromQueue?.toLowerCase() || '';
@@ -198,9 +204,11 @@ export default function Dashboard() {
             }
             return false;
           });
-          
-          return transferredToN1;
+
+          return isInReturnQueue || transferredToN1;
         });
+
+        console.log(`✅ Resolvidos: ${resolvidos.length}`);
 
         // 3. Em Andamento: Chamados na fila N2 atribuídos ao N2, mas não resolvidos nem transferidos
         const emAndamento = ticketsN2.filter(t => {
@@ -208,17 +216,25 @@ export default function Dashboard() {
           const queueName = t.queue?.toLowerCase() || '';
           const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
           const isNotResolved = !resolvidos.some(r => r.id === t.id);
-          return isAssignedToN2 && isInN2Queue && (t.status === 'em_andamento' || t.status === 'em_atendimento') && isNotResolved;
+          const isInProgress = t.status === 'em_andamento' || t.status === 'em_atendimento';
+          
+          return isAssignedToN2 && isInN2Queue && isInProgress && isNotResolved;
         });
 
-        // 4. Abertos: Chamados na fila N2 mas não atribuídos
+        console.log(`🔄 Em Andamento: ${emAndamento.length}`);
+
+        // 4. Abertos: Chamados na fila N2 mas não atribuídos (ou atribuídos a outros técnicos)
         const abertos = ticketsN2.filter(t => {
           const queueName = t.queue?.toLowerCase() || '';
           const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
-          const isNotAssigned = !t.assignedTo;
+          const isNotAssigned = !t.assignedTo || t.assignedTo.id !== tech.id;
           const isNotResolved = !resolvidos.some(r => r.id === t.id);
-          return isInN2Queue && isNotAssigned && (t.status === 'aberto' || t.status === 'pendente') && isNotResolved;
+          const isOpen = t.status === 'aberto' || t.status === 'pendente';
+          
+          return isInN2Queue && isNotResolved && isOpen && isNotAssigned;
         });
+
+        console.log(`📋 Abertos: ${abertos.length}`);
 
         // Calcular tempo médio de resolução (em dias)
         // Considerar apenas chamados que foram realmente resolvidos (fechados ou transferidos de volta)
@@ -235,14 +251,14 @@ export default function Dashboard() {
               }
               return false;
             });
-            
+
             if (n2Transfer) {
               n2ArrivalDate = n2Transfer.createdAt instanceof Date ? n2Transfer.createdAt : new Date(n2Transfer.createdAt);
             } else {
               // Se não encontrou transferência, usar data de criação do ticket
               n2ArrivalDate = ticket.createdAt instanceof Date ? ticket.createdAt : new Date(ticket.createdAt);
             }
-            
+
             // Encontrar quando foi resolvido (fechado ou transferido de volta)
             let resolutionDate: Date | null = null;
             if (ticket.status === 'resolvido' || ticket.status === 'fechado') {
@@ -259,12 +275,12 @@ export default function Dashboard() {
                 }
                 return false;
               });
-              
+
               if (returnTransfer) {
                 resolutionDate = returnTransfer.createdAt instanceof Date ? returnTransfer.createdAt : new Date(returnTransfer.createdAt);
               }
             }
-            
+
             if (n2ArrivalDate && resolutionDate) {
               const diffMs = resolutionDate.getTime() - n2ArrivalDate.getTime();
               const diffDays = diffMs / (1000 * 60 * 60 * 24);
@@ -273,7 +289,7 @@ export default function Dashboard() {
               }
             }
           });
-          
+
           if (tempos.length > 0) {
             tempoMedio = tempos.reduce((a, b) => a + b, 0) / tempos.length;
           }

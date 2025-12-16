@@ -3,9 +3,10 @@ import { ArrowLeft, Save, Paperclip, X, File, CheckCircle, Loader2 } from 'lucid
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useTickets } from '../contexts/TicketsContext';
-import { Ticket, TicketPriority, TicketCategory, TicketFile, Queue } from '../types';
+import { Ticket, TicketPriority, TicketCategory, TicketFile, Queue, User } from '../types';
 import { formatFileSize } from '../utils/formatFileSize';
 import { database } from '../services/database';
+import { api } from '../services/api';
 
 export default function NewTicket() {
   const navigate = useNavigate();
@@ -15,6 +16,9 @@ export default function NewTicket() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [successMessage, setSuccessMessage] = useState('');
   const [isCreatingTicket, setIsCreatingTicket] = useState(false);
+  const [selectedClientId, setSelectedClientId] = useState<string>('');
+  const [allClients, setAllClients] = useState<User[]>([]);
+  const [isLoadingClients, setIsLoadingClients] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     system: '',
@@ -61,6 +65,37 @@ export default function NewTicket() {
 
     ensureDefaultQueues();
   }, []);
+
+  // Carregar clientes se o usuário for técnico N1
+  useEffect(() => {
+    const loadClients = async () => {
+      if (user?.role !== 'technician') return;
+      
+      try {
+        setIsLoadingClients(true);
+        const apiUsers = await api.getUsers();
+        // Filtrar apenas clientes (usuários normais)
+        const clients = apiUsers
+          .filter((u: any) => u.role === 'user')
+          .map((u: any) => ({
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            role: u.role as 'user',
+            avatar: u.avatar,
+            company: u.company,
+          }));
+        setAllClients(clients);
+      } catch (error) {
+        console.error('Erro ao carregar clientes:', error);
+        setAllClients([]);
+      } finally {
+        setIsLoadingClients(false);
+      }
+    };
+
+    loadClients();
+  }, [user]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -116,6 +151,12 @@ export default function NewTicket() {
       return;
     }
 
+    // Se for técnico, validar se selecionou um cliente
+    if (user.role === 'technician' && !selectedClientId) {
+      alert('Por favor, selecione o cliente.');
+      return;
+    }
+
     setIsCreatingTicket(true);
     setSuccessMessage('');
 
@@ -135,6 +176,15 @@ export default function NewTicket() {
         ticketFiles.push(ticketFile);
       }
 
+      // Determinar o cliente: se for técnico, usar o cliente selecionado, senão usar o próprio usuário
+      let clientUser: User = user;
+      if (user.role === 'technician' && selectedClientId) {
+        const selectedClient = allClients.find(c => c.id === selectedClientId);
+        if (selectedClient) {
+          clientUser = selectedClient;
+        }
+      }
+
       const newTicket: Ticket = {
         id: ticketId,
         title: formData.title,
@@ -143,7 +193,7 @@ export default function NewTicket() {
         status: 'aberto',
         priority: formData.priority,
         category: formData.category,
-        client: user,
+        client: clientUser,
         createdBy: user,
         // Se o usuário for técnico, atribuir automaticamente a ele
         assignedTo: user.role === 'technician' ? user : undefined,
@@ -220,22 +270,53 @@ export default function NewTicket() {
             />
           </div>
 
-          <div>
-            <label htmlFor="system" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Sistema <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="system"
-              required
-              value={formData.system}
-              onChange={(e) => setFormData({ ...formData, system: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
-            >
-              <option value="">Selecione o sistema</option>
-              <option value="ClouddChat v1">ClouddChat v1</option>
-              <option value="ClouddChat v2">ClouddChat v2</option>
-              <option value="ClouddVoz">ClouddVoz</option>
-            </select>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="system" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Sistema <span className="text-red-500">*</span>
+              </label>
+              <select
+                id="system"
+                required
+                value={formData.system}
+                onChange={(e) => setFormData({ ...formData, system: e.target.value })}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              >
+                <option value="">Selecione o sistema</option>
+                <option value="ClouddChat v1">ClouddChat v1</option>
+                <option value="ClouddChat v2">ClouddChat v2</option>
+                <option value="ClouddVoz">ClouddVoz</option>
+              </select>
+            </div>
+
+            {/* Campo de seleção de cliente apenas para técnicos N1 */}
+            {user?.role === 'technician' && (
+              <div>
+                <label htmlFor="client" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Cliente <span className="text-red-500">*</span>
+                </label>
+                {isLoadingClients ? (
+                  <div className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-500 dark:text-gray-400">
+                    Carregando clientes...
+                  </div>
+                ) : (
+                  <select
+                    id="client"
+                    required
+                    value={selectedClientId}
+                    onChange={(e) => setSelectedClientId(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  >
+                    <option value="">Selecione o cliente</option>
+                    {allClients.map((client) => (
+                      <option key={client.id} value={client.id}>
+                        {client.name} {client.company ? `(${client.company})` : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+            )}
           </div>
 
           <div>

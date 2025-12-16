@@ -28,12 +28,13 @@ interface MenuItem {
   path: string;
   permission?: string;
   role?: 'admin' | 'user' | 'technician' | 'technician_n2' | 'financial' | 'all';
+  onlyTechnicianN1?: boolean; // se true, só mostra para technician (não technician_n2)
 }
 
 const allMenuItems: MenuItem[] = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/', permission: 'view:dashboard', role: 'all' },
   { icon: Clock, label: 'Novos Chamados', path: '/tickets/pending', permission: 'view:pending:tickets', role: 'technician' },
-  { icon: ArrowLeftRight, label: 'Retorno Chamados (N2)', path: '/tickets/retorno-n2', permission: 'view:pending:tickets', role: 'technician' },
+  { icon: ArrowLeftRight, label: 'Retorno Chamados (N2)', path: '/tickets/retorno-n2', permission: 'view:pending:tickets', role: 'technician', onlyTechnicianN1: true },
   { icon: Ticket, label: 'Meus Chamados', path: '/tickets', permission: 'view:tickets', role: 'all' },
   { icon: Ticket, label: 'Todos os Chamados', path: '/tickets/all', permission: 'view:tickets', role: 'technician' },
   { icon: DollarSign, label: 'Financeiro', path: '/financial', permission: 'view:own:financial', role: 'all' },
@@ -87,7 +88,12 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     // Verificar role específico
     if (item.role && item.role !== 'all') {
       const isTechnician = user?.role === 'technician' || user?.role === 'technician_n2';
+      const isTechnicianN1 = user?.role === 'technician';
       if (item.role === 'technician' && !isTechnician) {
+        return false;
+      }
+      // Se marcado para apenas N1, bloquear N2
+      if (item.onlyTechnicianN1 && !isTechnicianN1) {
         return false;
       }
       if (item.role !== 'technician' && isTechnician) {

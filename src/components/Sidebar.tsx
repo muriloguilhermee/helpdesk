@@ -77,6 +77,10 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       const isAssignedToMe = ticket.assignedTo?.id === user.id;
       if (!isAssignedToMe) return false;
       
+      // Apenas chamados que ainda não foram tratados
+      const isNotTreated = ticket.status !== 'fechado' && ticket.status !== 'resolvido' && ticket.status !== 'encerrado';
+      if (!isNotTreated) return false;
+      
       const queueName = ticket.queue?.toLowerCase() || '';
       const isReturnQueue = queueName.includes('retorno n2');
       

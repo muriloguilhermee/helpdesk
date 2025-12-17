@@ -115,13 +115,11 @@ export default function ReportsPage() {
 
   // Contar tickets por técnico (apenas dos chamados do usuário)
   const ticketsByTechnician = useMemo(() => {
-    return technicians.reduce((acc: Record<string, { name: string; count: number }>, tech: any) => {
+    return technicians.reduce((acc: Record<string, number>, tech: any) => {
       const count = userTickets.filter(t => t.assignedTo?.id === tech.id).length;
-      if (count > 0) {
-        acc[tech.id] = { name: tech.name, count };
-      }
+      acc[tech.id] = count;
       return acc;
-    }, {} as Record<string, { name: string; count: number }>);
+    }, {} as Record<string, number>);
   }, [technicians, userTickets]);
 
   // Fechar menu ao clicar fora

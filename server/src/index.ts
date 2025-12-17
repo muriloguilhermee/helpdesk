@@ -124,6 +124,7 @@ app.use(helmet({
 }));
 
 // Rate Limiting - EXCLUIR OPTIONS e ser mais permissivo para login
+// validate: false desabilita a validação do trust proxy (necessário para Cloud Run)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutos
   max: 200, // Aumentado para 200 requisições por 15 minutos
@@ -131,6 +132,7 @@ const limiter = rateLimit({
   message: 'Muitas requisições. Aguarde alguns segundos e tente novamente.',
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false, // Desabilita validação do trust proxy (Cloud Run precisa de trust proxy)
 });
 
 // Rate limiting mais permissivo para login
@@ -140,6 +142,7 @@ const loginLimiter = rateLimit({
   message: 'Muitas tentativas de login. Aguarde alguns minutos e tente novamente.',
   standardHeaders: true,
   legacyHeaders: false,
+  validate: false, // Desabilita validação do trust proxy
 });
 
 app.use('/api/', limiter);
@@ -213,34 +216,43 @@ app.use('/api/financial', financialRoutes);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Health check endpoint (antes de conectar ao banco)
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // Initialize Database and Start Server
-// Servidor só inicia se banco conectar com sucesso
-initializeDatabase()
-  .then(() => {
-    const server = app.listen(PORT, '0.0.0.0', () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
-      console.log(`✅ Server ready to accept connections`);
-    });
+// IMPORTANTE: Inicia o servidor PRIMEIRO, depois conecta ao banco em background
+// Isso evita timeout no Cloud Run
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
+  console.log(`✅ Server ready to accept connections`);
 
-    // Manter o servidor vivo
-    server.keepAliveTimeout = 65000;
-    server.headersTimeout = 66000;
-
-    // Tratamento de erros do servidor (sem process.exit)
-    server.on('error', (error: any) => {
-      console.error('❌ Server error:', error);
+  // Conecta ao banco em background (não bloqueia o start)
+  initializeDatabase()
+    .then(() => {
+      console.log(`✅ Database connected successfully`);
+    })
+    .catch((error) => {
+      console.error('❌ Failed to connect to database:', error);
+      console.error('⚠️  Server will continue running, but database operations may fail');
     });
+});
 
-    // Log de requisições para debug
-    app.use((req, res, next) => {
-      console.log(`📥 ${req.method} ${req.path}`);
-      next();
-    });
-  })
-  .catch((error) => {
-    console.error('❌ Failed to start server:', error);
-    process.exit(1);
-  });
+// Manter o servidor vivo
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+
+// Tratamento de erros do servidor (sem process.exit)
+server.on('error', (error: any) => {
+  console.error('❌ Server error:', error);
+});
+
+// Log de requisições para debug
+app.use((req, res, next) => {
+  console.log(`📥 ${req.method} ${req.path}`);
+  next();
+});
 

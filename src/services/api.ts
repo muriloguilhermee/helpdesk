@@ -27,8 +27,9 @@ class ApiService {
     }
 
     // Adicionar timeout e retry para conexões intermitentes
+    // Aumentado para 60s para suportar cold start do Cloud Run
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos
+    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 segundos (cold start pode demorar)
 
     try {
       const response = await fetch(`${API_URL}${endpoint}`, {

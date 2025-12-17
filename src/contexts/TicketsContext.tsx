@@ -34,6 +34,45 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Quando o usuário atualiza nome/avatar/email, propagar para todos os tickets/interações/comentários em memória
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const updatedUser = (e as CustomEvent<User>).detail;
+      if (!updatedUser?.id) return;
+
+      setTickets((prev) =>
+        prev.map((t) => {
+          const replaceUser = (u: any) => (u && u.id === updatedUser.id ? { ...u, ...updatedUser } : u);
+
+          return {
+            ...t,
+            createdBy: replaceUser(t.createdBy),
+            assignedTo: replaceUser(t.assignedTo),
+            client: replaceUser(t.client),
+            comments: (t.comments || []).map((c) => ({
+              ...c,
+              author: replaceUser(c.author),
+            })),
+            interactions: (t.interactions || []).map((i: any) => ({
+              ...i,
+              author: replaceUser(i.author),
+              metadata: i?.metadata
+                ? {
+                    ...i.metadata,
+                    assignedTo: replaceUser(i.metadata.assignedTo),
+                    previousAssignee: replaceUser(i.metadata.previousAssignee),
+                  }
+                : i.metadata,
+            })),
+          };
+        })
+      );
+    };
+
+    window.addEventListener('userUpdated', handler as EventListener);
+    return () => window.removeEventListener('userUpdated', handler as EventListener);
+  }, []);
+
   // Carregar tickets APENAS do banco de dados (API)
   useEffect(() => {
     const loadTickets = async () => {

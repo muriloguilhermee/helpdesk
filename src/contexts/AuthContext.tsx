@@ -80,6 +80,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const broadcastUserUpdate = (updated: User) => {
+    try {
+      window.dispatchEvent(new CustomEvent('userUpdated', { detail: updated }));
+    } catch {
+      // ignore
+    }
+  };
+
   // Inicializar dados mockados no banco de dados na primeira vez
   useEffect(() => {
     const initializeUsers = async () => {
@@ -361,6 +369,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updateUser = (updatedUser: User) => {
     setUser(updatedUser);
     localStorage.setItem('user', JSON.stringify(updatedUser));
+    broadcastUserUpdate(updatedUser);
   };
 
   const updateProfile = async (updates: { name?: string; email?: string; avatar?: string; password?: string }): Promise<boolean> => {
@@ -376,6 +385,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
       setUser(updatedUser);
       localStorage.setItem('user', JSON.stringify(updatedUser));
+      broadcastUserUpdate(updatedUser);
 
       // Atualizar no banco de dados IndexedDB
       try {

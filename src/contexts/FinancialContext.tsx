@@ -16,6 +16,27 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
   const [financialTickets, setFinancialTickets] = useState<FinancialTicket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Propagar atualização de nome/avatar/email para tickets financeiros em memória
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const updatedUser = (e as CustomEvent<User>).detail;
+      if (!updatedUser?.id) return;
+
+      const replaceUser = (u: any) => (u && u.id === updatedUser.id ? { ...u, ...updatedUser } : u);
+
+      setFinancialTickets((prev) =>
+        prev.map((t) => ({
+          ...t,
+          client: replaceUser(t.client),
+          createdBy: replaceUser(t.createdBy),
+        }))
+      );
+    };
+
+    window.addEventListener('userUpdated', handler as EventListener);
+    return () => window.removeEventListener('userUpdated', handler as EventListener);
+  }, []);
+
   // Função para obter usuário logado do localStorage
   const getCurrentUser = (): User | null => {
     try {

@@ -68,7 +68,8 @@ export default function TicketDetails() {
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [replyFiles, setReplyFiles] = useState<File[]>([]);
   const replyFileInputRef = useRef<HTMLInputElement>(null);
-  const [interactionOrder, setInteractionOrder] = useState<'asc' | 'desc'>('asc');
+  // Por padrão: mais recentes primeiro
+  const [interactionOrder, setInteractionOrder] = useState<'asc' | 'desc'>('desc');
   const [interactionFilter, setInteractionFilter] = useState<'all' | InteractionType>('all');
   const [viewMode, setViewMode] = useState<'normal' | 'compact'>('normal');
   const [comment, setComment] = useState('');
@@ -88,6 +89,7 @@ export default function TicketDetails() {
   const [successMessage, setSuccessMessage] = useState('');
   const [showFileViewer, setShowFileViewer] = useState(false);
   const [selectedFile, setSelectedFile] = useState<TicketFile | null>(null);
+  const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const baseTicket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
   const ticket = ticketDetails || baseTicket || null;
@@ -327,6 +329,13 @@ export default function TicketDetails() {
       }
     }
   };
+
+  // Focar a caixa de resposta quando abrir (melhora UX, principalmente com lista invertida)
+  useEffect(() => {
+    if (showReplyBox) {
+      setTimeout(() => replyTextareaRef.current?.focus(), 0);
+    }
+  }, [showReplyBox]);
 
   const handleAddInteraction = async () => {
     if ((replyText.trim() || replyFiles.length > 0) && user && ticket) {
@@ -990,7 +999,7 @@ export default function TicketDetails() {
                 {/* Barra de Ferramentas */}
                 <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-gray-200 dark:border-gray-700">
                   <button
-                    onClick={() => setShowReplyBox(!showReplyBox)}
+                    onClick={() => setShowReplyBox(true)}
                     className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 text-sm font-medium"
                   >
                     <Send className="w-4 h-4" />
@@ -1025,6 +1034,104 @@ export default function TicketDetails() {
                     <option value="compact">Visão compacta</option>
                   </select>
                 </div>
+
+                {/* Caixa de Resposta (no topo) */}
+                {showReplyBox && (
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-white dark:bg-gray-800">
+                    <textarea
+                      ref={replyTextareaRef}
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      onPaste={handlePasteImage}
+                      placeholder="Digite sua resposta... (Você pode colar imagens com Ctrl+V)"
+                      rows={4}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
+                    />
+
+                    {/* Upload de Arquivos */}
+                    <div className="mb-3">
+                      <input
+                        ref={replyFileInputRef}
+                        type="file"
+                        multiple
+                        onChange={handleReplyFileSelect}
+                        className="hidden"
+                        id="reply-file-input"
+                      />
+                      <label
+                        htmlFor="reply-file-input"
+                        className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors text-sm text-gray-700 dark:text-gray-300"
+                      >
+                        <Paperclip className="w-4 h-4" />
+                        Anexar Arquivos
+                      </label>
+
+                      {replyFiles.length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          {replyFiles.map((file, index) => {
+                            const isImage = file.type?.startsWith('image/');
+                            const objectUrl = isImage ? URL.createObjectURL(file) : null;
+
+                            return (
+                              <div
+                                key={index}
+                                className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700"
+                              >
+                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                  {isImage && objectUrl ? (
+                                    <img
+                                      src={objectUrl}
+                                      alt={file.name}
+                                      className="w-8 h-8 object-cover rounded flex-shrink-0"
+                                    />
+                                  ) : (
+                                    <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate block">{file.name || 'Imagem colada'}</span>
+                                    <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    if (objectUrl) {
+                                      URL.revokeObjectURL(objectUrl);
+                                    }
+                                    handleRemoveReplyFile(index);
+                                  }}
+                                  className="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => {
+                          setShowReplyBox(false);
+                          setReplyText('');
+                          setReplyFiles([]);
+                        }}
+                        className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleAddInteraction}
+                        disabled={!replyText.trim() && replyFiles.length === 0}
+                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Send className="w-4 h-4" />
+                        Enviar
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Timeline de Interações */}
                 <div className="space-y-4">
@@ -1228,103 +1335,6 @@ export default function TicketDetails() {
                     <p className="text-gray-500 dark:text-gray-400 text-center py-8">Nenhuma interação encontrada</p>
                   )}
                 </div>
-
-                {/* Caixa de Resposta */}
-                {showReplyBox && (
-                  <div className="border-t border-gray-200 dark:border-gray-700 pt-4 mt-4">
-                    <textarea
-                      value={replyText}
-                      onChange={(e) => setReplyText(e.target.value)}
-                      onPaste={handlePasteImage}
-                      placeholder="Digite sua resposta... (Você pode colar imagens com Ctrl+V)"
-                      rows={4}
-                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 mb-3 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-500 dark:placeholder-gray-400"
-                    />
-
-                    {/* Upload de Arquivos */}
-                    <div className="mb-3">
-                      <input
-                        ref={replyFileInputRef}
-                        type="file"
-                        multiple
-                        onChange={handleReplyFileSelect}
-                        className="hidden"
-                        id="reply-file-input"
-                      />
-                      <label
-                        htmlFor="reply-file-input"
-                        className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors text-sm text-gray-700 dark:text-gray-300"
-                      >
-                        <Paperclip className="w-4 h-4" />
-                        Anexar Arquivos
-                      </label>
-
-                      {replyFiles.length > 0 && (
-                        <div className="mt-2 space-y-2">
-                          {replyFiles.map((file, index) => {
-                            const isImage = file.type?.startsWith('image/');
-                            const objectUrl = isImage ? URL.createObjectURL(file) : null;
-
-                            return (
-                              <div
-                                key={index}
-                                className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-700"
-                              >
-                                <div className="flex items-center gap-2 flex-1 min-w-0">
-                                  {isImage && objectUrl ? (
-                                    <img
-                                      src={objectUrl}
-                                      alt={file.name}
-                                      className="w-8 h-8 object-cover rounded flex-shrink-0"
-                                    />
-                                  ) : (
-                                    <File className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                                  )}
-                                  <div className="flex-1 min-w-0">
-                                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate block">{file.name || 'Imagem colada'}</span>
-                                    <span className="text-xs text-gray-500 dark:text-gray-400">{formatFileSize(file.size)}</span>
-                                  </div>
-                                </div>
-                                <button
-                                  onClick={() => {
-                                    if (objectUrl) {
-                                      URL.revokeObjectURL(objectUrl);
-                                    }
-                                    handleRemoveReplyFile(index);
-                                  }}
-                                  className="p-1 text-gray-500 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => {
-                          setShowReplyBox(false);
-                          setReplyText('');
-                          setReplyFiles([]);
-                        }}
-                        className="px-4 py-2 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={handleAddInteraction}
-                        disabled={!replyText.trim() && replyFiles.length === 0}
-                        className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        <Send className="w-4 h-4" />
-                        Enviar
-                      </button>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="space-y-6">

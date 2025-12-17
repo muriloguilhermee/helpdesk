@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from './contexts/AuthContext';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -19,6 +19,7 @@ import ERPIntegrationPage from './pages/ERPIntegrationPage';
 
 function AppRoutes() {
   const { isAuthenticated, user, hasPermission } = useAuth();
+  const location = useLocation();
 
   // Determinar a rota inicial baseada nas permissões
   const getInitialRoute = () => {
@@ -30,7 +31,19 @@ function AppRoutes() {
 
   return (
     <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to={getInitialRoute()} replace /> : <Login />} />
+      <Route
+        path="/login"
+        element={
+          isAuthenticated
+            ? (
+              <Navigate
+                to={(location.state as any)?.from?.pathname || getInitialRoute()}
+                replace
+              />
+            )
+            : <Login />
+        }
+      />
 
       <Route
         path="/"

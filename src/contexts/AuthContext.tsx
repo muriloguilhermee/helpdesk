@@ -9,6 +9,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
   hasPermission: (permission: string) => boolean;
   updateUser: (updatedUser: User) => void;
   updateProfile: (updates: { name?: string; email?: string; avatar?: string; password?: string }) => Promise<boolean>;
@@ -77,6 +78,7 @@ const usersWithPassword = [
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Inicializar dados mockados no banco de dados na primeira vez
   useEffect(() => {
@@ -152,6 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Verificar se há usuário salvo no localStorage
     const loadUser = async () => {
+      setIsLoading(true);
       const savedUser = localStorage.getItem('user');
       const savedToken = localStorage.getItem('token');
 
@@ -164,6 +167,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.log('⚠️ Supabase configurado mas sem token. Limpando sessão...');
         localStorage.removeItem('user');
         localStorage.removeItem('token');
+        setIsLoading(false);
         return;
       }
 
@@ -175,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (hasSupabase && apiUrl && !savedToken) {
             console.log('⚠️ Usuário encontrado mas sem token. Limpando sessão...');
             localStorage.removeItem('user');
+            setIsLoading(false);
             return;
           }
 
@@ -186,18 +191,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (updatedUser) {
               setUser(updatedUser);
               localStorage.setItem('user', JSON.stringify(updatedUser));
+              setIsLoading(false);
               return;
             }
           } catch {
             // Se houver erro, usar o usuário salvo
           }
           setUser(user);
+          setIsLoading(false);
         } catch {
           // Se houver erro ao parsear, limpar
           localStorage.removeItem('user');
           localStorage.removeItem('token');
+          setIsLoading(false);
         }
       }
+      setIsLoading(false);
     };
 
     loadUser();
@@ -462,6 +471,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         logout,
         isAuthenticated: !!user,
+        isLoading,
         hasPermission,
         updateUser,
         updateProfile,

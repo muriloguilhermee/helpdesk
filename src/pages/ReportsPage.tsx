@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Download, BarChart3, TrendingUp, FileText, User, FileSpreadsheet, FileText as FileTextIcon, ChevronDown } from 'lucide-react';
 import { useTickets } from '../contexts/TicketsContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,12 +7,15 @@ import { mockUsers } from '../data/mockData';
 import PieChart from '../components/PieChart';
 import { UserAvatar } from '../utils/userAvatar';
 import { exportToExcel, exportToPDF } from '../utils/exportReport';
+import { api } from '../services/api';
 
 export default function ReportsPage() {
   const { tickets } = useTickets();
   const { user } = useAuth();
   const [showExportMenu, setShowExportMenu] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement>(null);
+  const [technicians, setTechnicians] = useState<any[]>([]);
+  const [isLoadingTechnicians, setIsLoadingTechnicians] = useState(false);
 
   // Filtrar apenas chamados criados pelo usuário atual
   // Se for admin ou técnico, ver todos os tickets; se for user, ver apenas os seus
@@ -69,32 +72,57 @@ export default function ReportsPage() {
     return acc;
   }, {} as Record<string, number>);
 
-  // Buscar apenas usuários customizados (não mockados)
-  const allUsers = (() => {
-    const savedUsers = localStorage.getItem('allUsers');
-    if (savedUsers) {
+  // Carregar técnicos pela API (não depender de localStorage, que pode estar vazio em produção)
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTechnicians() {
+      // Se não está logado, não tenta buscar
+      if (!user) return;
+
+      setIsLoadingTechnicians(true);
       try {
-        return JSON.parse(savedUsers);
-      } catch {
-        return [];
+        const users = await api.getUsers();
+        if (cancelled) return;
+
+        const techs = (users || []).filter(
+          (u: any) => u?.role === 'technician' || u?.role === 'technician_n2'
+        );
+
+        setTechnicians(techs);
+      } catch (err) {
+        // Fallback: tenta recuperar do localStorage (se existir)
+        try {
+          const savedUsers = localStorage.getItem('allUsers');
+          const parsed = savedUsers ? JSON.parse(savedUsers) : [];
+          const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
+          const customUsers = (parsed || []).filter((u: any) => !mockUserEmails.has(u.email.toLowerCase()));
+          const techs = customUsers.filter((u: any) => u.role === 'technician' || u.role === 'technician_n2');
+          if (!cancelled) setTechnicians(techs);
+        } catch {
+          if (!cancelled) setTechnicians([]);
+        }
+      } finally {
+        if (!cancelled) setIsLoadingTechnicians(false);
       }
     }
-    return [];
-  })();
 
-  // Filtrar apenas técnicos customizados (não mockados)
-  const mockUserEmails = new Set(mockUsers.map(u => u.email.toLowerCase()));
-  const customUsers = allUsers.filter((u: any) => !mockUserEmails.has(u.email.toLowerCase()));
-  const technicians = customUsers.filter((u: any) => u.role === 'technician' || u.role === 'technician_n2');
+    loadTechnicians();
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   // Contar tickets por técnico (apenas dos chamados do usuário)
-  const ticketsByTechnician = technicians.reduce((acc: Record<string, { name: string; count: number }>, tech: any) => {
-    const count = userTickets.filter(t => t.assignedTo?.id === tech.id).length;
-    if (count > 0) {
-      acc[tech.id] = { name: tech.name, count };
-    }
-    return acc;
-  }, {} as Record<string, { name: string; count: number }>);
+  const ticketsByTechnician = useMemo(() => {
+    return technicians.reduce((acc: Record<string, { name: string; count: number }>, tech: any) => {
+      const count = userTickets.filter(t => t.assignedTo?.id === tech.id).length;
+      if (count > 0) {
+        acc[tech.id] = { name: tech.name, count };
+      }
+      return acc;
+    }, {} as Record<string, { name: string; count: number }>);
+  }, [technicians, userTickets]);
 
   // Fechar menu ao clicar fora
   useEffect(() => {
@@ -383,7 +411,9 @@ export default function ReportsPage() {
           <User className="w-5 h-5 text-primary-600 dark:text-primary-400" />
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Chamados por Técnico</h2>
         </div>
-        {technicians.length === 0 ? (
+        {isLoadingTechnicians ? (
+          <p className="text-gray-500 dark:text-gray-400 text-center py-8">Carregando técnicos...</p>
+        ) : technicians.length === 0 ? (
           <p className="text-gray-500 dark:text-gray-400 text-center py-8">Nenhum técnico encontrado</p>
         ) : (
           <div className="space-y-4">

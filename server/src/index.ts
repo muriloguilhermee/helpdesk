@@ -15,6 +15,7 @@ import { initializeDatabase } from './database/connection.js';
 dotenv.config();
 
 const app = express();
+// Cloud Run costuma usar PORT=8080
 const PORT = Number(process.env.PORT) || 3001;
 
 // Trust proxy - necessário para rate limiting funcionar corretamente no Render

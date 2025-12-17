@@ -123,6 +123,7 @@ npm run build
 - **[Deploy Supabase](./DEPLOY_SUPABASE.md)**: Guia completo de deploy
 - **[Quick Start](./QUICK_START_SUPABASE.md)**: Deploy rápido (5 minutos)
 - **[Deploy HostGator](./docs/DEPLOY_HOSTGATOR.md)**: Deploy em servidor próprio
+- **[Deploy Firebase](./docs/DEPLOY_FIREBASE.md)**: Firebase Hosting + Cloud Run + Cloud SQL (recomendado)
 
 ### Funcionalidades
 - **[Integração ERP](./docs/INTEGRACAO_ERP.md)**: Guia de integração com ERPs

@@ -66,7 +66,7 @@ const commentSchema = z.object({
 
 export const getAllTicketsController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('📥 getAllTicketsController - Usuário:', req.user?.email, 'Role:', req.user?.role);
+    
     const filters: any = {};
     if (req.query.status) filters.status = req.query.status;
     if (req.query.priority) filters.priority = req.query.priority;
@@ -89,7 +89,7 @@ export const getAllTicketsController = async (req: AuthRequest, res: Response): 
 
     console.log('🔍 Filtros aplicados:', JSON.stringify(filters));
     const tickets = await getAllTickets(filters);
-    console.log(`✅ Retornando ${tickets.length} tickets para ${req.user?.role || 'usuário não autenticado'}`);
+    
     res.json(tickets);
   } catch (error) {
     console.error('❌ Erro em getAllTicketsController:', error);
@@ -120,14 +120,14 @@ export const createTicketController = async (req: AuthRequest, res: Response): P
       return;
     }
 
-    console.log('📥 Recebida requisição para criar ticket:', req.body);
+    
     const validated = createTicketSchema.parse(req.body);
 
     // Se o usuário for técnico e não houver assignedTo especificado, atribuir automaticamente a ele
     let assignedTo = validated.assignedTo;
     if (!assignedTo && req.user.role === 'technician') {
       assignedTo = req.user.id;
-      console.log('👤 Técnico criando chamado - atribuindo automaticamente a ele:', req.user.id);
+      
     }
 
     const ticket = await createTicket({
@@ -136,7 +136,7 @@ export const createTicketController = async (req: AuthRequest, res: Response): P
       clientId: validated.clientId || req.user.id,
       assignedTo: assignedTo,
     });
-    console.log('✅ Ticket criado, retornando resposta:', ticket.id);
+    
     res.status(201).json(ticket);
   } catch (error) {
     console.error('❌ Erro no controller de criação de ticket:', error);
@@ -152,7 +152,7 @@ export const createTicketController = async (req: AuthRequest, res: Response): P
 
 export const updateTicketController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('📥 Recebida requisição para atualizar ticket:', req.params.id, req.body);
+    
     const validated = updateTicketSchema.parse(req.body);
     // Adicionar ID do usuário que está fazendo a atualização
     const updateData = {
@@ -160,7 +160,7 @@ export const updateTicketController = async (req: AuthRequest, res: Response): P
       updatedBy: req.user?.id,
     };
     const ticket = await updateTicket(req.params.id, updateData);
-    console.log('✅ Ticket atualizado, retornando resposta:', ticket.id);
+    
     res.json(ticket);
   } catch (error) {
     console.error('❌ Erro no controller de atualização de ticket:', error);
@@ -176,9 +176,9 @@ export const updateTicketController = async (req: AuthRequest, res: Response): P
 
 export const deleteTicketController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('📥 Recebida requisição para excluir ticket:', req.params.id);
+    
     await deleteTicket(req.params.id);
-    console.log('✅ Ticket excluído com sucesso');
+    
     res.status(204).send();
   } catch (error) {
     console.error('❌ Erro no controller de exclusão de ticket:', error);

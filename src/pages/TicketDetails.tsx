@@ -101,26 +101,10 @@ export default function TicketDetails() {
     try {
       setIsLoadingDetails(true);
       const apiTicket = await api.getTicketById(id);
-      console.log('📥 Ticket completo da API:', apiTicket);
-      console.log('💬 Comentários recebidos:', apiTicket.comments);
-      // Verificar arquivos em cada comentário
-      if (apiTicket.comments && Array.isArray(apiTicket.comments)) {
-        apiTicket.comments.forEach((c: any, idx: number) => {
-          console.log(`  📎 Comentário ${idx + 1} (${c.id}) tem ${(c.files || []).length} arquivo(s):`, c.files);
-        });
-      }
       const transformed = transformApiTicketToFrontend(apiTicket);
-      console.log('✅ Ticket transformado:', transformed);
-      console.log('💬 Comentários transformados:', transformed.comments);
-      // Verificar arquivos após transformação
-      if (transformed.comments && Array.isArray(transformed.comments)) {
-        transformed.comments.forEach((c: any, idx: number) => {
-          console.log(`  📎 Comentário transformado ${idx + 1} (${c.id}) tem ${(c.files || []).length} arquivo(s):`, c.files);
-        });
-      }
       setTicketDetails(transformed);
     } catch (error) {
-      console.error('Erro ao carregar detalhes do chamado:', error);
+      // Erro silencioso
     } finally {
       setIsLoadingDetails(false);
     }
@@ -383,7 +367,6 @@ export default function TicketDetails() {
       if (ticket.comments && ticket.comments.length > 0) {
         ticket.comments.forEach((comment, index) => {
           const commentFiles = (comment as any).files || [];
-          console.log(`  📎 Comentário ${index + 1} tem ${commentFiles.length} arquivo(s):`, commentFiles);
 
           // Detectar se é uma transferência de fila ou atribuição de fila
           const lowerContent = comment.content.toLowerCase();
@@ -400,7 +383,6 @@ export default function TicketDetails() {
             createdAt: comment.createdAt,
             files: commentFiles.length > 0 ? commentFiles : undefined,
           };
-          console.log(`  ✅ Adicionando interação do comentário ${index + 1} com ${interaction.files?.length || 0} arquivo(s):`, interaction);
           interactions.push(interaction);
         });
       }
@@ -480,7 +462,6 @@ export default function TicketDetails() {
 
       setAllTechnicians(sortedTechnicians);
     } catch (error) {
-      console.error('Erro ao carregar técnicos:', error);
       setAllTechnicians([]);
     }
   };
@@ -554,7 +535,6 @@ export default function TicketDetails() {
           }
         }
       } catch (error) {
-        console.error('Erro ao carregar filas:', error);
         setQueues([]);
       }
     };
@@ -705,7 +685,6 @@ export default function TicketDetails() {
           setReloadTrigger(prev => prev + 1);
         }, 500);
       } catch (error: any) {
-        console.error('Erro ao transferir chamado para fila:', error);
         setSuccessMessage(error?.message || 'Erro ao transferir chamado. Tente novamente.');
         setTimeout(() => setSuccessMessage(''), 4000);
       }

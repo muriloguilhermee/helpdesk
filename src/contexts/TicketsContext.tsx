@@ -79,20 +79,15 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       try {
         const user = getCurrentUser();
         if (!user) {
-          console.log('🚫 Nenhum usuário logado, não carregar tickets ainda.');
           setIsLoading(false);
           return;
         }
 
-        console.log('📡 Carregando tickets da API...');
         // SEMPRE usar API - sem fallback para dados locais
         const apiTickets = await api.getTickets();
-        console.log('📦 Resposta da API (raw):', apiTickets);
-        console.log('📊 Quantidade de tickets recebidos:', apiTickets?.length || 0);
 
         // Verificar se apiTickets é um array
         if (!Array.isArray(apiTickets)) {
-          console.error('❌ Resposta da API não é um array:', typeof apiTickets, apiTickets);
           setTickets([]);
           setIsLoading(false);
           return;
@@ -100,7 +95,6 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
 
         // Transform API response to Ticket format
         const transformedTickets = apiTickets.map((t: any) => {
-          console.log('🔄 Transformando ticket:', t.id, t.title);
           return {
             id: t.id,
             title: t.title,
@@ -140,32 +134,26 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           };
         });
 
-        console.log('✅ Tickets carregados da API:', transformedTickets.length);
         previousTicketsCountRef.current = transformedTickets.length;
         setTickets(transformedTickets);
         setIsLoading(false);
       } catch (apiError: any) {
-        console.error('❌ Erro ao carregar tickets da API:', apiError);
-
         // Se for 401 (não autenticado), apenas limpa lista sem exibir alerta
         if (apiError?.status === 401) {
-          console.warn('⚠️ Não autenticado ao carregar tickets. Aguarde login.');
           setTickets([]);
           setIsLoading(false);
           return;
         }
 
         // Outros erros: mostrar alerta de conexão
-        // Se for rate limit, apenas loga e mantém lista atual para não derrubar a UI
+        // Se for rate limit, apenas mantém lista atual para não derrubar a UI
         if (apiError?.status === 429) {
-          console.warn('⚠️ API limitou requisições (429). Mantendo lista atual e tentando depois.');
           setIsLoading(false);
           return;
         }
 
         setTickets([]);
         setIsLoading(false);
-        console.error('Erro ao conectar com o servidor. Verifique se o backend está rodando.');
       }
     };
 
@@ -175,7 +163,6 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     const intervalId = setInterval(() => {
       const user = getCurrentUser();
       if (user) {
-        console.log('🔄 Atualizando tickets automaticamente...');
         loadTickets();
       }
     }, 30000); // 30 segundos
@@ -231,7 +218,6 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
           oscillator2.stop(audioContext.currentTime + 0.2);
         }, 250);
       } catch (error) {
-        console.warn('Não foi possível tocar o som de notificação:', error);
       }
 
       // Mostrar notificação do navegador (se permitido)
@@ -264,7 +250,6 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
     // Salvar tickets no banco de dados sempre que houver mudanças
     if (!isLoading && tickets.length > 0) {
       database.saveTickets(tickets).catch((error: any) => {
-        console.error('Erro ao salvar tickets no banco de dados:', error);
       });
     }
   }, [tickets, isLoading]);
@@ -272,15 +257,12 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   const deleteTicket = async (id: string) => {
     try {
       // SEMPRE usar API - sem fallback para dados locais
-      console.log('🗑️ Deletando ticket via API:', id);
       await api.deleteTicket(id);
 
       // Remover ticket da lista local
       setTickets((prev) => prev.filter((ticket) => ticket.id !== id));
       previousTicketsCountRef.current = tickets.length - 1;
-      console.log('✅ Ticket deletado com sucesso');
     } catch (apiError: any) {
-      console.error('❌ Erro ao deletar ticket:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
@@ -288,7 +270,6 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   const updateTicket = async (id: string, updates: Partial<Ticket> & { queueId?: string | null }) => {
     try {
       // SEMPRE usar API - sem fallback para dados locais
-      console.log('📝 Atualizando ticket via API:', id, updates);
       // Construir objeto de atualização apenas com campos definidos
       const updateData: any = {};
       if (updates.title !== undefined) updateData.title = updates.title;
@@ -341,9 +322,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         )
       );
 
-      console.log('✅ Ticket atualizado com sucesso');
     } catch (apiError: any) {
-      console.error('❌ Erro ao atualizar ticket:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
@@ -351,7 +330,6 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   const addTicket = async (ticket: Ticket) => {
     try {
       // SEMPRE usar API - sem fallback para dados locais
-      console.log('📝 Criando ticket via API:', ticket.title);
       const createdTicket = await api.createTicket({
         title: ticket.title,
         description: ticket.description,
@@ -391,9 +369,7 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
       // Adicionar ticket criado à lista (dados do banco)
       setTickets((prev) => [...prev, transformedTicket]);
       previousTicketsCountRef.current = tickets.length + 1;
-      console.log('✅ Ticket criado com sucesso');
     } catch (apiError: any) {
-      console.error('❌ Erro ao criar ticket:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
@@ -401,7 +377,6 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
   const addComment = async (ticketId: string, comment: Comment) => {
     try {
       // SEMPRE usar API - sem fallback para dados locais
-      console.log('💬 Adicionando comentário via API:', ticketId);
       const createdComment = await api.addComment(ticketId, comment.content);
 
       // Atualizar ticket com comentário do banco
@@ -428,16 +403,13 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
             : ticket
         )
       );
-      console.log('✅ Comentário adicionado com sucesso');
     } catch (apiError: any) {
-      console.error('❌ Erro ao adicionar comentário:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
 
   const addInteraction = async (ticketId: string, interaction: Interaction) => {
     try {
-      console.log('💬 Adicionando interação:', { ticketId, type: interaction.type });
 
       // Se for uma interação de usuário com texto, salvar como comentário na API
       let createdComment: any | null = null;
@@ -456,9 +428,8 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
               : undefined;
 
           createdComment = await api.addComment(ticketId, interaction.content, filesToSend);
-          console.log('✅ Interação salva como comentário na API:', createdComment?.id);
         } catch (error) {
-          console.error('❌ Erro ao salvar interação como comentário na API:', error);
+          // Erro silencioso
         }
       }
 
@@ -496,7 +467,6 @@ export function TicketsProvider({ children }: { children: ReactNode }) {
         })
       );
     } catch (error) {
-      console.error('❌ Erro ao registrar interação:', error);
       throw error;
     }
   };

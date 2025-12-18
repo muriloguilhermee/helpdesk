@@ -148,7 +148,6 @@ export default function ReportsPage() {
       );
       setShowExportMenu(false);
     } catch (error) {
-      console.error('Erro ao exportar PDF:', error);
       alert('Erro ao exportar PDF. Por favor, tente novamente.');
     }
   };
@@ -165,7 +164,6 @@ export default function ReportsPage() {
       );
       setShowExportMenu(false);
     } catch (error) {
-      console.error('Erro ao exportar Excel:', error);
       alert('Erro ao exportar Excel. Por favor, tente novamente.');
     }
   };

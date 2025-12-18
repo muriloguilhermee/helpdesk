@@ -189,10 +189,10 @@ export const getAllTickets = async (filters?: TicketFilters) => {
   }
 
   const tickets = await query.orderBy('tickets.updated_at', 'desc');
-  console.log(`📋 getAllTickets - Encontrados ${tickets.length} tickets no banco`);
+  
 
   const ticketIds = tickets.map((t: any) => t.id);
-  console.log(`📋 IDs dos tickets encontrados:`, ticketIds);
+  
 
   let commentsByTicket: Record<string, any[]> = {};
   let ticketFilesByTicket: Record<string, any[]> = {};
@@ -267,7 +267,7 @@ export const getAllTickets = async (filters?: TicketFilters) => {
     comments: commentsByTicket[t.id] || [],
   }));
 
-  console.log(`✅ getAllTickets - Retornando ${result.length} tickets processados`);
+  
   if (result.length > 0) {
     console.log(`📝 Primeiro ticket (exemplo):`, {
       id: result[0].id,
@@ -287,7 +287,7 @@ export const getTicketById = async (id: string) => {
   try {
     const db = getDatabase();
 
-    console.log('🔍 Buscando ticket por ID:', id);
+    
 
     // Primeiro, verificar se o ticket existe (query simples)
     const ticketExists = await db('tickets')
@@ -304,7 +304,7 @@ export const getTicketById = async (id: string) => {
       throw new Error(`Chamado não encontrado. ID: ${id}`);
     }
 
-    console.log('✅ Ticket encontrado, buscando detalhes completos...');
+    
 
     const ticket = await db('tickets')
       .leftJoin('users as creator', 'tickets.created_by', 'creator.id')
@@ -368,16 +368,16 @@ export const getTicketById = async (id: string) => {
       throw new Error(`Chamado não encontrado. ID: ${id}`);
     }
 
-    console.log('✅ Ticket encontrado:', ticket.id, ticket.title);
+    
 
     // Get files (ticket-level e por comentário)
     const files = await db('ticket_files')
       .where({ ticket_id: id })
       .select('id', 'ticket_id', 'comment_id', 'name', 'size', 'type', 'data_url', 'created_at');
 
-    console.log(`📎 Total de arquivos encontrados para ticket ${id}:`, files.length);
+    
     files.forEach((f: any) => {
-      console.log(`  - Arquivo ${f.id}: comment_id=${f.comment_id || 'null'}, name=${f.name}`);
+      
     });
 
     const ticketFiles: any[] = [];
@@ -423,7 +423,7 @@ export const getTicketById = async (id: string) => {
       )
       .orderBy('comments.created_at', 'asc');
 
-    console.log(`💬 Total de comentários encontrados: ${comments.length}`);
+    
     console.log(`📋 IDs dos comentários:`, comments.map(c => c.id));
     console.log(`📋 IDs dos comentários com arquivos:`, Object.keys(filesByComment));
 
@@ -471,7 +471,7 @@ export const createTicket = async (data: CreateTicketData) => {
   try {
     const db = getDatabase();
 
-    console.log('📝 Criando ticket:', { title: data.title, category: data.category, priority: data.priority });
+    
 
     // Se não foi especificada uma fila, atribuir à "Suporte N1" por padrão
     let finalQueueId = data.queueId;
@@ -479,7 +479,7 @@ export const createTicket = async (data: CreateTicketData) => {
       const suporteN1 = await db('queues').whereRaw('LOWER(name) = LOWER(?)', ['Suporte N1']).first();
       if (suporteN1) {
         finalQueueId = suporteN1.id;
-        console.log('📋 Atribuindo ticket à fila padrão: Suporte N1');
+        
       } else {
         // Se não existir, criar a fila
         const [newQueue] = await db('queues')
@@ -490,7 +490,7 @@ export const createTicket = async (data: CreateTicketData) => {
           .returning('*');
         if (newQueue) {
           finalQueueId = newQueue.id;
-          console.log('✅ Fila "Suporte N1" criada e atribuída ao ticket');
+          
         }
       }
     }
@@ -509,7 +509,7 @@ export const createTicket = async (data: CreateTicketData) => {
 
     const nextId = String(lastNumericId + 1).padStart(5, '0');
 
-    console.log('🆔 Último ID numérico:', lastNumericId, '→ Próximo ID do ticket:', nextId);
+    
 
     const insertResult = await db('tickets')
       .insert({
@@ -528,7 +528,7 @@ export const createTicket = async (data: CreateTicketData) => {
       })
       .returning('*');
 
-    console.log('📦 Resultado do insert:', insertResult);
+    
 
     // O returning pode retornar array ou objeto dependendo do driver
     const ticket = Array.isArray(insertResult) ? insertResult[0] : insertResult;
@@ -537,11 +537,11 @@ export const createTicket = async (data: CreateTicketData) => {
       throw new Error('Falha ao criar ticket: nenhum registro retornado');
     }
 
-    console.log('✅ Ticket criado com sucesso:', ticket.id);
+    
 
     // Save files if provided (apenas nível de ticket)
     if (data.files && data.files.length > 0) {
-      console.log('📎 Salvando arquivos do ticket:', data.files.length);
+      
       await db('ticket_files').insert(
         data.files.map(file => ({
           ticket_id: ticket.id,
@@ -552,11 +552,11 @@ export const createTicket = async (data: CreateTicketData) => {
           data_url: file.dataUrl,
         }))
       );
-      console.log('✅ Arquivos do ticket salvos com sucesso');
+      
     }
 
     const fullTicket = await getTicketById(ticket.id);
-    console.log('✅ Ticket completo retornado');
+    
     return fullTicket;
   } catch (error: any) {
     console.error('❌ Erro ao criar ticket:', error);
@@ -569,7 +569,7 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
   try {
     const db = getDatabase();
 
-    console.log('📝 Atualizando ticket:', id, data);
+    
 
     // Check if ticket exists
     await getTicketById(id);
@@ -584,7 +584,7 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
     if (data.totalValue !== undefined) updateData.total_value = data.totalValue;
     if (data.assignedTo !== undefined) {
       updateData.assigned_to = data.assignedTo;
-      console.log('👤 Atribuindo ticket para:', data.assignedTo || 'ninguém');
+      
     }
     if (data.clientId !== undefined) updateData.client_id = data.clientId;
     let previousQueueName: string | null = null;
@@ -604,12 +604,12 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
       if (queueId) {
         const queueRecord = await db('queues').where({ id: queueId }).first();
         finalQueueName = queueRecord?.name || null;
-        console.log(`🔍 Fila encontrada no banco: ID=${queueId}, Nome=${finalQueueName}`);
+        
       }
 
       // Usar o nome do banco se disponível, senão usar o queueName do resolveQueueId, senão usar o ID
       const displayQueueName = finalQueueName || queueName || (queueId ? String(queueId) : null);
-      console.log('🔄 Transferindo ticket para fila:', displayQueueName || 'nenhuma fila');
+      
 
       // Se a fila mudou, criar comentário de transferência
       if (displayQueueName && previousQueueName && displayQueueName !== previousQueueName) {
@@ -622,7 +622,7 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
             author_id: authorId,
             content: `Chamado transferido de "${previousQueueName}" para "${displayQueueName}" por ${authorName}`,
           });
-          console.log(`✅ Comentário de transferência criado: "${previousQueueName}" → "${displayQueueName}"`);
+          
         } catch (error) {
           console.error('⚠️ Erro ao criar comentário de transferência:', error);
         }
@@ -637,7 +637,7 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
             author_id: authorId,
             content: `Chamado atribuído à fila "${displayQueueName}" por ${authorName}`,
           });
-          console.log(`✅ Comentário de atribuição de fila criado: "${displayQueueName}"`);
+          
         } catch (error) {
           console.error('⚠️ Erro ao criar comentário de atribuição de fila:', error);
         }
@@ -683,10 +683,10 @@ export const updateTicket = async (id: string, data: UpdateTicketData) => {
       .where({ id })
       .update(updateData);
 
-    console.log('📦 Resultado do update:', updateResult);
+    
 
     const updatedTicket = await getTicketById(id);
-    console.log('✅ Ticket atualizado com sucesso');
+    
     return updatedTicket;
   } catch (error: any) {
     console.error('❌ Erro ao atualizar ticket:', error);
@@ -699,11 +699,11 @@ export const deleteTicket = async (id: string) => {
   try {
     const db = getDatabase();
 
-    console.log('🗑️ Excluindo ticket:', id);
+    
 
     // Check if ticket exists
     const ticket = await getTicketById(id);
-    console.log('✅ Ticket encontrado:', ticket.title);
+    
 
     // Verificar quantos comentários e arquivos serão excluídos
     const commentsCount = await db('comments')
@@ -747,7 +747,7 @@ export const addComment = async (
   try {
     const db = getDatabase();
 
-    console.log('💬 Adicionando comentário ao ticket:', ticketId);
+    
 
     const insertResult = await db('comments')
       .insert({
@@ -786,7 +786,7 @@ export const addComment = async (
 
       const insertedArray = Array.isArray(insertFiles) ? insertFiles : [insertFiles];
       savedFiles = insertedArray.map((f: any) => {
-        console.log(`  ✅ Arquivo salvo: id=${f.id}, comment_id=${f.comment_id}, name=${f.name}`);
+        
         return {
           id: f.id,
           name: f.name,
@@ -803,7 +803,7 @@ export const addComment = async (
       .select('id', 'name', 'email', 'role', 'avatar')
       .first();
 
-    console.log('✅ Comentário criado com sucesso:', comment.id);
+    
 
     return {
       id: comment.id,

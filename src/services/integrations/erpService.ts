@@ -56,8 +56,8 @@ export class ERPService {
       // Primeiro, buscar do banco de dados
       await database.init();
       const allUsersFromDB = await database.getUsers();
-      
-      let client = allUsersFromDB.find((u: any) => 
+
+      let client = allUsersFromDB.find((u: any) =>
         u.email.toLowerCase() === erpData.clientEmail.toLowerCase() && u.role === 'user'
       );
 
@@ -73,7 +73,7 @@ export class ERPService {
           const parts = erpData.clientName.split(' | ');
           companyName = parts[0].trim();
         }
-        
+
         const newClient: User = {
           id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           name: erpData.clientName,
@@ -81,13 +81,12 @@ export class ERPService {
           role: 'user',
           company: companyName || undefined, // Usar nome da empresa se disponível
         };
-        
+
         // Salvar novo usuário no banco de dados
         try {
           await database.saveUser(newClient);
           client = newClient;
         } catch (error) {
-          console.error('Erro ao salvar novo cliente do ERP:', error);
           // Em caso de erro, usar o cliente temporário mesmo assim
           client = newClient;
         }
@@ -145,7 +144,6 @@ export class ERPService {
         };
       }
     } catch (error) {
-      console.error('Erro ao processar ticket do ERP:', error);
       return {
         success: false,
         message: `Erro ao processar ticket: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
@@ -178,7 +176,7 @@ export class ERPService {
       updateFinancialTicket(ticket.id, {
         status: 'paid',
         paymentDate: new Date(paymentData.paymentDate),
-        notes: ticket.notes 
+        notes: ticket.notes
           ? `${ticket.notes}\nPagamento confirmado via ${paymentData.erpType.toUpperCase()}. ID: ${paymentData.erpId}`
           : `Pagamento confirmado via ${paymentData.erpType.toUpperCase()}. ID: ${paymentData.erpId}`,
       });
@@ -197,7 +195,6 @@ export class ERPService {
         message: 'Pagamento processado com sucesso',
       };
     } catch (error) {
-      console.error('Erro ao processar pagamento do ERP:', error);
       return {
         success: false,
         message: `Erro ao processar pagamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,

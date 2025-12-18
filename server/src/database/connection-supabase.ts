@@ -36,7 +36,7 @@ export const initializeDatabase = async (): Promise<void> => {
 
     // Test connection
     await db.raw('SELECT 1');
-    console.log('✅ Database connected successfully');
+    
 
     // Run migrations
     await runMigrations();
@@ -59,7 +59,7 @@ const runMigrations = async (): Promise<void> => {
         table.text('avatar').nullable();
         table.timestamps(true, true);
       });
-      console.log('✅ Created users table');
+      
     }
 
     const hasTicketsTable = await db!.schema.hasTable('tickets');
@@ -78,7 +78,7 @@ const runMigrations = async (): Promise<void> => {
         table.uuid('client_id').references('id').inTable('users').onDelete('SET NULL').nullable();
         table.timestamps(true, true);
       });
-      console.log('✅ Created tickets table');
+      
     }
 
     const hasTicketFilesTable = await db!.schema.hasTable('ticket_files');
@@ -110,7 +110,7 @@ const runMigrations = async (): Promise<void> => {
             .inTable('comments')
             .onDelete('CASCADE');
         });
-        console.log('✅ Added comment_id column to ticket_files table');
+        
       }
     }
 
@@ -123,7 +123,7 @@ const runMigrations = async (): Promise<void> => {
         table.uuid('author_id').references('id').inTable('users').onDelete('CASCADE');
         table.timestamps(true, true);
       });
-      console.log('✅ Created comments table');
+      
     }
 
     await db!.schema.raw(`
@@ -134,7 +134,7 @@ const runMigrations = async (): Promise<void> => {
       CREATE INDEX IF NOT EXISTS idx_comments_ticket_id ON comments(ticket_id);
     `);
 
-    console.log('✅ Database migrations completed');
+    
   } catch (error) {
     console.error('❌ Migration error:', error);
     throw error;
@@ -145,7 +145,7 @@ export const closeDatabase = async (): Promise<void> => {
   if (db) {
     await db.destroy();
     db = null;
-    console.log('✅ Database connection closed');
+    
   }
 };
 

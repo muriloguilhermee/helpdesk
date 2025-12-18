@@ -96,7 +96,6 @@ export default function LiveMonitor() {
 
         setTechnicians(sortedTechnicians);
       } catch (error) {
-        console.error('Erro ao carregar técnicos:', error);
         setTechnicians([]);
       }
     };
@@ -186,10 +185,6 @@ export default function LiveMonitor() {
       return;
     }
 
-    console.log('🔍 Detectando mudanças...', {
-      oldTicketsCount: oldTickets.length,
-      updatedTicketsCount: updatedTickets.length,
-    });
 
     const activities: Array<{
       type: 'created' | 'updated' | 'status_changed' | 'assigned' | 'queue_transfer' | 'interaction_added' | 'accepted';
@@ -240,11 +235,6 @@ export default function LiveMonitor() {
 
       // Mudanças de status
       if (oldTicket.status !== newTicket.status) {
-        console.log('✅ Mudança de status detectada:', {
-          ticketId: newTicket.id,
-          from: oldTicket.status,
-          to: newTicket.status,
-        });
         activities.push({
           type: 'status_changed',
           ticket: newTicket,
@@ -262,7 +252,6 @@ export default function LiveMonitor() {
         }
         transitions[fromStatus][toStatus] = (transitions[fromStatus][toStatus] || 0) + 1;
 
-        console.log('📊 Transição registrada:', { from: fromStatus, to: toStatus, count: transitions[fromStatus][toStatus] });
 
         playNotificationSound();
       }
@@ -285,11 +274,6 @@ export default function LiveMonitor() {
       const oldQueue = oldTicket.queue || 'Sem atribuição';
       const newQueue = newTicket.queue || 'Sem atribuição';
       if (oldQueue !== newQueue) {
-        console.log('✅ Transferência de fila detectada:', {
-          ticketId: newTicket.id,
-          from: oldQueue,
-          to: newQueue,
-        });
         activities.push({
           type: 'queue_transfer',
           ticket: newTicket,
@@ -304,11 +288,6 @@ export default function LiveMonitor() {
       const oldInteractions = oldTicket.interactions || [];
       const newInteractions = newTicket.interactions || [];
       if (newInteractions.length > oldInteractions.length) {
-        console.log('✅ Novas interações detectadas:', {
-          ticketId: newTicket.id,
-          oldCount: oldInteractions.length,
-          newCount: newInteractions.length,
-        });
         // Encontrar novas interações
         const newInteractionIds = new Set(newInteractions.map((i: any) => i.id));
         const oldInteractionIds = new Set(oldInteractions.map((i: any) => i.id));
@@ -327,11 +306,6 @@ export default function LiveMonitor() {
             return;
           } else {
             // Nova interação (comentário, nota interna, etc)
-            console.log('✅ Nova interação adicionada:', {
-              ticketId: newTicket.id,
-              type: interaction.type,
-              content: interaction.content?.substring(0, 50),
-            });
             activities.push({
               type: 'interaction_added',
               ticket: newTicket,
@@ -361,7 +335,6 @@ export default function LiveMonitor() {
 
     // Atualizar transições de status
     if (Object.keys(transitions).length > 0) {
-      console.log('📈 Transições de status detectadas:', transitions);
       setStatusTransitions(prev => {
         const updated = { ...prev };
         Object.keys(transitions).forEach(from => {
@@ -370,17 +343,14 @@ export default function LiveMonitor() {
             updated[from][to] = (updated[from][to] || 0) + transitions[from][to];
           });
         });
-        console.log('📊 Status transitions atualizado:', updated);
         return updated;
       });
     }
 
     // Adicionar novas atividades ao início da lista
     if (activities.length > 0) {
-      console.log('📊 Atividades detectadas:', activities.length, activities.map(a => a.type));
       setRecentActivity(prev => [...activities, ...prev].slice(0, 100)); // Aumentar para 100
     } else {
-      console.log('ℹ️ Nenhuma atividade nova detectada');
     }
   }, []);
 
@@ -402,7 +372,6 @@ export default function LiveMonitor() {
       oscillator.start(audioContext.currentTime);
       oscillator.stop(audioContext.currentTime + 0.1);
     } catch (error) {
-      console.warn('Não foi possível tocar som:', error);
     }
   };
 
@@ -455,7 +424,6 @@ export default function LiveMonitor() {
         setApiError(false);
         setIsLoading(false);
       } catch (error) {
-        console.warn('⚠️ API não disponível, usando tickets do contexto local:', error);
         setApiError(true);
         // Usar tickets do contexto como fallback
         const currentTickets = tickets.length > 0 ? tickets : previousTicketsRef.current;

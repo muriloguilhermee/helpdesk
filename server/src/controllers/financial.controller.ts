@@ -100,7 +100,7 @@ export const createFinancialTicketController = async (req: AuthRequest, res: Res
       return;
     }
 
-    console.log('📥 Recebida requisição para criar ticket financeiro:', req.body);
+    
     const validated = createFinancialTicketSchema.parse(req.body);
 
     const ticket = await createFinancialTicket({
@@ -110,7 +110,7 @@ export const createFinancialTicketController = async (req: AuthRequest, res: Res
       createdBy: req.user.id,
     });
 
-    console.log('✅ Ticket financeiro criado, retornando resposta:', ticket.id);
+    
     res.status(201).json(ticket);
   } catch (error) {
     console.error('❌ Erro no controller de criação de ticket financeiro:', error);
@@ -126,7 +126,7 @@ export const createFinancialTicketController = async (req: AuthRequest, res: Res
 
 export const updateFinancialTicketController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('📥 Recebida requisição para atualizar ticket financeiro:', req.params.id, req.body);
+    
     const validated = updateFinancialTicketSchema.parse(req.body);
 
     const updateData: any = { ...validated };
@@ -138,7 +138,7 @@ export const updateFinancialTicketController = async (req: AuthRequest, res: Res
     }
 
     const ticket = await updateFinancialTicket(req.params.id, updateData);
-    console.log('✅ Ticket financeiro atualizado, retornando resposta:', ticket.id);
+    
     res.json(ticket);
   } catch (error) {
     console.error('❌ Erro no controller de atualização de ticket financeiro:', error);
@@ -154,9 +154,9 @@ export const updateFinancialTicketController = async (req: AuthRequest, res: Res
 
 export const deleteFinancialTicketController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('📥 Recebida requisição para excluir ticket financeiro:', req.params.id);
+    
     await deleteFinancialTicket(req.params.id);
-    console.log('✅ Ticket financeiro excluído com sucesso');
+    
     res.status(204).send();
   } catch (error) {
     console.error('❌ Erro no controller de exclusão de ticket financeiro:', error);

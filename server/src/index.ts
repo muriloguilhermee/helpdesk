@@ -28,14 +28,10 @@ const corsOrigins = process.env.CORS_ORIGIN
   ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim().replace(/\/$/, ''))
   : ['http://localhost:5173'];
 
-console.log('🌐 CORS Origins configuradas:', corsOrigins);
 
 // Handler ABSOLUTO para OPTIONS - antes de qualquer middleware
 app.options('*', (req, res) => {
   const origin = req.headers.origin;
-  console.log(`🔍 OPTIONS ABSOLUTO recebido - Origin: ${origin || 'N/A'}`);
-  console.log(`   Path: ${req.path}`);
-  console.log(`   Headers:`, req.headers);
 
   if (origin) {
     const normalizedOrigin = origin.replace(/\/$/, '').toLowerCase();
@@ -48,10 +44,7 @@ app.options('*', (req, res) => {
       res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
       res.setHeader('Access-Control-Max-Age', '86400');
-      console.log(`✅ OPTIONS ABSOLUTO respondido para: ${origin}`);
       return res.status(204).end();
-    } else {
-      console.error(`❌ OPTIONS ABSOLUTO bloqueado: ${normalizedOrigin}`);
     }
   }
 
@@ -62,11 +55,6 @@ app.options('*', (req, res) => {
 // Middleware CORS manual - PRIMEIRO, antes de qualquer coisa
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-
-  // Log TODAS as requisições para debug
-  if (req.method === 'OPTIONS' || req.path.includes('/api/')) {
-    console.log(`📥 ${req.method} ${req.path} - Origin: ${origin || 'N/A'}`);
-  }
 
   // Sempre adicionar headers CORS se houver origin
   if (origin) {
@@ -82,11 +70,6 @@ app.use((req, res, next) => {
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
       res.setHeader('Access-Control-Max-Age', '86400');
 
-      if (req.method === 'OPTIONS') {
-        console.log(`✅ CORS middleware respondeu OPTIONS para: ${origin}`);
-      }
-    } else {
-      console.error(`❌ CORS middleware bloqueou: ${normalizedOrigin}`);
     }
   }
 
@@ -162,7 +145,7 @@ app.options('/api/*', (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
     res.setHeader('Access-Control-Max-Age', '86400');
-    console.log(`✅ OPTIONS handler explícito para: ${origin}`);
+
   }
   res.status(204).end();
 });
@@ -192,7 +175,6 @@ app.get('/test-cors', (req, res) => {
 
 app.options('/test-cors', (req, res) => {
   const origin = req.headers.origin;
-  console.log(`🔍 TEST-CORS OPTIONS recebido - Origin: ${origin || 'N/A'}`);
 
   if (origin) {
     res.setHeader('Access-Control-Allow-Origin', origin);
@@ -200,7 +182,6 @@ app.options('/test-cors', (req, res) => {
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
     res.setHeader('Access-Control-Max-Age', '86400');
-    console.log(`✅ TEST-CORS OPTIONS respondido para: ${origin}`);
   }
   res.status(204).end();
 });
@@ -225,15 +206,15 @@ app.get('/health', (req, res) => {
 // IMPORTANTE: Inicia o servidor PRIMEIRO, depois conecta ao banco em background
 // Isso evita timeout no Cloud Run
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`📡 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 CORS Origin: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
-  console.log(`✅ Server ready to accept connections`);
+
+
+
+
 
   // Conecta ao banco em background (não bloqueia o start)
   initializeDatabase()
     .then(() => {
-      console.log(`✅ Database connected successfully`);
+
     })
     .catch((error) => {
       console.error('❌ Failed to connect to database:', error);
@@ -250,9 +231,4 @@ server.on('error', (error: any) => {
   console.error('❌ Server error:', error);
 });
 
-// Log de requisições para debug
-app.use((req, res, next) => {
-  console.log(`📥 ${req.method} ${req.path}`);
-  next();
-});
 

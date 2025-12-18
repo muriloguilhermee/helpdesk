@@ -32,11 +32,7 @@ export const getAllUsersController = async (req: AuthRequest, res: Response): Pr
     const users = await getAllUsers();
     // Debug: garantir que 'company' está vindo do banco
     if (Array.isArray(users) && users.length > 0) {
-      const sample = users[0] as any;
-      console.log('👥 GET /users sample keys:', Object.keys(sample));
-      console.log('👥 GET /users sample company:', sample.company);
-    } else {
-      console.log('👥 GET /users retornou lista vazia');
+      // Usuários carregados
     }
     res.json(users);
   } catch (error) {
@@ -55,34 +51,30 @@ export const getUserByIdController = async (req: AuthRequest, res: Response): Pr
 
 export const createUserController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('📥 Recebida requisição para criar usuário:', req.body);
+
     const validated = createUserSchema.parse(req.body);
     const user = await createUser(validated);
-    console.log('✅ Usuário criado, retornando resposta:', user.id);
+
     res.status(201).json(user);
   } catch (error) {
-    console.error('❌ Erro no controller de criação de usuário:', error);
     if (error instanceof z.ZodError) {
       res.status(400).json({ error: error.errors[0].message });
       return;
     }
     const errorMessage = (error as Error).message;
-    console.error('Mensagem de erro:', errorMessage);
     res.status(400).json({ error: errorMessage });
   }
 };
 
 export const updateUserController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('📥 Recebida requisição para atualizar usuário:', req.params.id, req.body);
+
     const validated = updateUserSchema.parse(req.body);
-    console.log('✅ Dados validados:', validated);
+
     const user = await updateUser(req.params.id, validated);
     res.json(user);
   } catch (error) {
-    console.error('❌ Erro no controller de atualização de usuário:', error);
     if (error instanceof z.ZodError) {
-      console.error('Erros de validação:', error.errors);
       const errorMessage = error.errors.map(e => e.message).join(', ');
       res.status(400).json({ error: errorMessage });
       return;
@@ -93,7 +85,7 @@ export const updateUserController = async (req: AuthRequest, res: Response): Pro
 
 export const deleteUserController = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    console.log('📥 Recebida requisição para excluir usuário:', req.params.id);
+
 
     // Não permitir que usuário exclua a si mesmo
     if (req.user?.id === req.params.id) {
@@ -102,10 +94,9 @@ export const deleteUserController = async (req: AuthRequest, res: Response): Pro
     }
 
     await deleteUser(req.params.id);
-    console.log('✅ Usuário excluído com sucesso');
+
     res.status(204).send();
   } catch (error) {
-    console.error('❌ Erro no controller de exclusão de usuário:', error);
     const errorMessage = (error as Error).message;
     res.status(404).json({ error: errorMessage });
   }

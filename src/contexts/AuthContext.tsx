@@ -152,7 +152,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const finalUsersWithPasswords = Array.from(usersWithPasswordsMap.values());
         localStorage.setItem('usersWithPasswords', JSON.stringify(finalUsersWithPasswords));
       } catch (error) {
-        console.error('Erro ao inicializar usuários:', error);
+        // Erro silencioso
       }
     };
 
@@ -172,7 +172,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (hasSupabase && apiUrl && (!savedToken || !savedUser)) {
         // Se está usando Supabase mas não tem token, limpar tudo e forçar login
-        console.log('⚠️ Supabase configurado mas sem token. Limpando sessão...');
         localStorage.removeItem('user');
         localStorage.removeItem('token');
         setIsLoading(false);
@@ -185,7 +184,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           // Se tem Supabase mas não tem token, não permitir login automático
           if (hasSupabase && apiUrl && !savedToken) {
-            console.log('⚠️ Usuário encontrado mas sem token. Limpando sessão...');
             localStorage.removeItem('user');
             setIsLoading(false);
             return;
@@ -221,55 +219,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    console.log('🔐 [AUTH] Função login chamada', { email, hasPassword: !!password });
     const apiUrl = import.meta.env.VITE_API_URL;
     const hasSupabase = !!import.meta.env.VITE_SUPABASE_URL;
 
-    console.log('🔐 [AUTH] Variáveis de ambiente:', {
-      apiUrl,
-      hasSupabase,
-      VITE_API_URL: import.meta.env.VITE_API_URL,
-      VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL
-    });
-
     // Se Supabase está configurado, OBRIGATORIAMENTE usar API
     if (hasSupabase && !apiUrl) {
-      console.error('❌ [AUTH] Supabase configurado mas API_URL não configurada');
       throw new Error('Backend não configurado! Configure VITE_API_URL no arquivo .env');
     }
 
     // Try API first
     if (apiUrl) {
-      console.log('🔐 [AUTH] API URL encontrada, tentando login via API...');
       try {
-        console.log('🔐 Tentando login via API...', { apiUrl, email });
         const response = await api.login(email, password);
-        console.log('✅ Resposta da API:', response);
 
         if (!response || !response.token) {
           throw new Error('Token não recebido da API');
         }
 
         const { user, token } = response;
-        console.log('💾 Salvando token no localStorage...', { token: token.substring(0, 20) + '...' });
 
         setUser(user);
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('token', token);
 
-        // Verificar se foi salvo
-        const savedToken = localStorage.getItem('token');
-        console.log('✅ Token salvo?', !!savedToken);
-
         return true;
       } catch (apiError: any) {
-        console.error('❌ Erro no login via API:', apiError);
-        console.error('Detalhes do erro:', {
-          message: apiError.message,
-          status: (apiError as any).status,
-          stack: apiError.stack
-        });
-
         // Se for erro 429 (Too Many Requests), mostrar mensagem específica
         if (apiError.status === 429) {
           throw new Error('Muitas requisições. O servidor está temporariamente sobrecarregado. Aguarde alguns segundos e tente novamente.');
@@ -281,7 +255,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw new Error(errorMsg);
         }
         // Fallback to local authentication apenas se não estiver usando Supabase
-        console.log('⚠️ API not available, using local auth');
       }
     }
 
@@ -406,13 +379,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         // Salvar todos os usuários atualizados
         await database.saveUsers(updatedAllUsers);
-
-        console.log('Perfil atualizado no banco de dados com sucesso', {
-          userId: updatedUser.id,
-          hasAvatar: !!updatedUser.avatar
-        });
       } catch (error) {
-        console.error('Erro ao atualizar usuário no banco de dados:', error);
         // Continuar mesmo se houver erro no banco
       }
 
@@ -469,7 +436,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       return true;
     } catch (error) {
-      console.error('Erro ao atualizar perfil:', error);
       return false;
     }
   };

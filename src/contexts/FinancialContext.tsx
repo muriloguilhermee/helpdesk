@@ -56,21 +56,18 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
       try {
         const user = getCurrentUser();
         if (!user) {
-          console.log('🚫 Nenhum usuário logado, não carregar tickets financeiros ainda.');
           setIsLoading(false);
           return;
         }
 
         // Apenas roles financeiros/admin precisam carregar
         if (user.role !== 'financial' && user.role !== 'admin') {
-          console.log('ℹ️ Usuário sem perfil financeiro - pulando carga de tickets financeiros.');
           setFinancialTickets([]);
           setIsLoading(false);
           return;
         }
 
         setIsLoading(true);
-        console.log('📡 Carregando tickets financeiros da API...');
 
         // SEMPRE usar API - sem fallback para dados locais
         const apiTickets = await api.getFinancialTickets();
@@ -103,15 +100,11 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
           updatedAt: new Date(t.updatedAt),
         }));
 
-        console.log('✅ Tickets financeiros carregados da API:', transformedTickets.length);
         setFinancialTickets(transformedTickets);
         setIsLoading(false);
       } catch (apiError: any) {
-        console.error('❌ Erro ao carregar tickets financeiros da API:', apiError);
-
         // Se for 401 (não autenticado), apenas limpa lista e não trata como erro de conexão
         if (apiError?.status === 401) {
-          console.warn('⚠️ Não autenticado ao carregar tickets financeiros. Aguarde login.');
           setFinancialTickets([]);
           setIsLoading(false);
           return;
@@ -120,7 +113,6 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         // Se a API falhar, mostrar lista vazia ao invés de dados locais
         // Se for 429, manter lista atual e tentar depois
         if (apiError?.status === 429) {
-          console.warn('⚠️ API financeira limitou requisições (429). Mantendo lista atual.');
           setIsLoading(false);
           return;
         }
@@ -136,7 +128,6 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
   const addFinancialTicket = async (ticket: FinancialTicket) => {
     try {
       // SEMPRE usar API - sem fallback para dados locais
-      console.log('📝 Criando ticket financeiro via API:', ticket.title);
       const createdTicket = await api.createFinancialTicket({
         title: ticket.title,
         description: ticket.description,
@@ -200,9 +191,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
 
       // Adicionar ticket criado à lista (dados do banco)
       setFinancialTickets((prev) => [...prev, transformedTicket]);
-      console.log('✅ Ticket financeiro criado com sucesso');
     } catch (apiError: any) {
-      console.error('❌ Erro ao criar ticket financeiro:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
@@ -210,7 +199,6 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
   const updateFinancialTicket = async (id: string, updates: Partial<FinancialTicket>) => {
     try {
       // SEMPRE usar API - sem fallback para dados locais
-      console.log('📝 Atualizando ticket financeiro via API:', id, updates);
       const updatedTicket = await api.updateFinancialTicket(id, {
         title: updates.title,
         description: updates.description,
@@ -279,9 +267,7 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
         )
       );
 
-      console.log('✅ Ticket financeiro atualizado com sucesso');
     } catch (apiError: any) {
-      console.error('❌ Erro ao atualizar ticket financeiro:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar
     }
   };
@@ -289,14 +275,11 @@ export function FinancialProvider({ children }: { children: ReactNode }) {
   const deleteFinancialTicket = async (id: string) => {
     try {
       // SEMPRE usar API - sem fallback para dados locais
-      console.log('🗑️ Deletando ticket financeiro via API:', id);
       await api.deleteFinancialTicket(id);
 
       // Remover ticket da lista local
       setFinancialTickets((prev) => prev.filter((ticket) => ticket.id !== id));
-      console.log('✅ Ticket financeiro deletado com sucesso');
     } catch (apiError: any) {
-      console.error('❌ Erro ao deletar ticket financeiro:', apiError);
       throw apiError; // Propagar erro para que o componente possa tratar
     }
   };

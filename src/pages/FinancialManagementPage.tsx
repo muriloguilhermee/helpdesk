@@ -38,17 +38,14 @@ export default function FinancialManagementPage() {
   useEffect(() => {
     const loadClients = async () => {
       try {
-        console.log('📡 Carregando clientes da API...');
         // SEMPRE usar API - buscar usuários do banco de dados
         const apiUsers = await api.getUsers();
 
         // Filtrar apenas clientes (usuários normais)
         const clients = apiUsers.filter((u: any) => u.role === 'user');
 
-        console.log('✅ Clientes carregados da API:', clients.length);
         setAllClients(clients);
       } catch (error: any) {
-        console.error('❌ Erro ao carregar clientes da API:', error);
         setAllClients([]);
       }
     };
@@ -66,7 +63,6 @@ export default function FinancialManagementPage() {
 
           setAllClients(clients);
         } catch (error) {
-          console.error('Erro ao recarregar clientes:', error);
         }
       };
 
@@ -217,7 +213,6 @@ export default function FinancialManagementPage() {
 
       alert('Ticket financeiro criado com sucesso!');
     } catch (error: any) {
-      console.error('Erro ao criar ticket financeiro:', error);
       alert(error.message || 'Erro ao criar ticket financeiro. Verifique se o backend está rodando.');
     }
   };
@@ -262,7 +257,6 @@ export default function FinancialManagementPage() {
       setEditingTicket(null);
       alert('Ticket financeiro atualizado com sucesso!');
     } catch (error: any) {
-      console.error('Erro ao atualizar ticket financeiro:', error);
       alert(error.message || 'Erro ao atualizar ticket financeiro. Verifique se o backend está rodando.');
     }
   };
@@ -274,7 +268,6 @@ export default function FinancialManagementPage() {
         setDeleteConfirmId(null);
         alert('Ticket financeiro excluído com sucesso!');
       } catch (error: any) {
-        console.error('Erro ao excluir ticket financeiro:', error);
         alert(error.message || 'Erro ao excluir ticket financeiro. Verifique se o backend está rodando.');
       }
     }

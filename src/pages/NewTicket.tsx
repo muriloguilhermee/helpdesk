@@ -66,7 +66,6 @@ export default function NewTicket() {
           await database.saveQueue(suporteN2);
         }
       } catch (error) {
-        console.error('Erro ao verificar/criar filas padrão:', error);
       }
     };
 
@@ -80,9 +79,7 @@ export default function NewTicket() {
 
       try {
         setIsLoadingClients(true);
-        console.log('📡 Carregando clientes para técnico:', user.id, user.role);
         const apiUsers = await api.getUsers();
-        console.log('✅ Clientes carregados:', apiUsers.length);
         // Filtrar apenas clientes (usuários normais)
         const clients = apiUsers
           .filter((u: any) => u.role === 'user')
@@ -96,11 +93,8 @@ export default function NewTicket() {
           }));
         setAllClients(clients);
       } catch (error: any) {
-        console.error('❌ Erro ao carregar clientes:', error);
-        console.error('Status:', error.status, 'Mensagem:', error.message);
         // Se for erro 403, pode ser que o token esteja desatualizado
         if (error.status === 403) {
-          console.warn('⚠️ Erro 403 - Token pode estar desatualizado. Faça logout e login novamente.');
         }
         setAllClients([]);
       } finally {
@@ -189,7 +183,6 @@ export default function NewTicket() {
     setIsCreatingClient(true);
 
     try {
-      console.log('📡 Criando novo cliente:', newClient);
       // Gerar senha temporária (o cliente pode redefinir depois)
       const tempPassword = Math.random().toString(36).slice(-8) + 'A1!';
 
@@ -201,7 +194,6 @@ export default function NewTicket() {
         company: newClient.company || undefined,
       });
 
-      console.log('✅ Cliente criado com sucesso:', createdUser);
 
       // Adicionar o novo cliente à lista
       const newClientUser: User = {
@@ -218,8 +210,6 @@ export default function NewTicket() {
       setShowNewClientModal(false);
       setNewClient({ name: '', email: '', company: '' });
     } catch (error: any) {
-      console.error('❌ Erro ao criar cliente:', error);
-      console.error('Status:', error.status, 'Mensagem:', error.message);
 
       let errorMessage = error.message || 'Erro ao criar cliente. Tente novamente.';
 
@@ -331,7 +321,6 @@ export default function NewTicket() {
         navigate('/tickets');
       }, 2000);
     } catch (error) {
-      console.error('Erro ao criar chamado:', error);
       setIsCreatingTicket(false);
       alert('Erro ao criar chamado. Por favor, tente novamente.');
     }

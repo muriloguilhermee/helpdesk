@@ -230,14 +230,14 @@ export const createFinancialTicket = async (data: CreateFinancialTicketData) => 
   try {
     const db = getDatabase();
 
-    console.log('📝 Criando ticket financeiro:', { title: data.title, amount: data.amount });
+    
 
     // Generate ticket ID
     const ticketCount = await db('financial_tickets').count('* as count').first();
     const count = ticketCount?.count;
     const nextId = `FT-${String((parseInt(count as string) || 0) + 1).padStart(5, '0')}`;
 
-    console.log('🆔 Próximo ID do ticket financeiro:', nextId);
+    
 
     const insertResult = await db('financial_tickets')
       .insert({
@@ -272,7 +272,7 @@ export const createFinancialTicket = async (data: CreateFinancialTicketData) => 
       })
       .returning('*');
 
-    console.log('📦 Resultado do insert:', insertResult);
+    
 
     const ticket = Array.isArray(insertResult) ? insertResult[0] : insertResult;
 
@@ -280,10 +280,10 @@ export const createFinancialTicket = async (data: CreateFinancialTicketData) => 
       throw new Error('Falha ao criar ticket financeiro: nenhum registro retornado');
     }
 
-    console.log('✅ Ticket financeiro criado com sucesso:', ticket.id);
+    
 
     const fullTicket = await getFinancialTicketById(ticket.id);
-    console.log('✅ Ticket financeiro completo retornado');
+    
     return fullTicket;
   } catch (error: any) {
     console.error('❌ Erro ao criar ticket financeiro:', error);
@@ -296,7 +296,7 @@ export const updateFinancialTicket = async (id: string, data: UpdateFinancialTic
   try {
     const db = getDatabase();
 
-    console.log('📝 Atualizando ticket financeiro:', id, data);
+    
 
     // Check if ticket exists
     await getFinancialTicketById(id);
@@ -354,10 +354,10 @@ export const updateFinancialTicket = async (id: string, data: UpdateFinancialTic
       .where({ id })
       .update(updateData);
 
-    console.log('📦 Resultado do update:', updateResult);
+    
 
     const updatedTicket = await getFinancialTicketById(id);
-    console.log('✅ Ticket financeiro atualizado com sucesso');
+    
     return updatedTicket;
   } catch (error: any) {
     console.error('❌ Erro ao atualizar ticket financeiro:', error);
@@ -370,16 +370,16 @@ export const deleteFinancialTicket = async (id: string) => {
   try {
     const db = getDatabase();
 
-    console.log('🗑️ Excluindo ticket financeiro:', id);
+    
 
     // Check if ticket exists
     const ticket = await getFinancialTicketById(id);
-    console.log('✅ Ticket financeiro encontrado:', ticket.title);
+    
 
     // Excluir ticket
     await db('financial_tickets').where({ id }).delete();
 
-    console.log('✅ Ticket financeiro excluído com sucesso');
+    
   } catch (error: any) {
     console.error('❌ Erro ao excluir ticket financeiro:', error);
     throw error;

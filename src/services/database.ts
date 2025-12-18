@@ -25,7 +25,6 @@ class LocalDatabase {
       const request = indexedDB.open(this.dbName, this.dbVersion);
 
       request.onerror = () => {
-        console.error('Erro ao abrir banco de dados:', request.error);
         reject(request.error);
       };
 
@@ -513,9 +512,8 @@ class LocalDatabase {
         await this.saveNotifications(notificationsData);
       }
 
-      console.log('Migração do localStorage concluída com sucesso!');
     } catch (error) {
-      console.error('Erro ao migrar do localStorage:', error);
+      // Erro silencioso
     }
   }
 
@@ -630,7 +628,6 @@ export const database = new LocalDatabase();
 
 // Inicializar banco de dados quando o módulo for carregado
 database.init().then(async () => {
-  console.log('Banco de dados inicializado com sucesso!');
   // Migrar dados do localStorage na primeira vez
   await database.migrateFromLocalStorage();
 
@@ -649,7 +646,6 @@ database.init().then(async () => {
         updatedAt: new Date(),
       };
       await database.saveQueue(suporteN1);
-      console.log('Fila "Suporte N1" criada com sucesso!');
     }
 
     // Criar Suporte N2 se não existir
@@ -662,12 +658,9 @@ database.init().then(async () => {
         updatedAt: new Date(),
       };
       await database.saveQueue(suporteN2);
-      console.log('Fila "Suporte N2" criada com sucesso!');
     }
   } catch (error) {
-    console.error('Erro ao verificar/criar filas padrão:', error);
   }
 }).catch((error) => {
-  console.error('Erro ao inicializar banco de dados:', error);
 });
 

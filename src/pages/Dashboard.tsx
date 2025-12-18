@@ -113,7 +113,6 @@ export default function Dashboard() {
           try {
             allUsers = await api.getUsers();
           } catch (error) {
-            console.error('Erro ao buscar usuários da API, usando database local:', error);
             await database.init();
             allUsers = await database.getUsers();
           }
@@ -135,7 +134,6 @@ export default function Dashboard() {
 
         setTechnicians(sortedTechnicians);
       } catch (error) {
-        console.error('Erro ao carregar técnicos:', error);
         setTechnicians([]);
       }
     };
@@ -177,14 +175,8 @@ export default function Dashboard() {
 
           const isN2Ticket = isInN2Queue || hasBeenInN2;
 
-          if (isN2Ticket) {
-            console.log(`  📋 Ticket ${t.id}: queue="${t.queue}", status="${t.status}", assignedTo="${t.assignedTo?.name || 'N/A'}"`);
-          }
-
           return isN2Ticket;
         });
-
-        console.log(`🔍 Técnico N2 ${tech.name}: Total de tickets que passaram pela fila N2: ${ticketsN2.length}`);
 
         // 2. Resolvidos: Chamados que foram:
         //    - Fechados/resolvidos (independente da fila atual)
@@ -214,21 +206,19 @@ export default function Dashboard() {
           return isInReturnQueue || transferredToN1;
         });
 
-        console.log(`✅ Resolvidos: ${resolvidos.length}`);
-
-        // 3. Em Andamento: Chamados na fila N2 atribuídos ao N2, mas não resolvidos nem transferidos
+        // 3. Em Andamento: Chamados na fila N2 que estão em andamento ou em atendimento
+        // Inclui tickets atribuídos ao técnico N2 OU tickets na fila N2 que estão em andamento
         const emAndamento = ticketsN2.filter(t => {
-          const isAssignedToN2 = t.assignedTo?.id === tech.id;
-          const queueName = t.queue?.toLowerCase() || '';
+          const queueName = (t.queue || '').toLowerCase();
           const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
           const isNotResolved = !resolvidos.some(r => r.id === t.id);
-          const isInProgress = t.status === 'em_andamento' || t.status === 'em_atendimento' || t.status === 'aberto' || t.status === 'pendente';
+          const isInProgress = t.status === 'em_andamento' || t.status === 'em_atendimento';
+          const isAssignedToThisN2 = t.assignedTo?.id === tech.id;
 
-          // Se está atribuído ao N2, na fila N2, não resolvido e não está fechado/resolvido
-          return isAssignedToN2 && isInN2Queue && isNotResolved && isInProgress && t.status !== 'fechado' && t.status !== 'resolvido';
+          // Se está na fila N2, não resolvido, em andamento/atendimento
+          // E está atribuído a este técnico N2 (ou não atribuído mas em andamento na fila N2)
+          return isInN2Queue && isNotResolved && isInProgress && (isAssignedToThisN2 || (!t.assignedTo && isInProgress));
         });
-
-        console.log(`🔄 Em Andamento: ${emAndamento.length}`, emAndamento.map(t => ({ id: t.id, status: t.status, queue: t.queue, assignedTo: t.assignedTo?.name })));
 
         // 4. Abertos: Chamados na fila N2 mas não atribuídos (ou atribuídos a outros técnicos)
         const abertos = ticketsN2.filter(t => {
@@ -241,8 +231,6 @@ export default function Dashboard() {
           // Se está na fila N2, não atribuído, não resolvido e está aberto/pendente
           return isInN2Queue && isNotResolved && isOpen && isNotAssigned;
         });
-
-        console.log(`📋 Abertos: ${abertos.length}`, abertos.map(t => ({ id: t.id, status: t.status, queue: t.queue })));
 
         // Calcular tempo médio de resolução (em dias)
         // Considerar apenas chamados que foram realmente resolvidos (fechados ou transferidos de volta)

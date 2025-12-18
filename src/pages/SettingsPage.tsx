@@ -112,7 +112,6 @@ export default function SettingsPage() {
         alert('Erro ao atualizar perfil. Por favor, tente novamente.');
       }
     } catch (error) {
-      console.error('Erro ao salvar perfil:', error);
       alert('Erro ao atualizar perfil. Por favor, tente novamente.');
     } finally {
       setIsSaving(false);

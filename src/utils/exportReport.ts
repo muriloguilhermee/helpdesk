@@ -7,7 +7,6 @@ export async function exportToExcel(
   ticketsByTechnician: any
 ) {
   // Implementação básica - pode ser expandida depois
-  console.log('Exportando para Excel:', {
     userTickets,
     stats,
     ticketsByCategory,
@@ -27,7 +26,6 @@ export async function exportToPDF(
   ticketsByTechnician: any
 ) {
   // Implementação básica - pode ser expandida depois
-  console.log('Exportando para PDF:', {
     userTickets,
     stats,
     ticketsByCategory,

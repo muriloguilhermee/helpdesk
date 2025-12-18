@@ -82,16 +82,13 @@ class ApiService {
 
   // Auth
   async login(email: string, password: string) {
-    console.log('📡 Fazendo requisição de login para:', `${API_URL}/auth/login`);
     try {
       const response = await this.request<{ user: any; token: string }>('/auth/login', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
-      console.log('✅ Login bem-sucedido, resposta:', response);
       return response;
     } catch (error: any) {
-      console.error('❌ Erro na requisição de login:', error);
       throw error;
     }
   }

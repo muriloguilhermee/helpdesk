@@ -37,11 +37,9 @@ export default function UsersPage() {
     const loadUsers = async () => {
       try {
         setIsLoading(true);
-        console.log('📡 Carregando usuários da API...');
 
         // SEMPRE usar API - sem fallback para dados locais
         const apiUsers = await api.getUsers();
-        console.log('🧾 Exemplo de usuário vindo da API:', apiUsers?.[0]);
 
         // Transform API response to User format
         const transformedUsers = apiUsers.map((u: any) => ({
@@ -53,13 +51,9 @@ export default function UsersPage() {
           company: typeof u.company === 'string' ? u.company : undefined,
         }));
 
-        console.log('🧾 Exemplo de usuário transformado (frontend):', transformedUsers?.[0]);
-
-        console.log('✅ Usuários carregados da API:', transformedUsers.length);
         setUsers(transformedUsers);
         setIsLoading(false);
       } catch (apiError: any) {
-        console.error('❌ Erro ao carregar usuários da API:', apiError);
         // Se a API falhar, mostrar lista vazia ao invés de dados locais
         setUsers([]);
         setIsLoading(false);
@@ -98,7 +92,6 @@ export default function UsersPage() {
   // Recarregar usuários após exclusão bem-sucedida
   const reloadUsers = async () => {
     try {
-      console.log('🔄 Recarregando usuários da API...');
       const apiUsers = await api.getUsers();
 
       const transformedUsers = apiUsers.map((u: any) => ({
@@ -111,9 +104,7 @@ export default function UsersPage() {
       }));
 
       setUsers(transformedUsers);
-      console.log('✅ Usuários recarregados:', transformedUsers.length);
     } catch (error: any) {
-      console.error('❌ Erro ao recarregar usuários:', error);
     }
   };
 
@@ -209,7 +200,6 @@ export default function UsersPage() {
         return;
       }
     } catch (error) {
-      console.error('Erro ao verificar duplicatas:', error);
     }
 
     // Criar novo usuário (normalizar email para lowercase)
@@ -241,7 +231,6 @@ export default function UsersPage() {
           company: newUser.company || undefined,
         };
       } catch (apiError: any) {
-        console.error('Erro ao criar usuário via API:', apiError);
 
         // Verificar se é erro de autenticação
         if (apiError.message?.includes('401') || apiError.message?.includes('Unauthorized') || apiError.message?.includes('Token')) {
@@ -282,7 +271,6 @@ export default function UsersPage() {
         await database.init();
         await database.saveUser(createdUser);
       } catch (error) {
-        console.error('Erro ao salvar usuário no banco de dados:', error);
         setError('Erro ao salvar usuário. Tente novamente.');
         setIsCreatingUser(false);
         return;
@@ -383,7 +371,6 @@ export default function UsersPage() {
           return;
         }
       } catch (error) {
-        console.error('Erro ao verificar duplicatas:', error);
       }
     }
     if (editUser.password && editUser.password.length < 6) {
@@ -422,12 +409,9 @@ export default function UsersPage() {
         // string = foi alterado/adicionado, enviar a string
         if (editUserPhoto !== undefined) {
           updateData.avatar = editUserPhoto || null;
-          console.log('📤 Avatar será atualizado:', editUserPhoto ? `Avatar presente (${editUserPhoto.substring(0, 50)}...)` : 'Avatar removido (null)');
         } else {
-          console.log('📤 Avatar não será alterado (mantém o atual)');
         }
 
-        console.log('📤 Enviando atualização de usuário:', { ...updateData, avatar: updateData.avatar !== undefined ? (updateData.avatar ? `Avatar presente (${updateData.avatar.substring(0, 50)}...)` : 'Avatar removido') : 'Avatar não alterado' });
 
         const apiUser = await api.updateUser(editingUser.id, updateData);
 
@@ -452,7 +436,6 @@ export default function UsersPage() {
         throw new Error('API não configurada');
       }
     } catch (apiError: any) {
-      console.error('Erro ao atualizar usuário via API:', apiError);
       setError(apiError.message || 'Erro ao atualizar usuário. Verifique se o backend está rodando.');
       setIsUpdatingUser(false);
       return;
@@ -496,9 +479,7 @@ export default function UsersPage() {
       setError('');
 
       // SEMPRE usar API - excluir do banco de dados
-      console.log('🗑️ Excluindo usuário via API:', showDeleteConfirm);
       await api.deleteUser(showDeleteConfirm);
-      console.log('✅ Usuário excluído do banco de dados');
 
       setShowDeleteConfirm(null);
       setSuccessMessage('Usuário excluído com sucesso!');
@@ -511,7 +492,6 @@ export default function UsersPage() {
         setSuccessMessage('');
       }, 3000);
     } catch (apiError: any) {
-      console.error('❌ Erro ao excluir usuário:', apiError);
       setError(apiError.message || 'Erro ao excluir usuário. Verifique se o backend está rodando.');
       setShowDeleteConfirm(null);
     }

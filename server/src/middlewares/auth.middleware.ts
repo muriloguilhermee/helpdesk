@@ -18,7 +18,7 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
     const token = req.headers.authorization?.replace('Bearer ', '');
 
     if (!token) {
-      console.log('❌ Token não fornecido');
+      
       res.status(401).json({ error: 'Token não fornecido' });
       return;
     }
@@ -29,12 +29,12 @@ export const authenticate = (req: AuthRequest, res: Response, next: NextFunction
       role: string;
     };
 
-    console.log('🔐 Token decodificado - ID:', decoded.id, 'Email:', decoded.email, 'Role:', decoded.role);
+    
 
     req.user = decoded;
     next();
   } catch (error) {
-    console.log('❌ Erro ao verificar token:', error);
+    
     res.status(401).json({ error: 'Token inválido ou expirado' });
   }
 };

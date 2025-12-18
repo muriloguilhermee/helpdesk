@@ -13,27 +13,20 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('🚀 [LOGIN] handleSubmit chamado', { email, password: '***' });
     setError('');
     setIsLoading(true);
 
     try {
-      console.log('🚀 [LOGIN] Chamando função login...');
       const success = await login(email, password);
-      console.log('🚀 [LOGIN] Resultado do login:', success);
 
       if (success) {
-        console.log('🚀 [LOGIN] Login bem-sucedido, redirecionando...');
         navigate('/');
       } else {
-        console.log('🚀 [LOGIN] Login falhou (retornou false)');
         setError('Email ou senha incorretos');
       }
     } catch (err: any) {
-      console.error('🚀 [LOGIN] Erro capturado:', err);
       // Mostrar mensagem de erro mais específica
       let errorMessage = err.message || 'Erro ao fazer login. Tente novamente.';
-      console.error('🚀 [LOGIN] Mensagem de erro:', errorMessage);
 
       // Tratamento específico para erro 429
       if (err.status === 429 || errorMessage.includes('Muitas requisições')) {
@@ -48,7 +41,6 @@ export default function Login() {
       }
     } finally {
       setIsLoading(false);
-      console.log('🚀 [LOGIN] handleSubmit finalizado');
     }
   };
 

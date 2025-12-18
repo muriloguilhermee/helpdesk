@@ -1,5 +1,6 @@
 import knex, { Knex } from 'knex';
 import dotenv from 'dotenv';
+import { Connector } from '@google-cloud/cloud-sql-connector';
 
 dotenv.config();
 
@@ -52,30 +53,38 @@ export const initializeDatabase = async (): Promise<void> => {
       );
     }
 
-    console.log('🔍 Verificando configuração do banco de dados...');
+    
     const dbUrl = process.env.DATABASE_URL || '';
-    console.log(`   DATABASE_URL presente: ${dbUrl ? 'Sim' : 'Não'}`);
+    
     if (dbUrl) {
       // Mostrar apenas hostname para segurança
       try {
         const url = new URL(dbUrl);
-        console.log(`   Host: ${url.hostname}`);
-        console.log(`   Port: ${url.port || '5432'}`);
+        
+        
         console.log(`   Database: ${url.pathname.slice(1)}`);
       } catch (e) {
         console.log('   (Não foi possível parsear URL)');
       }
     }
 
-    // Suporta connection string (para Supabase, Neon, etc) ou configuração individual
+    // Suporta connection string (para Supabase, Neon, Cloud SQL, etc) ou configuração individual
     const isSupabase = dbUrl.includes('supabase') ||
                        dbUrl.includes('supabase.co') ||
                        dbUrl.includes('pooler.supabase.com');
+    // Cloud SQL pode ser detectado por /cloudsql/ (Unix socket) ou por IP específico
+    const isCloudSQL = dbUrl.includes('/cloudsql/') ||
+                       dbUrl.includes('cloudsql') ||
+                       dbUrl.includes('34.133.105.33'); // IP público do Cloud SQL
     const isPooler = dbUrl.includes('pooler.supabase.com') || dbUrl.includes(':6543');
     if (isPooler) {
       console.log('   ✅ Detectado Connection Pooler do Supabase (recomendado)');
     }
-    console.log(`   É Supabase: ${isSupabase ? 'Sim' : 'Não'}`);
+    if (isCloudSQL) {
+      console.log('   ✅ Detectado Cloud SQL (Unix socket)');
+    }
+    
+    
 
     let connectionConfig: string | object;
 
@@ -95,15 +104,64 @@ export const initializeDatabase = async (): Promise<void> => {
             connectionTimeoutMillis: 30000,
             statement_timeout: 30000,
           };
-          console.log(`🔗 Configurando conexão Supabase: ${url.hostname}`);
+          
         } catch (error) {
           console.error('❌ Erro ao parsear DATABASE_URL:', error);
           throw new Error('Invalid DATABASE_URL format');
         }
+      } else if (isCloudSQL) {
+        // Cloud SQL pode usar Unix socket ou IP público
+        if (dbUrl.includes('/cloudsql/')) {
+          // Unix socket (Cloud Run) - precisa parsear manualmente
+          try {
+            // Formato: postgresql://user:password@/database?host=/cloudsql/PROJECT:REGION:INSTANCE
+            const urlMatch = dbUrl.match(/^postgresql:\/\/([^:]+):([^@]+)@\/([^?]+)\?host=(.+)$/);
+            if (urlMatch) {
+              const [, user, password, database, socketPath] = urlMatch;
+              connectionConfig = {
+                host: socketPath, // Caminho do Unix socket: /cloudsql/PROJECT:REGION:INSTANCE
+                user: decodeURIComponent(user),
+                password: decodeURIComponent(password),
+                database: database || 'postgres',
+                connectionTimeoutMillis: 60000,
+                statement_timeout: 30000,
+              };
+              console.log(`🔗 Configurando conexão Cloud SQL (Unix socket): ${socketPath}`);
+              
+              
+            } else {
+              // Fallback: usar string diretamente
+              console.log('🔗 Usando connection string Cloud SQL (Unix socket - fallback)');
+              connectionConfig = process.env.DATABASE_URL;
+            }
+          } catch (error) {
+            console.error('❌ Erro ao parsear Unix socket:', error);
+            connectionConfig = process.env.DATABASE_URL;
+          }
+        } else {
+          // IP público - precisa de SSL
+          try {
+            const url = new URL(process.env.DATABASE_URL);
+            connectionConfig = {
+              host: url.hostname,
+              port: parseInt(url.port || '5432'),
+              user: url.username,
+              password: url.password,
+              database: url.pathname.slice(1) || 'postgres',
+              ssl: { rejectUnauthorized: false }, // Cloud SQL requer SSL para IP público
+              connectionTimeoutMillis: 60000,
+              statement_timeout: 30000,
+            };
+            
+          } catch (error) {
+            console.error('❌ Erro ao parsear DATABASE_URL do Cloud SQL:', error);
+            connectionConfig = process.env.DATABASE_URL;
+          }
+        }
       } else {
         // Para outros serviços, usar string diretamente
         connectionConfig = process.env.DATABASE_URL;
-        console.log('🔗 Usando connection string direta');
+        
       }
     } else {
       // Configuração individual
@@ -118,14 +176,15 @@ export const initializeDatabase = async (): Promise<void> => {
         connectionTimeoutMillis: 30000,
         statement_timeout: 30000,
       };
-      console.log(`🔗 Configurando conexão individual: ${process.env.DB_HOST}`);
+      
     }
 
     // Para Supabase, usar configuração otimizada com pool menor e timeouts maiores
     // IMPORTANTE: Para Supabase, usar pool mínimo 0 e máximo 1 para evitar timeouts
+    // Para Cloud SQL, usar pool normal (Cloud SQL suporta mais conexões)
     const poolConfig = {
-      min: isSupabase ? 0 : 2,
-      max: isSupabase ? 1 : 10, // Supabase funciona melhor com menos conexões
+      min: isSupabase ? 0 : (isCloudSQL ? 1 : 2),
+      max: isSupabase ? 1 : (isCloudSQL ? 10 : 10), // Cloud SQL suporta mais conexões
       acquireTimeoutMillis: 300000, // 5 minutos (aumentado)
       createTimeoutMillis: 120000, // 2 minutos (aumentado)
       idleTimeoutMillis: 10000, // 10 segundos (reduzido para liberar conexões mais rápido)
@@ -135,9 +194,9 @@ export const initializeDatabase = async (): Promise<void> => {
       destroyTimeoutMillis: 10000, // 10 segundos para destruir conexões
     };
 
-    console.log('🔧 Configurando pool de conexões...');
-    console.log(`   Pool min: ${poolConfig.min}, max: ${poolConfig.max}`);
-    console.log(`   Timeout de aquisição: ${poolConfig.acquireTimeoutMillis/1000}s`);
+    
+    
+    
 
     // Criar conexão Knex
     db = knex({
@@ -149,7 +208,7 @@ export const initializeDatabase = async (): Promise<void> => {
     });
 
     // Test connection with retry for temporary errors
-    console.log('🔄 Testando conexão com o banco de dados...');
+    
 
     let retries = 3;
     let lastError: any = null;
@@ -163,7 +222,7 @@ export const initializeDatabase = async (): Promise<void> => {
         );
 
         await Promise.race([connectionPromise, timeoutPromise]);
-        console.log('✅ Database connected successfully!');
+        
         lastError = null;
         break; // Sucesso, sair do loop
       } catch (error: any) {
@@ -294,7 +353,7 @@ const runMigrations = async (): Promise<void> => {
         ALTER TABLE users ADD CONSTRAINT users_role_check
         CHECK (role IN ('admin', 'technician', 'technician_n2', 'user', 'financial'))
       `);
-      console.log('✅ Created users table');
+      
     } else {
       // Verificar se company existe, se não, adicionar
       const hasCompany = await db!.schema.hasColumn('users', 'company');
@@ -302,7 +361,7 @@ const runMigrations = async (): Promise<void> => {
         await db!.schema.alterTable('users', (table) => {
           table.string('company').nullable();
         });
-        console.log('✅ Added company column to users table');
+        
       }
 
       // Atualizar constraint CHECK para incluir technician_n2 e financial
@@ -312,7 +371,7 @@ const runMigrations = async (): Promise<void> => {
           ALTER TABLE users ADD CONSTRAINT users_role_check
           CHECK (role IN ('admin', 'technician', 'technician_n2', 'user', 'financial'))
         `);
-        console.log('✅ Updated users_role_check constraint to include technician_n2 and financial');
+        
       } catch (error) {
         console.warn('⚠️ Could not update constraint (may already be updated):', error);
       }
@@ -329,7 +388,7 @@ const runMigrations = async (): Promise<void> => {
           table.text('description').nullable();
           table.timestamps(true, true);
         });
-        console.log('✅ Created queues table');
+        
       }
 
       await db!.schema.createTable('tickets', (table) => {
@@ -363,13 +422,28 @@ const runMigrations = async (): Promise<void> => {
             table.text('description').nullable();
             table.timestamps(true, true);
           });
-          console.log('✅ Created queues table');
+          
         }
         await db!.schema.alterTable('tickets', (table) => {
           table.uuid('queue_id').references('id').inTable('queues').onDelete('SET NULL').nullable();
         });
-        console.log('✅ Added queue_id column to tickets table');
+        
       }
+    }
+
+    // Criar comments ANTES de ticket_files (ticket_files referencia comments)
+    const hasCommentsTable = await db!.schema.hasTable('comments');
+    if (!hasCommentsTable) {
+      await db!.schema.createTable('comments', (table) => {
+        table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
+        // CASCADE: quando ticket é excluído, exclui comentários
+        table.string('ticket_id').references('id').inTable('tickets').onDelete('CASCADE');
+        table.text('content').notNullable();
+        // SET NULL: quando usuário é excluído, mantém comentário mas remove referência ao autor
+        table.uuid('author_id').references('id').inTable('users').onDelete('SET NULL').nullable();
+        table.timestamps(true, true);
+      });
+      console.log('✅ Created comments table (CASCADE on ticket, SET NULL on author)');
     }
 
     const hasTicketFilesTable = await db!.schema.hasTable('ticket_files');
@@ -399,22 +473,8 @@ const runMigrations = async (): Promise<void> => {
             .inTable('comments')
             .onDelete('CASCADE');
         });
-        console.log('✅ Added comment_id column to ticket_files table');
+        
       }
-    }
-
-    const hasCommentsTable = await db!.schema.hasTable('comments');
-    if (!hasCommentsTable) {
-      await db!.schema.createTable('comments', (table) => {
-        table.uuid('id').primary().defaultTo(db!.raw('gen_random_uuid()'));
-        // CASCADE: quando ticket é excluído, exclui comentários
-        table.string('ticket_id').references('id').inTable('tickets').onDelete('CASCADE');
-        table.text('content').notNullable();
-        // SET NULL: quando usuário é excluído, mantém comentário mas remove referência ao autor
-        table.uuid('author_id').references('id').inTable('users').onDelete('SET NULL').nullable();
-        table.timestamps(true, true);
-      });
-      console.log('✅ Created comments table (CASCADE on ticket, SET NULL on author)');
     }
 
     const hasFinancialTicketsTable = await db!.schema.hasTable('financial_tickets');
@@ -451,7 +511,7 @@ const runMigrations = async (): Promise<void> => {
         table.text('payment_metadata').nullable(); // JSON armazenado como texto
         table.timestamps(true, true);
       });
-      console.log('✅ Created financial_tickets table');
+      
     }
 
     // Create indexes for performance
@@ -468,7 +528,7 @@ const runMigrations = async (): Promise<void> => {
       CREATE INDEX IF NOT EXISTS idx_financial_tickets_erp_id ON financial_tickets(erp_id);
     `);
 
-    console.log('✅ Database migrations completed');
+    
   } catch (error) {
     console.error('❌ Migration error:', error);
     throw error;
@@ -479,7 +539,7 @@ export const closeDatabase = async (): Promise<void> => {
   if (db) {
     await db.destroy();
     db = null;
-    console.log('✅ Database connection closed');
+    
   }
 };
 

@@ -53,15 +53,15 @@ export const initializeDatabase = async (): Promise<void> => {
       );
     }
 
-    
+
     const dbUrl = process.env.DATABASE_URL || '';
-    
+
     if (dbUrl) {
       // Mostrar apenas hostname para segurança
       try {
         const url = new URL(dbUrl);
-        
-        
+
+
         console.log(`   Database: ${url.pathname.slice(1)}`);
       } catch (e) {
         console.log('   (Não foi possível parsear URL)');
@@ -83,8 +83,8 @@ export const initializeDatabase = async (): Promise<void> => {
     if (isCloudSQL) {
       console.log('   ✅ Detectado Cloud SQL (Unix socket)');
     }
-    
-    
+
+
 
     let connectionConfig: string | object;
 
@@ -104,7 +104,7 @@ export const initializeDatabase = async (): Promise<void> => {
             connectionTimeoutMillis: 30000,
             statement_timeout: 30000,
           };
-          
+
         } catch (error) {
           console.error('❌ Erro ao parsear DATABASE_URL:', error);
           throw new Error('Invalid DATABASE_URL format');
@@ -127,8 +127,8 @@ export const initializeDatabase = async (): Promise<void> => {
                 statement_timeout: 30000,
               };
               console.log(`🔗 Configurando conexão Cloud SQL (Unix socket): ${socketPath}`);
-              
-              
+
+
             } else {
               // Fallback: usar string diretamente
               console.log('🔗 Usando connection string Cloud SQL (Unix socket - fallback)');
@@ -152,7 +152,7 @@ export const initializeDatabase = async (): Promise<void> => {
               connectionTimeoutMillis: 60000,
               statement_timeout: 30000,
             };
-            
+
           } catch (error) {
             console.error('❌ Erro ao parsear DATABASE_URL do Cloud SQL:', error);
             connectionConfig = process.env.DATABASE_URL;
@@ -161,7 +161,7 @@ export const initializeDatabase = async (): Promise<void> => {
       } else {
         // Para outros serviços, usar string diretamente
         connectionConfig = process.env.DATABASE_URL;
-        
+
       }
     } else {
       // Configuração individual
@@ -176,7 +176,7 @@ export const initializeDatabase = async (): Promise<void> => {
         connectionTimeoutMillis: 30000,
         statement_timeout: 30000,
       };
-      
+
     }
 
     // Para Supabase, usar configuração otimizada com pool menor e timeouts maiores
@@ -194,9 +194,9 @@ export const initializeDatabase = async (): Promise<void> => {
       destroyTimeoutMillis: 10000, // 10 segundos para destruir conexões
     };
 
-    
-    
-    
+
+
+
 
     // Criar conexão Knex
     db = knex({
@@ -208,7 +208,7 @@ export const initializeDatabase = async (): Promise<void> => {
     });
 
     // Test connection with retry for temporary errors
-    
+
 
     let retries = 3;
     let lastError: any = null;
@@ -222,7 +222,7 @@ export const initializeDatabase = async (): Promise<void> => {
         );
 
         await Promise.race([connectionPromise, timeoutPromise]);
-        
+
         lastError = null;
         break; // Sucesso, sair do loop
       } catch (error: any) {
@@ -353,7 +353,7 @@ const runMigrations = async (): Promise<void> => {
         ALTER TABLE users ADD CONSTRAINT users_role_check
         CHECK (role IN ('admin', 'technician', 'technician_n2', 'user', 'financial'))
       `);
-      
+
     } else {
       // Verificar se company existe, se não, adicionar
       const hasCompany = await db!.schema.hasColumn('users', 'company');
@@ -361,7 +361,7 @@ const runMigrations = async (): Promise<void> => {
         await db!.schema.alterTable('users', (table) => {
           table.string('company').nullable();
         });
-        
+
       }
 
       // Atualizar constraint CHECK para incluir technician_n2 e financial
@@ -371,7 +371,7 @@ const runMigrations = async (): Promise<void> => {
           ALTER TABLE users ADD CONSTRAINT users_role_check
           CHECK (role IN ('admin', 'technician', 'technician_n2', 'user', 'financial'))
         `);
-        
+
       } catch (error) {
         console.warn('⚠️ Could not update constraint (may already be updated):', error);
       }
@@ -388,7 +388,7 @@ const runMigrations = async (): Promise<void> => {
           table.text('description').nullable();
           table.timestamps(true, true);
         });
-        
+
       }
 
       await db!.schema.createTable('tickets', (table) => {
@@ -422,12 +422,12 @@ const runMigrations = async (): Promise<void> => {
             table.text('description').nullable();
             table.timestamps(true, true);
           });
-          
+
         }
         await db!.schema.alterTable('tickets', (table) => {
           table.uuid('queue_id').references('id').inTable('queues').onDelete('SET NULL').nullable();
         });
-        
+
       }
     }
 
@@ -473,7 +473,7 @@ const runMigrations = async (): Promise<void> => {
             .inTable('comments')
             .onDelete('CASCADE');
         });
-        
+
       }
     }
 
@@ -511,7 +511,7 @@ const runMigrations = async (): Promise<void> => {
         table.text('payment_metadata').nullable(); // JSON armazenado como texto
         table.timestamps(true, true);
       });
-      
+
     }
 
     // Create indexes for performance
@@ -528,7 +528,7 @@ const runMigrations = async (): Promise<void> => {
       CREATE INDEX IF NOT EXISTS idx_financial_tickets_erp_id ON financial_tickets(erp_id);
     `);
 
-    
+
   } catch (error) {
     console.error('❌ Migration error:', error);
     throw error;
@@ -539,7 +539,7 @@ export const closeDatabase = async (): Promise<void> => {
   if (db) {
     await db.destroy();
     db = null;
-    
+
   }
 };
 

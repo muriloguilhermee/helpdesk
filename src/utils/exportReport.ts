@@ -6,15 +6,8 @@ export async function exportToExcel(
   ticketsByStatus: any,
   ticketsByTechnician: any
 ) {
-  // Implementação básica - pode ser expandida depois
-    userTickets,
-    stats,
-    ticketsByCategory,
-    ticketsByPriority,
-    ticketsByStatus,
-    ticketsByTechnician,
-  });
   // TODO: Implementar exportação real para Excel
+  // Implementação básica - pode ser expandida depois
 }
 
 export async function exportToPDF(
@@ -25,14 +18,7 @@ export async function exportToPDF(
   ticketsByStatus: any,
   ticketsByTechnician: any
 ) {
-  // Implementação básica - pode ser expandida depois
-    userTickets,
-    stats,
-    ticketsByCategory,
-    ticketsByPriority,
-    ticketsByStatus,
-    ticketsByTechnician,
-  });
   // TODO: Implementar exportação real para PDF
+  // Implementação básica - pode ser expandida depois
 }
 

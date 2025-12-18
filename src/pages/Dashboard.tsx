@@ -206,8 +206,7 @@ export default function Dashboard() {
           return isInReturnQueue || transferredToN1;
         });
 
-        // 3. Em Andamento: Chamados na fila N2 que estão em andamento ou em atendimento
-        // Inclui tickets atribuídos ao técnico N2 OU tickets na fila N2 que estão em andamento
+        // 3. Em Andamento: Chamados na fila N2 atribuídos a este técnico N2 que estão em andamento ou em atendimento
         const emAndamento = ticketsN2.filter(t => {
           const queueName = (t.queue || '').toLowerCase();
           const isInN2Queue = queueName.includes('suporte n2') || queueName.includes('n2');
@@ -215,9 +214,8 @@ export default function Dashboard() {
           const isInProgress = t.status === 'em_andamento' || t.status === 'em_atendimento';
           const isAssignedToThisN2 = t.assignedTo?.id === tech.id;
 
-          // Se está na fila N2, não resolvido, em andamento/atendimento
-          // E está atribuído a este técnico N2 (ou não atribuído mas em andamento na fila N2)
-          return isInN2Queue && isNotResolved && isInProgress && (isAssignedToThisN2 || (!t.assignedTo && isInProgress));
+          // Se está na fila N2, não resolvido, em andamento/atendimento e atribuído a este técnico N2
+          return isInN2Queue && isNotResolved && isInProgress && isAssignedToThisN2;
         });
 
         // 4. Abertos: Chamados na fila N2 mas não atribuídos (ou atribuídos a outros técnicos)

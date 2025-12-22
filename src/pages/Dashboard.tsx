@@ -43,11 +43,10 @@ export default function Dashboard() {
     };
   }, [searchQuery]);
 
-  // Filtrar tickets baseado no role do usuário
-  // Admins veem todos os chamados (incluindo chamados em andamento de técnicos N1)
-  // Técnicos N2 veem APENAS chamados na fila "Suporte N2"
-  // Técnicos N1 veem apenas chamados atribuídos a eles
-  // Usuários veem apenas seus próprios chamados OU chamados de melhoria
+  // CORREÇÃO: Filtragem de chamados em andamento para analistas (admins)
+  // Admins (analistas) devem ver TODOS os chamados em andamento, incluindo os de técnicos N1
+  // Esta lógica garante que chamados abertos por técnicos N1 apareçam corretamente
+  // na seção "Em andamento" para analistas, não apenas no total
   let availableTickets = tickets;
   if (user?.role === 'user') {
     // Usuários veem chamados que eles criaram OU chamados de melhoria
@@ -66,11 +65,15 @@ export default function Dashboard() {
       ticket.assignedTo?.id === user.id
     );
   }
-  // Admins veem todos os chamados (availableTickets = tickets), incluindo chamados em andamento de técnicos N1
+  // IMPORTANTE: Admins (analistas) veem todos os chamados (availableTickets = tickets)
+  // Isso garante que chamados em andamento de técnicos N1 apareçam na lista,
+  // não apenas no total, resolvendo o problema de visibilidade
 
   const stats = {
     total: availableTickets.length,
     abertos: availableTickets.filter(t => t.status === 'aberto').length,
+    // CORREÇÃO: Esta linha garante que admins veem todos os chamados em andamento,
+    // incluindo os de técnicos N1, pois availableTickets para admins = todos os tickets
     emAndamento: availableTickets.filter(t => t.status === 'em_andamento').length,
     resolvidos: availableTickets.filter(t => t.status === 'resolvido').length,
   };

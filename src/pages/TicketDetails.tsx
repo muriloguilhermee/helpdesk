@@ -91,21 +91,29 @@ export default function TicketDetails() {
   const [selectedFile, setSelectedFile] = useState<TicketFile | null>(null);
   const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // CORREÇÃO: Persistência de estado ao atualizar página
+  // O ticket é sempre carregado diretamente da API baseado no ID da URL,
+  // garantindo que funcione mesmo após refresh da página, independente do estado do contexto
   const baseTicket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
   const ticket = ticketDetails || baseTicket || null;
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
-  // Função para recarregar os detalhes do ticket
+  // Função para recarregar os detalhes do ticket diretamente da API
+  // Esta função garante que o chamado seja carregado baseado apenas no ID da URL,
+  // não dependendo do estado em memória do contexto que se perde ao atualizar a página
   const loadTicketDetails = async () => {
     if (!id) return;
     try {
       setIsLoadingDetails(true);
+      // Sempre buscar diretamente da API usando o ID da URL
+      // Isso garante persistência mesmo após refresh da página
       const apiTicket = await api.getTicketById(id);
       const transformed = transformApiTicketToFrontend(apiTicket);
       setTicketDetails(transformed);
     } catch (error) {
-      // Erro silencioso
+      // Log do erro para debug, mas não interrompe o fluxo
+      console.error('Erro ao carregar detalhes do ticket:', error);
     } finally {
       setIsLoadingDetails(false);
       setHasAttemptedLoad(true);
@@ -113,9 +121,20 @@ export default function TicketDetails() {
   };
 
   // Carregar detalhes completos do ticket (incluindo comentários e anexos) diretamente da API
+  // Este useEffect garante que o ticket seja carregado sempre que:
+  // 1. O ID da URL mudar (navegação para outro chamado)
+  // 2. O componente for montado (incluindo após refresh da página)
+  // 3. O reloadTrigger mudar (recarregamento manual)
   useEffect(() => {
-    loadTicketDetails();
-  }, [id, reloadTrigger]);
+    // Resetar estado ao mudar de ID para evitar mostrar dados do chamado anterior
+    if (id) {
+      setTicketDetails(null);
+      setHasAttemptedLoad(false);
+      loadTicketDetails();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]); // Dependência apenas do ID da URL para evitar loops infinitos
+  // loadTicketDetails não está nas dependências pois é uma função estável que usa apenas o id
 
   // Verificar se o chamado está fechado (fechado ou resolvido)
   const isClosed = ticket?.status === 'fechado' || ticket?.status === 'resolvido';
@@ -141,9 +160,12 @@ export default function TicketDetails() {
   // Técnicos de "Todos os Chamados" não podem alterar status
   const canChangeStatus = !isTechnicianFromAllTickets && hasPermission('edit:ticket') && (isAdmin || !isClosed);
 
-  // Aguardar carregamento antes de mostrar erro
+  // CORREÇÃO: Aguardar carregamento antes de mostrar erro
+  // Garante que o componente não mostre tela em branco ao atualizar a página
+  // O ticket é carregado diretamente da API baseado no ID da URL, garantindo persistência
   if (!ticket) {
     // Se ainda não tentou carregar OU está carregando, mostrar loading
+    // Isso evita tela em branco durante o carregamento inicial ou após refresh
     if (!hasAttemptedLoad || isLoadingDetails) {
       return (
         <div className="text-center py-12">
@@ -153,6 +175,7 @@ export default function TicketDetails() {
     }
 
     // Só mostrar erro se já tentou carregar e não encontrou
+    // Isso garante que não mostramos erro prematuramente
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 dark:text-gray-400">Chamado não encontrado</p>

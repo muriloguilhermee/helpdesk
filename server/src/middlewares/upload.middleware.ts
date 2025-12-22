@@ -24,6 +24,10 @@ const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilt
   }
 };
 
+// CORREÇÃO: Aumento significativo do limite de tamanho de arquivo
+// Limite aumentado de 5MB para 100MB (104857600 bytes) para suportar anexos maiores
+// O limite pode ser configurado via variável de ambiente MAX_FILE_SIZE
+// Se não configurado, usa 100MB como padrão
 export const upload = multer({
   storage,
   fileFilter,

@@ -127,9 +127,12 @@ export default function UsersPage() {
       return;
     }
 
-    // Validar tamanho (máximo 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('A imagem deve ter no máximo 5MB');
+    // CORREÇÃO: Aumentar limite de tamanho de arquivo para 100MB (alinhado com backend)
+    // Removido limite restritivo de 5MB para permitir upload de arquivos maiores
+    // O limite real é controlado pelo backend (100MB por padrão)
+    const maxSize = 100 * 1024 * 1024; // 100MB
+    if (file.size > maxSize) {
+      setError(`A imagem deve ter no máximo ${Math.round(maxSize / (1024 * 1024))}MB`);
       return;
     }
 

@@ -44,8 +44,9 @@ export default function Dashboard() {
   }, [searchQuery]);
 
   // Filtrar tickets baseado no role do usuário
-  // Técnicos e admins veem todos os chamados
+  // Admins veem todos os chamados (incluindo chamados em andamento de técnicos N1)
   // Técnicos N2 veem APENAS chamados na fila "Suporte N2"
+  // Técnicos N1 veem apenas chamados atribuídos a eles
   // Usuários veem apenas seus próprios chamados OU chamados de melhoria
   let availableTickets = tickets;
   if (user?.role === 'user') {
@@ -59,8 +60,13 @@ export default function Dashboard() {
       const queueName = ticket.queue || '';
       return queueName.toLowerCase().includes('suporte n2') || queueName.toLowerCase().includes('n2');
     });
+  } else if (user?.role === 'technician') {
+    // Técnicos N1 veem apenas chamados atribuídos a eles
+    availableTickets = tickets.filter(ticket =>
+      ticket.assignedTo?.id === user.id
+    );
   }
-  // Técnicos e admins veem todos os chamados (availableTickets = tickets)
+  // Admins veem todos os chamados (availableTickets = tickets), incluindo chamados em andamento de técnicos N1
 
   const stats = {
     total: availableTickets.length,

@@ -94,6 +94,7 @@ export default function TicketDetails() {
   const baseTicket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
   const ticket = ticketDetails || baseTicket || null;
   const [reloadTrigger, setReloadTrigger] = useState(0);
+  const [hasAttemptedLoad, setHasAttemptedLoad] = useState(false);
 
   // Função para recarregar os detalhes do ticket
   const loadTicketDetails = async () => {
@@ -107,6 +108,7 @@ export default function TicketDetails() {
       // Erro silencioso
     } finally {
       setIsLoadingDetails(false);
+      setHasAttemptedLoad(true);
     }
   };
 
@@ -139,8 +141,10 @@ export default function TicketDetails() {
   // Técnicos de "Todos os Chamados" não podem alterar status
   const canChangeStatus = !isTechnicianFromAllTickets && hasPermission('edit:ticket') && (isAdmin || !isClosed);
 
+  // Aguardar carregamento antes de mostrar erro
   if (!ticket) {
-    if (isLoadingDetails) {
+    // Se ainda não tentou carregar OU está carregando, mostrar loading
+    if (!hasAttemptedLoad || isLoadingDetails) {
       return (
         <div className="text-center py-12">
           <p className="text-gray-500 dark:text-gray-400">Carregando chamado...</p>
@@ -148,6 +152,7 @@ export default function TicketDetails() {
       );
     }
 
+    // Só mostrar erro se já tentou carregar e não encontrou
     return (
       <div className="text-center py-12">
         <p className="text-gray-500 dark:text-gray-400">Chamado não encontrado</p>
